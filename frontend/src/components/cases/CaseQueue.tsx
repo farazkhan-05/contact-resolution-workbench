@@ -5,6 +5,7 @@ import {
   HelpCircle,
   Search,
   SlidersHorizontal,
+  Sparkles,
   XCircle,
 } from 'lucide-react';
 import type { CaseSummary, ReviewDecision, RoutingStatus } from '../../types';
@@ -22,6 +23,7 @@ interface CaseQueueProps {
   isLoading: boolean;
   onLoadSample: () => Promise<void>;
   onTriggerUpload: () => void;
+  onOpenAiModal?: () => void;
 }
 
 export const CaseQueue: React.FC<CaseQueueProps> = ({
@@ -37,6 +39,7 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
   isLoading,
   onLoadSample,
   onTriggerUpload,
+  onOpenAiModal,
 }) => {
   const routingTabs: { key: RoutingStatus | 'ALL'; label: string }[] = [
     { key: 'ALL', label: 'All Cases' },
@@ -121,21 +124,33 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
             <p className="text-[11px] text-muted leading-relaxed">
               Load the synthetic sample set or upload a CSV to begin reviewing possible matches.
             </p>
-            <div className="pt-2 flex flex-col sm:flex-row justify-center gap-2">
-              <button
-                type="button"
-                onClick={onLoadSample}
-                className="rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
-              >
-                Load sample cases
-              </button>
-              <button
-                type="button"
-                onClick={onTriggerUpload}
-                className="rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
-              >
-                Upload CSV
-              </button>
+            <div className="pt-2 flex flex-col justify-center gap-2">
+              {onOpenAiModal && (
+                <button
+                  type="button"
+                  onClick={onOpenAiModal}
+                  className="rounded border border-accent/40 bg-accent-muted/40 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent-muted transition-colors flex items-center justify-center space-x-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-accent" />
+                  <span>Try AI Evidence Extraction</span>
+                </button>
+              )}
+              <div className="flex flex-col sm:flex-row justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={onLoadSample}
+                  className="rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  Load sample cases
+                </button>
+                <button
+                  type="button"
+                  onClick={onTriggerUpload}
+                  className="rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  Upload CSV
+                </button>
+              </div>
             </div>
           </div>
         ) : (

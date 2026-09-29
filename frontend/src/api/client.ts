@@ -6,6 +6,8 @@ import type {
   ReviewDecision,
   RoutingStatus,
   SampleIngestResponse,
+  UnstructuredIngestRequest,
+  UnstructuredIngestResponse,
 } from '../types';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
@@ -102,5 +104,14 @@ export const api = {
       throw new ApiError(res.status, 'Failed to download export CSV');
     }
     return res.blob();
+  },
+
+  async ingestUnstructured(payload: UnstructuredIngestRequest): Promise<UnstructuredIngestResponse> {
+    const res = await fetch(`${BASE_URL}/api/v1/ingest/unstructured`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<UnstructuredIngestResponse>(res);
   },
 };

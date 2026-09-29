@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api/client';
 import { recordUsageEvent } from './api/telemetry';
 import { AppShell } from './components/layout/AppShell';
+import { AiExtractionModal } from './components/cases/AiExtractionModal';
 import { CaseDetail } from './components/cases/CaseDetail';
 import { CaseQueue } from './components/cases/CaseQueue';
 import type {
@@ -26,6 +27,7 @@ export function App() {
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   const [mobileView, setMobileView] = useState<'queue' | 'detail'>('queue');
   const [feedback, setFeedback] = useState<{
@@ -209,57 +211,77 @@ export function App() {
   };
 
 
-  return (
-    <AppShell
-      onLoadSample={handleLoadSample}
-      onUploadCsv={handleUploadCsv}
-      onExportCsv={handleExportCsv}
-      onRetry={() => fetchCases()}
-      isLoadingSample={isLoadingSample}
-      isUploadingCsv={isUploadingCsv}
-      isExportingCsv={isExportingCsv}
-      feedback={feedback}
-      onClearFeedback={() => setFeedback(null)}
-    >
-      <div className="flex h-full w-full overflow-hidden">
-        {/* Case Queue Column */}
-        <div
-          className={`h-full shrink-0 sm:flex ${
-            mobileView === 'queue' ? 'flex w-full' : 'hidden sm:flex'
-          }`}
-        >
-          <CaseQueue
-            cases={cases}
-            selectedCaseId={selectedCaseId}
-            onSelectCase={handleSelectCase}
-            activeRoutingFilter={activeRoutingFilter}
-            onRoutingFilterChange={setActiveRoutingFilter}
-            activeDecisionFilter={activeDecisionFilter}
-            onDecisionFilterChange={setActiveDecisionFilter}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            isLoading={isLoadingQueue}
-            onLoadSample={handleLoadSample}
-            onTriggerUpload={() => document.getElementById('csv-upload-input')?.click()}
-          />
-        </div>
+  const handleCaseCreatedFromAi = async (caseId: string) => {
+    await fetchCases(caseId);
+    setSelectedCaseId(caseId);
+    setMobileView('detail');
+    setFeedback({
+      type: 'success',
+      message: 'AI extraction completed and case loaded into resolution workbench.',
+    });
+  };
 
-        {/* Case Detail Workspace */}
-        <div
-          className={`h-full flex-1 overflow-hidden sm:flex ${
-            mobileView === 'detail' ? 'flex w-full' : 'hidden sm:flex'
-          }`}
-        >
-          <CaseDetail
-            caseDetail={selectedCaseDetail}
-            isLoading={isLoadingDetail}
-            onBackMobile={() => setMobileView('queue')}
-            onSubmitDecision={handleSubmitDecision}
-            isSubmittingDecision={isSubmittingDecision}
-          />
+  return (
+    <>
+      <AppShell
+        onLoadSample={handleLoadSample}
+        onUploadCsv={handleUploadCsv}
+        onExportCsv={handleExportCsv}
+        onOpenAiModal={() => setIsAiModalOpen(true)}
+        onRetry={() => fetchCases()}
+        isLoadingSample={isLoadingSample}
+        isUploadingCsv={isUploadingCsv}
+        isExportingCsv={isExportingCsv}
+        feedback={feedback}
+        onClearFeedback={() => setFeedback(null)}
+      >
+        <div className="flex h-full w-full overflow-hidden">
+          {/* Case Queue Column */}
+          <div
+            className={`h-full shrink-0 sm:flex ${
+              mobileView === 'queue' ? 'flex w-full' : 'hidden sm:flex'
+            }`}
+          >
+            <CaseQueue
+              cases={cases}
+              selectedCaseId={selectedCaseId}
+              onSelectCase={handleSelectCase}
+              activeRoutingFilter={activeRoutingFilter}
+              onRoutingFilterChange={setActiveRoutingFilter}
+              activeDecisionFilter={activeDecisionFilter}
+              onDecisionFilterChange={setActiveDecisionFilter}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              isLoading={isLoadingQueue}
+              onLoadSample={handleLoadSample}
+              onTriggerUpload={() => document.getElementById('csv-upload-input')?.click()}
+              onOpenAiModal={() => setIsAiModalOpen(true)}
+            />
+          </div>
+
+          {/* Case Detail Workspace */}
+          <div
+            className={`h-full flex-1 overflow-hidden sm:flex ${
+              mobileView === 'detail' ? 'flex w-full' : 'hidden sm:flex'
+            }`}
+          >
+            <CaseDetail
+              caseDetail={selectedCaseDetail}
+              isLoading={isLoadingDetail}
+              onBackMobile={() => setMobileView('queue')}
+              onSubmitDecision={handleSubmitDecision}
+              isSubmittingDecision={isSubmittingDecision}
+            />
+          </div>
         </div>
-      </div>
-    </AppShell>
+      </AppShell>
+
+      <AiExtractionModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        onCaseCreated={handleCaseCreatedFromAi}
+      />
+    </>
   );
 }
 

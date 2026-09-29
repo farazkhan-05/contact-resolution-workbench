@@ -122,3 +122,28 @@ export interface DecisionPayload {
   selected_candidate_id?: string | null;
   notes?: string | null;
 }
+
+export interface ExtractedCandidateProfile {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  employer: string | null;
+  job_title: string | null;
+  location: string | null;
+}
+
+export interface UnstructuredIngestRequest {
+  case_number?: string;
+  raw_evidence_text: string;
+  source_identifier?: string;
+}
+
+export interface UnstructuredIngestResponse {
+  case_id: string;
+  case_number: string;
+  extracted_profile: ExtractedCandidateProfile;
+  routing_status: RoutingStatus;
+  top_score: number;
+  candidate_count: number;
+}
+

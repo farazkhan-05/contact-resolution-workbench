@@ -8,6 +8,7 @@ import {
   Layers,
   Loader2,
   RefreshCw,
+  Sparkles,
   Upload,
   X,
 } from 'lucide-react';
@@ -16,6 +17,7 @@ interface AppShellProps {
   onLoadSample: () => Promise<void>;
   onUploadCsv: (file: File) => Promise<void>;
   onExportCsv: () => Promise<void>;
+  onOpenAiModal: () => void;
   onRetry?: () => void;
   isLoadingSample: boolean;
   isUploadingCsv: boolean;
@@ -29,6 +31,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onLoadSample,
   onUploadCsv,
   onExportCsv,
+  onOpenAiModal,
   onRetry,
   isLoadingSample,
   isUploadingCsv,
@@ -72,6 +75,17 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Global Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          <button
+            type="button"
+            onClick={onOpenAiModal}
+            className="inline-flex items-center space-x-1.5 rounded border border-accent/40 bg-accent-muted/30 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent-muted/60"
+            title="Extract structured profile from messy provider evidence using Gemini"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-accent" />
+            <span className="hidden sm:inline">Try AI Evidence Extraction</span>
+            <span className="sm:hidden">AI Extract</span>
+          </button>
+
           <button
             type="button"
             onClick={onLoadSample}
