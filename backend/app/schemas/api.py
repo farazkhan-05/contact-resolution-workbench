@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.core.constants import ContradictionSeverity, ReviewDecision, RoutingStatus
+from app.schemas.resolution import ExtractedCandidateProfile
 
 
 class SampleIngestResponse(BaseModel):
@@ -17,6 +18,23 @@ class CsvIngestResponse(BaseModel):
     ingested_count: int
     created_count: int
     case_ids: list[str]
+
+
+class UnstructuredEvidenceIngestRequest(BaseModel):
+    raw_evidence_text: str = Field(
+        ..., min_length=5, description="Messy unstructured provider evidence text"
+    )
+    source_identifier: str | None = Field(default=None, description="Optional source reference ID")
+    case_number: str | None = Field(default=None, description="Optional case number override")
+
+
+class UnstructuredIngestResponse(BaseModel):
+    case_id: str
+    case_number: str
+    extracted_profile: ExtractedCandidateProfile
+    routing_status: RoutingStatus
+    top_score: int
+    candidate_count: int
 
 
 class CaseSummaryResponse(BaseModel):

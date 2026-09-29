@@ -3,6 +3,17 @@ from pydantic import BaseModel, Field
 from app.core.constants import ContradictionSeverity, RoutingStatus
 
 
+class ExtractedCandidateProfile(BaseModel):
+    name: str | None = Field(default=None, description="Extracted person full name")
+    email: str | None = Field(default=None, description="Extracted email address")
+    phone: str | None = Field(default=None, description="Extracted phone number")
+    employer: str | None = Field(default=None, description="Extracted company or employer name")
+    job_title: str | None = Field(
+        default=None, description="Extracted job role or professional title"
+    )
+    location: str | None = Field(default=None, description="Extracted city, state, or location")
+
+
 class CaseQuery(BaseModel):
     name: str | None = None
     first_name: str | None = None

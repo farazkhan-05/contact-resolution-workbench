@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Contact Resolution Workbench"
     DATABASE_URL: str = "sqlite:///./workbench.db"
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_TIMEOUT_SECONDS: float = 10.0
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

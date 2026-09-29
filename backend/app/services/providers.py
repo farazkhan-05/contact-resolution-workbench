@@ -1,7 +1,17 @@
+from dataclasses import dataclass
 from typing import Protocol
 
 from app.schemas.resolution import CaseQuery, RawCandidate
+from app.services.extractor import GeminiExtractor
 from app.services.normalizer import normalize_name
+
+
+@dataclass
+class UnstructuredEvidenceRecord:
+    provider_source: str
+    provider_record_id: str
+    raw_evidence_text: str
+    provenance_title: str
 
 
 class CandidateProvider(Protocol):
@@ -190,3 +200,70 @@ class MockPartnerRegistryProvider:
 
     def search(self, query: CaseQuery) -> list[RawCandidate]:
         return [cand for cand in PARTNER_REGISTRY_FIXTURES if _match_query(query, cand)]
+
+
+UNSTRUCTURED_EVIDENCE_FIXTURES: list[UnstructuredEvidenceRecord] = [
+    UnstructuredEvidenceRecord(
+        provider_source="SYNTHETIC_FIELD_NOTES",
+        provider_record_id="UNSTRUCT-4001",
+        raw_evidence_text=(
+            "Spoke with Claire Reynolds — now at Northstar Analytics as Senior Data Analyst "
+            "in Seattle. Best email appears to be claire.reynolds@example.demo; "
+            "mobile +1 202-555-0101."
+        ),
+        provenance_title="Synthetic Field Notes (Call Log 2025)",
+    ),
+    UnstructuredEvidenceRecord(
+        provider_source="SYNTHETIC_RECRUITER_NOTES",
+        provider_record_id="UNSTRUCT-4002",
+        raw_evidence_text=(
+            "Candidate brief: David Mitchell, Logistics Manager at Crestview Logistics LLC "
+            "based out of Denver, CO. Contact: dmitchell@crestviewlogistics.demo, "
+            "cell +1 202-555-0199."
+        ),
+        provenance_title="Recruiter Outreach Notes",
+    ),
+    UnstructuredEvidenceRecord(
+        provider_source="SYNTHETIC_CONFERENCE_ROSTER",
+        provider_record_id="UNSTRUCT-4003",
+        raw_evidence_text=(
+            "Meeting attendee note: Elena Rostova (Principal Researcher) affiliated with "
+            "Vanguard Analytics Inc in Boston, MA. Direct telephone +1 (202) 555-0144."
+        ),
+        provenance_title="Conference Participant Transcript",
+    ),
+]
+
+
+class GeminiUnstructuredEvidenceProvider:
+    provider_id: str = "SYNTHETIC_UNSTRUCTURED_NOTES"
+    provider_name: str = "Synthetic Unstructured Notes (Gemini Extracted)"
+
+    def __init__(
+        self,
+        extractor: GeminiExtractor | None = None,
+        fixtures: list[UnstructuredEvidenceRecord] | None = None,
+    ) -> None:
+        self.extractor = extractor or GeminiExtractor()
+        self.fixtures = fixtures if fixtures is not None else UNSTRUCTURED_EVIDENCE_FIXTURES
+
+    def search(self, query: CaseQuery) -> list[RawCandidate]:
+        candidates: list[RawCandidate] = []
+        if not query.name:
+            return candidates
+
+        norm_q = normalize_name(query.name)
+        q_tokens = [t for t in norm_q.split(" ") if len(t) > 2]
+
+        for record in self.fixtures:
+            norm_text = record.raw_evidence_text.lower()
+            if any(token in norm_text for token in q_tokens):
+                extracted_candidate = self.extractor.extract_candidate_from_evidence(
+                    provider_source=record.provider_source,
+                    provider_record_id=record.provider_record_id,
+                    raw_evidence_text=record.raw_evidence_text,
+                    provenance_title=record.provenance_title,
+                )
+                candidates.append(extracted_candidate)
+
+        return candidates
