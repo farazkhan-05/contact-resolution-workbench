@@ -1,0 +1,43 @@
+from enum import StrEnum
+
+
+class RoutingStatus(StrEnum):
+    LIKELY_MATCH = "LIKELY_MATCH"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    NO_RELIABLE_MATCH = "NO_RELIABLE_MATCH"
+
+
+class ReviewDecision(StrEnum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    NEED_MORE_EVIDENCE = "NEED_MORE_EVIDENCE"
+
+
+class ContradictionSeverity(StrEnum):
+    SERIOUS = "SERIOUS"
+    MODERATE = "MODERATE"
+
+
+class AuditEventType(StrEnum):
+    CASE_INGESTED = "CASE_INGESTED"
+    SCORED_AND_ROUTED = "SCORED_AND_ROUTED"
+    DECISION_RECORDED = "DECISION_RECORDED"
+    EXPORTED = "EXPORTED"
+
+
+# Fixed Synthetic Actors
+ACTOR_SYSTEM = "system"
+ACTOR_DEMO_REVIEWER = "demo-reviewer"
+
+# Deterministic Scoring Caps
+SCORE_MAX_TOTAL = 100
+SCORE_MAX_NAME = 30
+SCORE_MAX_EMAIL = 25
+SCORE_MAX_PHONE = 25
+SCORE_MAX_EMPLOYER = 10
+SCORE_MAX_LOCATION = 10
+
+# Routing Policy Thresholds
+THRESHOLD_LIKELY_MATCH = 75
+THRESHOLD_NEEDS_REVIEW = 45
