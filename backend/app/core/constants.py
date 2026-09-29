@@ -26,6 +26,15 @@ class AuditEventType(StrEnum):
     EXPORTED = "EXPORTED"
 
 
+class UsageEventType(StrEnum):
+    APP_OPENED = "APP_OPENED"
+    SAMPLE_CASES_LOADED = "SAMPLE_CASES_LOADED"
+    CASE_VIEWED = "CASE_VIEWED"
+    DECISION_SUBMITTED = "DECISION_SUBMITTED"
+    CSV_UPLOADED = "CSV_UPLOADED"
+    CSV_EXPORTED = "CSV_EXPORTED"
+
+
 # Fixed Synthetic Actors
 ACTOR_SYSTEM = "system"
 ACTOR_DEMO_REVIEWER = "demo-reviewer"

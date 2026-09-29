@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api/client';
+import { recordUsageEvent } from './api/telemetry';
 import { AppShell } from './components/layout/AppShell';
 import { CaseDetail } from './components/cases/CaseDetail';
 import { CaseQueue } from './components/cases/CaseQueue';
@@ -32,6 +33,25 @@ export function App() {
     message: string;
   } | null>(null);
 
+  const hasTrackedAppOpen = useRef(false);
+  const lastViewedCaseRef = useRef<string | null>(null);
+
+  // Track initial app open once per browser session load
+  useEffect(() => {
+    if (!hasTrackedAppOpen.current) {
+      hasTrackedAppOpen.current = true;
+      recordUsageEvent('APP_OPENED');
+    }
+  }, []);
+
+  // Track case viewed when active case details change
+  useEffect(() => {
+    if (selectedCaseDetail && selectedCaseDetail.case_number !== lastViewedCaseRef.current) {
+      lastViewedCaseRef.current = selectedCaseDetail.case_number;
+      recordUsageEvent('CASE_VIEWED', selectedCaseDetail.case_number);
+    }
+  }, [selectedCaseDetail]);
+
   // Fetch Cases list
   const fetchCases = useCallback(
     async (preferredSelectedId?: string | null) => {
@@ -55,6 +75,7 @@ export function App() {
 
         if (fetched.length === 0) {
           setSelectedCaseDetail(null);
+          lastViewedCaseRef.current = null;
         }
       } catch (err) {
         const msg = err instanceof ApiError ? err.detail : 'Could not connect to the API. Confirm the backend is running and retry.';
@@ -100,6 +121,7 @@ export function App() {
     setFeedback(null);
     try {
       const res = await api.ingestSample();
+      recordUsageEvent('SAMPLE_CASES_LOADED');
       const msg =
         res.created_count > 0
           ? `${res.ingested_count} sample cases available. ${res.created_count} created.`
@@ -119,6 +141,7 @@ export function App() {
     setFeedback(null);
     try {
       const res = await api.ingestCsv(file);
+      recordUsageEvent('CSV_UPLOADED');
       setFeedback({
         type: 'success',
         message: `Successfully ingested CSV batch: ${res.ingested_count} cases created.`,
@@ -137,6 +160,7 @@ export function App() {
     setFeedback(null);
     try {
       const blob = await api.exportReviewedCsv();
+      recordUsageEvent('CSV_EXPORTED');
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -168,6 +192,7 @@ export function App() {
         selected_candidate_id: candidateId,
         notes,
       });
+      recordUsageEvent('DECISION_SUBMITTED', updated.case_number);
       setSelectedCaseDetail(updated);
       setFeedback({
         type: 'success',
@@ -182,6 +207,7 @@ export function App() {
       setIsSubmittingDecision(false);
     }
   };
+
 
   return (
     <AppShell

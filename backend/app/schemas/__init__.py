@@ -17,6 +17,7 @@ from app.schemas.resolution import (
     MatchEvidenceResult,
     RawCandidate,
 )
+from app.schemas.usage import UsageEventCreateRequest
 
 __all__ = [
     "CaseQuery",
@@ -34,4 +35,5 @@ __all__ = [
     "AuditLogResponse",
     "CaseDetailResponse",
     "DecisionRequest",
+    "UsageEventCreateRequest",
 ]

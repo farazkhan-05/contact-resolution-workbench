@@ -141,3 +141,62 @@ Target architecture: **Browser -> Vercel (React/Vite) -> Render Web Service (Fas
 3. Environment Variables:
    - `VITE_API_BASE_URL`: `https://<your-render-service>.onrender.com`
 
+## Anonymous Demo Usage Telemetry
+
+A lightweight, first-party telemetry mechanism records basic interaction milestones without collecting personal data or using third-party trackers.
+
+### Privacy Guarantees
+
+- **Zero Third-Party SDKs**: No Google Analytics, Mixpanel, PostHog, or tracking pixels.
+- **Zero PII & Data Leakage**: No IP addresses, user agents, visitor identities, uploaded CSV contents, candidate details, or reviewer notes are stored.
+- **Session-Scoped Storage**: Ephemeral anonymous session ID stored in `sessionStorage` (regenerated per browser session).
+- **Strict Allowlist**: Only predefined event types (`APP_OPENED`, `SAMPLE_CASES_LOADED`, `CASE_VIEWED`, `DECISION_SUBMITTED`, `CSV_UPLOADED`, `CSV_EXPORTED`) with bounded safe identifiers are accepted.
+
+### Optional Referral Link
+
+Shareable demo links can include an optional alphanumeric `ref` query parameter to distinguish traffic sources:
+
+```text
+https://your-app.example/?ref=interview-demo
+```
+
+### Inspecting Demo Usage (Neon SQL)
+
+The application owner can inspect demo usage directly using SQL in the Neon Console:
+
+#### 1. Recent Telemetry Events
+```sql
+SELECT event_name, ref_code, case_number, created_at
+FROM usage_events
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+#### 2. Event Summary Breakdown
+```sql
+SELECT event_name, COUNT(*) AS event_count
+FROM usage_events
+GROUP BY event_name
+ORDER BY event_count DESC;
+```
+
+#### 3. Unique Anonymous Sessions
+```sql
+SELECT COUNT(DISTINCT anonymous_session_id) AS total_sessions
+FROM usage_events;
+```
+
+#### 4. Usage by Referral Tag
+```sql
+SELECT COALESCE(ref_code, '(direct / none)') AS referral_source,
+       event_name,
+       COUNT(*) AS count
+FROM usage_events
+GROUP BY ref_code, event_name
+ORDER BY ref_code, count DESC;
+```
+
+> [!NOTE]
+> `APP_OPENED` indicates that the web application was loaded in a browser tab. `CASE_VIEWED`, `SAMPLE_CASES_LOADED`, and `DECISION_SUBMITTED` indicate active interactive evaluation of the workbench. Security crawlers, link unfurlers, or bot scanners may occasionally open URLs, so `APP_OPENED` alone should not be interpreted as definitive proof of human interaction.
+
+
