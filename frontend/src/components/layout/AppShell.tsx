@@ -24,6 +24,7 @@ interface AppShellProps {
   isExportingCsv: boolean;
   feedback: { type: 'success' | 'error' | 'info'; message: string } | null;
   onClearFeedback: () => void;
+  onSignOut: () => Promise<void>;
   children: React.ReactNode;
 }
 
@@ -38,6 +39,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   isExportingCsv,
   feedback,
   onClearFeedback,
+  onSignOut,
   children,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +77,13 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Global Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          <button
+            type="button"
+            onClick={() => void onSignOut()}
+            className="text-xs font-medium text-muted hover:text-foreground"
+          >
+            Sign out
+          </button>
           <button
             type="button"
             onClick={onOpenAiModal}

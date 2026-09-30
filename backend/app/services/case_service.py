@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.constants import (
-    ACTOR_DEMO_REVIEWER,
     ACTOR_SYSTEM,
     AuditEventType,
     ContradictionSeverity,
@@ -56,6 +55,7 @@ def _datetime_sort_key(dt: datetime | None) -> datetime:
 
 def persist_case_resolution(
     db: Session,
+    workspace_id: str,
     case_number: str,
     source_identifier: str | None,
     query: CaseQuery,
@@ -66,6 +66,7 @@ def persist_case_resolution(
     name_parts = parse_name_parts(query.name)
 
     case = Case(
+        workspace_id=workspace_id,
         case_number=case_number,
         source_identifier=source_identifier,
         raw_name=query.name or "",
@@ -171,6 +172,7 @@ def persist_case_resolution(
 
 def ingest_sample_cases(
     db: Session,
+    workspace_id: str,
     resolution_service: ResolutionService | None = None,
 ) -> SampleIngestResponse:
     """Ingest 8 synthetic benchmark cases idempotently."""
@@ -185,7 +187,9 @@ def ingest_sample_cases(
         if not isinstance(query, CaseQuery):
             continue
 
-        existing_case = db.scalar(select(Case).where(Case.case_number == case_num))
+        existing_case = db.scalar(
+            select(Case).where(Case.workspace_id == workspace_id, Case.case_number == case_num)
+        )
         if existing_case:
             case_ids.append(existing_case.id)
             existing_count += 1
@@ -193,6 +197,7 @@ def ingest_sample_cases(
             resolution = resolver.resolve(query)
             new_case = persist_case_resolution(
                 db=db,
+                workspace_id=workspace_id,
                 case_number=case_num,
                 source_identifier="BENCHMARK_SEED",
                 query=query,
@@ -214,10 +219,11 @@ def ingest_sample_cases(
 def ingest_csv(
     db: Session,
     file_content: str,
+    workspace_id: str,
     resolution_service: ResolutionService | None = None,
 ) -> CsvIngestResponse:
     """Validate, resolve, and persist records from uploaded CSV."""
-    records = parse_and_validate_csv(file_content, db)
+    records = parse_and_validate_csv(file_content, db, workspace_id)
     resolver = resolution_service or ResolutionService()
     case_ids: list[str] = []
 
@@ -226,6 +232,7 @@ def ingest_csv(
             resolution = resolver.resolve(query)
             new_case = persist_case_resolution(
                 db=db,
+                workspace_id=workspace_id,
                 case_number=case_number,
                 source_identifier=source_id,
                 query=query,
@@ -247,6 +254,7 @@ def ingest_csv(
 
 def list_cases(
     db: Session,
+    workspace_id: str,
     routing_status: RoutingStatus | None = None,
     review_decision: ReviewDecision | None = None,
     search: str | None = None,
@@ -260,6 +268,7 @@ def list_cases(
         )
         .execution_options(populate_existing=True)
     )
+    stmt = stmt.where(Case.workspace_id == workspace_id)
 
     if routing_status:
         stmt = stmt.where(Case.routing_status == routing_status.value)
@@ -304,7 +313,7 @@ def list_cases(
     return summaries
 
 
-def get_case_detail(db: Session, case_id: str) -> CaseDetailResponse | None:
+def get_case_detail(db: Session, workspace_id: str, case_id: str) -> CaseDetailResponse | None:
     """Retrieve full investigation detail for a single case."""
     stmt = (
         select(Case)
@@ -313,7 +322,7 @@ def get_case_detail(db: Session, case_id: str) -> CaseDetailResponse | None:
             joinedload(Case.candidates).joinedload(CandidateRecord.contradictions),
             joinedload(Case.audit_logs),
         )
-        .where(Case.id == case_id)
+        .where(Case.id == case_id, Case.workspace_id == workspace_id)
     )
     case = db.scalar(stmt)
     if not case:
@@ -440,11 +449,17 @@ def get_case_detail(db: Session, case_id: str) -> CaseDetailResponse | None:
 
 def record_decision(
     db: Session,
+    workspace_id: str,
     case_id: str,
     request: DecisionRequest,
+    actor: str,
 ) -> CaseDetailResponse:
     """Record reviewer decision and append an audit event."""
-    case = db.scalar(select(Case).options(joinedload(Case.candidates)).where(Case.id == case_id))
+    case = db.scalar(
+        select(Case)
+        .options(joinedload(Case.candidates))
+        .where(Case.id == case_id, Case.workspace_id == workspace_id)
+    )
     if not case:
         raise ValueError("Case not found.")
 
@@ -472,7 +487,7 @@ def record_decision(
     audit = AuditLog(
         case_id=case.id,
         event_type=AuditEventType.DECISION_RECORDED.value,
-        actor=ACTOR_DEMO_REVIEWER,
+        actor=actor,
         payload={
             "previous_decision": previous_decision,
             "decision": request.decision.value,
@@ -484,7 +499,7 @@ def record_decision(
     db.add(audit)
     db.commit()
 
-    detail = get_case_detail(db, case_id)
+    detail = get_case_detail(db, workspace_id, case_id)
     if not detail:
         raise ValueError("Case not found after decision update.")
     return detail
@@ -499,12 +514,14 @@ def _sanitize_csv_cell(value: str | None) -> str:
     return value
 
 
-def export_reviewed_cases_csv(db: Session) -> str:
+def export_reviewed_cases_csv(db: Session, workspace_id: str) -> str:
     """Export all non-pending reviewed cases as flat CSV."""
     stmt = (
         select(Case)
         .options(joinedload(Case.candidates))
-        .where(Case.review_decision != ReviewDecision.PENDING.value)
+        .where(
+            Case.workspace_id == workspace_id, Case.review_decision != ReviewDecision.PENDING.value
+        )
         .order_by(Case.case_number.asc())
     )
     cases = db.scalars(stmt).unique().all()

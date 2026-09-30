@@ -14,6 +14,11 @@ class ReviewDecision(StrEnum):
     NEED_MORE_EVIDENCE = "NEED_MORE_EVIDENCE"
 
 
+class WorkspaceRole(StrEnum):
+    OWNER = "OWNER"
+    REVIEWER = "REVIEWER"
+
+
 class ContradictionSeverity(StrEnum):
     SERIOUS = "SERIOUS"
     MODERATE = "MODERATE"

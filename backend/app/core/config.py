@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     GEMINI_TIMEOUT_SECONDS: float = 10.0
+    FIREBASE_SERVICE_ACCOUNT_JSON: str | None = None
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

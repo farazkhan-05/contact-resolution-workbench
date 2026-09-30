@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api/client';
+import { AuthScreen } from './auth/AuthScreen';
+import { useAuth } from './auth/AuthProvider';
 import { recordUsageEvent } from './api/telemetry';
 import { AppShell } from './components/layout/AppShell';
 import { AiExtractionModal } from './components/cases/AiExtractionModal';
@@ -13,6 +15,7 @@ import type {
 } from './types';
 
 export function App() {
+  const { status, signOutUser } = useAuth();
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseDetailType | null>(null);
@@ -221,6 +224,11 @@ export function App() {
     });
   };
 
+  if (status === 'loading' || status === 'bootstrapping') {
+    return <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted">Starting your workspace…</main>;
+  }
+  if (status !== 'ready') return <AuthScreen />;
+
   return (
     <>
       <AppShell
@@ -234,6 +242,7 @@ export function App() {
         isExportingCsv={isExportingCsv}
         feedback={feedback}
         onClearFeedback={() => setFeedback(null)}
+        onSignOut={signOutUser}
       >
         <div className="flex h-full w-full overflow-hidden">
           {/* Case Queue Column */}

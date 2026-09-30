@@ -7,6 +7,7 @@ from app.core.constants import ReviewDecision, RoutingStatus
 from app.core.database import Base
 from app.models.audit import AuditLog
 from app.models.case import CandidateRecord, Case, Contradiction, MatchEvidence
+from app.models.workspace import Workspace
 
 
 @pytest.fixture
@@ -22,7 +23,11 @@ def test_db_session() -> Session:
 
 
 def test_case_model_defaults_and_relationships(test_db_session: Session) -> None:
+    workspace = Workspace(name="Model test workspace")
+    test_db_session.add(workspace)
+    test_db_session.flush()
     case = Case(
+        workspace_id=workspace.id,
         case_number="CASE-TEST-100",
         raw_name="Jane Doe",
         normalized_name="jane doe",
@@ -101,12 +106,18 @@ def test_case_model_defaults_and_relationships(test_db_session: Session) -> None
 
 
 def test_case_number_unique_constraint(test_db_session: Session) -> None:
+    workspace = Workspace(name="First workspace")
+    other_workspace = Workspace(name="Second workspace")
+    test_db_session.add_all([workspace, other_workspace])
+    test_db_session.flush()
     case1 = Case(
+        workspace_id=workspace.id,
         case_number="CASE-UNIQUE-1",
         raw_name="Alice Smith",
         normalized_name="alice smith",
     )
     case2 = Case(
+        workspace_id=workspace.id,
         case_number="CASE-UNIQUE-1",
         raw_name="Bob Jones",
         normalized_name="bob jones",
@@ -117,3 +128,13 @@ def test_case_number_unique_constraint(test_db_session: Session) -> None:
     test_db_session.add(case2)
     with pytest.raises(IntegrityError):
         test_db_session.commit()
+    test_db_session.rollback()
+
+    other_case = Case(
+        workspace_id=other_workspace.id,
+        case_number="CASE-UNIQUE-1",
+        raw_name="Bob Jones",
+        normalized_name="bob jones",
+    )
+    test_db_session.add(other_case)
+    test_db_session.commit()

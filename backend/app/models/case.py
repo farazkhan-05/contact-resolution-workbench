@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import ReviewDecision, RoutingStatus
@@ -10,17 +10,24 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.audit import AuditLog
+    from app.models.workspace import Workspace
 
 
 class Case(Base):
     __tablename__ = "cases"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "case_number", name="uq_cases_workspace_case_number"),
+    )
 
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
         default=lambda: str(uuid.uuid4()),
     )
-    case_number: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True, nullable=False
+    )
+    case_number: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     source_identifier: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Ingested raw attributes
@@ -79,6 +86,7 @@ class Case(Base):
         cascade="all, delete-orphan",
         order_by="desc(AuditLog.created_at)",
     )
+    workspace: Mapped["Workspace"] = relationship("Workspace", back_populates="cases")
 
 
 class CandidateRecord(Base):

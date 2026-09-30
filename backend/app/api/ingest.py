@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.auth import WorkspaceContext, get_workspace_context
 from app.core.database import get_db
 from app.schemas.api import (
     CsvIngestResponse,
@@ -20,10 +21,12 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
 @router.post("/sample", response_model=SampleIngestResponse)
-def ingest_sample(db: Session = Depends(get_db)) -> SampleIngestResponse:
+def ingest_sample(
+    context: WorkspaceContext = Depends(get_workspace_context), db: Session = Depends(get_db)
+) -> SampleIngestResponse:
     """Ingest standard 8 synthetic benchmark cases idempotently."""
     try:
-        return ingest_sample_cases(db)
+        return ingest_sample_cases(db, context.workspace.id)
     except ProviderError as e:
         raise HTTPException(
             status_code=502,
@@ -34,6 +37,7 @@ def ingest_sample(db: Session = Depends(get_db)) -> SampleIngestResponse:
 @router.post("/csv", response_model=CsvIngestResponse)
 def upload_csv(
     file: UploadFile = File(...),
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
 ) -> CsvIngestResponse:
     """Upload and validate synthetic profile CSV batch."""
@@ -51,7 +55,7 @@ def upload_csv(
         ) from e
 
     try:
-        return ingest_csv(db, content)
+        return ingest_csv(db, content, context.workspace.id)
     except CsvValidationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except ProviderError as e:
@@ -64,6 +68,7 @@ def upload_csv(
 @router.post("/unstructured", response_model=UnstructuredIngestResponse)
 def ingest_unstructured(
     request: UnstructuredEvidenceIngestRequest,
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
 ) -> UnstructuredIngestResponse:
     """Extract structured fields from messy provider evidence via Gemini and resolve."""
@@ -102,6 +107,7 @@ def ingest_unstructured(
     case_number = request.case_number or f"CASE-AI-{int(datetime.now(UTC).timestamp())}"
     case = persist_case_resolution(
         db=db,
+        workspace_id=context.workspace.id,
         case_number=case_number,
         source_identifier=request.source_identifier or "UNSTRUCTURED_EVIDENCE_GEMINI",
         query=query,

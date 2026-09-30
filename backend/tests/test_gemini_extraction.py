@@ -2,11 +2,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
+from app.core.auth import FirebaseIdentity, get_firebase_identity
 from app.core.constants import RoutingStatus
-from app.core.database import Base, engine, get_db
+from app.core.database import Base, get_db
 from app.main import app
+from app.models.workspace import User, Workspace, WorkspaceMembership
 from app.schemas.resolution import CaseQuery, ExtractedCandidateProfile, RawCandidate
 from app.services.contradiction import evaluate_contradictions
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
@@ -21,16 +25,18 @@ from app.services.resolution_service import ProviderError, ResolutionService
 
 @pytest.fixture
 def db_session() -> Session:
-    Base.metadata.create_all(bind=engine)
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
+    test_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=test_engine)
+    session = Session(bind=test_engine)
     try:
         yield session
     finally:
         session.close()
-        transaction.rollback()
-        connection.close()
+        Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture
@@ -39,7 +45,19 @@ def client(db_session: Session) -> TestClient:
         return db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_firebase_identity] = lambda: FirebaseIdentity(
+        uid="gemini-test-user", email="gemini@example.demo", is_anonymous=False
+    )
+    user = User(firebase_uid="gemini-test-user", email="gemini@example.demo")
+    workspace = Workspace(name="Gemini test workspace")
+    db_session.add_all([user, workspace])
+    db_session.flush()
+    db_session.add(WorkspaceMembership(user_id=user.id, workspace_id=workspace.id, role="OWNER"))
+    db_session.commit()
     test_client = TestClient(app)
+    test_client.headers.update(
+        {"Authorization": "Bearer test-token", "X-Workspace-ID": workspace.id}
+    )
     yield test_client
     app.dependency_overrides.clear()
 

@@ -6,9 +6,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.auth import FirebaseIdentity, get_firebase_identity
+from app.core.constants import WorkspaceRole
 from app.core.database import Base, get_db
 from app.main import app
 from app.models.case import Case
+from app.models.workspace import User, Workspace, WorkspaceMembership
 from app.schemas.resolution import CaseQuery, RawCandidate
 from app.services.case_service import ingest_sample_cases
 from app.services.resolution_service import ResolutionService
@@ -27,6 +30,20 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(autouse=True)
 def setup_db() -> Generator[None]:
     Base.metadata.create_all(bind=engine)
+    with TestingSessionLocal() as db:
+        user = User(firebase_uid="api-workflow-user", email="reviewer@example.demo")
+        workspace = Workspace(name="Test workspace")
+        db.add_all([user, workspace])
+        db.flush()
+        db.add(
+            WorkspaceMembership(
+                user_id=user.id, workspace_id=workspace.id, role=WorkspaceRole.OWNER
+            )
+        )
+        db.commit()
+        client.headers.update(
+            {"Authorization": "Bearer test-token", "X-Workspace-ID": workspace.id}
+        )
     yield
     Base.metadata.drop_all(bind=engine)
 
@@ -40,6 +57,9 @@ def override_get_db() -> Generator[Session]:
 
 
 app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_firebase_identity] = lambda: FirebaseIdentity(
+    uid="api-workflow-user", email="reviewer@example.demo", is_anonymous=False
+)
 client = TestClient(app)
 
 
@@ -221,11 +241,11 @@ def test_reviewer_decision_workflow() -> None:
     assert c1_after["raw_name"] == case_1["person_name"]
     assert c1_after["raw_employer"] == case_1["employer"]
 
-    # 17. Decision appends DECISION_RECORDED audit event with actor demo-reviewer
+    # 17. Decision appends DECISION_RECORDED audit event with the internal actor ID
     audits = c1_after["audit_logs"]
     decision_audits = [a for a in audits if a["event_type"] == "DECISION_RECORDED"]
     assert len(decision_audits) >= 1
-    assert decision_audits[0]["actor"] == "demo-reviewer"
+    assert decision_audits[0]["actor"].startswith("user:")
 
     # 18. Revising decision: updates current state, preserves earlier audit events
     rev_res = client.post(
@@ -377,7 +397,8 @@ def test_provider_failure_safety() -> None:
         # 31. Provider failure leaves no partial persisted case in database
         initial_count = db.query(Case).count()
         with pytest.raises(Exception):
-            ingest_sample_cases(db, resolution_service=failing_resolver)
+            workspace_id = db.query(Workspace).one().id
+            ingest_sample_cases(db, workspace_id, resolution_service=failing_resolver)
         assert db.query(Case).count() == initial_count
     finally:
         db.close()
