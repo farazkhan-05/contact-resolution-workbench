@@ -452,4 +452,196 @@ one existing PostgreSQL/Redis/Celery integration test skipped without its servic
 Ruff, format checks, mypy for the app and new experiment modules, and frontend
 lint/typecheck/build passed. The ordinary dependency set also passed 115 tests with
 the ML module and service-dependent integration test skipped. The existing real
-service CI job remains in place; C3 was not pushed for a remote CI run.
+service CI job remains in place. C3 commit `7379ce02335337a05761103359e50ae7d910bf51`
+was pushed to `origin/productization/v1`; remote CI inspection was unavailable from
+the Codex environment. Remote C3 CI remains unconfirmed.
+
+## C4 contradiction-aware routing and threshold evaluation
+
+**Decision C: retain production thresholds and require future real-data calibration.**
+Production remains at 75 for `LIKELY_MATCH` and 45 for `NEEDS_REVIEW`.
+The frozen synthetic benchmark supports useful automatic coverage with zero observed
+unsafe automatic matches, but does not provide enough independent evidence to lower
+production thresholds. This is an offline experiment; no runtime policy changes.
+
+### Current code and evaluation semantics
+
+Scores remain capped at 100: name 30, exact email 25, exact phone 25, employer 10,
+location 10. Name variation awards 20 or 10; similar employer awards 6; same state
+awards 5. Missing/different evidence awards zero. C4 changes neither these weights
+nor normalization, the seed, scenarios, partitions, candidate generator or ranker.
+
+The production router selects the maximum-score candidate, retaining the first
+input on ties. At score >=75, a serious contradiction forces `NEEDS_REVIEW`;
+otherwise it returns `LIKELY_MATCH`. Scores >=45 and <75 go to review, lower scores
+and empty candidate sets return `NO_RELIABLE_MATCH`. There is no margin gate.
+Suffix conflicts (including Jr/Sr and II/III) and incompatible full middle names
+are the only hard contradiction classes. Employer and state differences are
+moderate, nonblocking warnings. Email/phone differences lose agreement points but
+are not implemented hard identifier contradictions.
+
+C1 supplies its unchanged bounded candidate list ordered by blocking flag, score,
+then opaque ID. The router's maximum-score selection is evaluated explicitly rather
+than assuming C1's first candidate is the routing choice. The application service
+normally supplies score/provider-ID order; C4 preserves the C1 input and its stable
+tie order. C4 records this distinction without changing either architecture.
+
+A safe auto requires the selected identity to be correct and free of hard
+contradictions. An unsafe auto is a wrong selected identity **or** a blocked
+selected candidate, even if its identity is correct. Review is acceptable for
+ambiguity, conflict or weak evidence; existence of a true candidate does not label
+review as incorrect. Rejection of a corpus-true query is reported as a false
+no-match identity diagnostic, not proof that an automatic merge was warranted.
+Intentional no-match queries are counted separately. Wrong and unsafe auto rates
+use both all automatic decisions and all queries as denominators. Empty automatic
+denominators yield null rather than an invented zero rate.
+
+### Baseline and frozen-policy results
+
+| Split | Queries | Safe auto / rate | Review / rate | No reliable match / rate | Unsafe auto |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Train | 616 | 465 / 75.49% | 116 / 18.83% | 35 / 5.68% | 0 |
+| Validation | 134 | 100 / 74.63% | 25 / 18.66% | 9 / 6.72% | 0 |
+| Held-out test | 130 | 99 / 76.15% | 25 / 19.23% | 6 / 4.62% | 0 |
+
+All automatic identities are correct. Wrong and unsafe rates are respectively
+0/465 and 0/616 on train, 0/100 and 0/134 on validation, 0/99 and 0/130 on test.
+Review/abstention rates are 24.51%, 25.37%, and 23.85%. Review contains 75/14/17
+correct selected identities and 41/11/8 wrong selected identities; 102/22/22 review
+queries still have a retrieved correct candidate. No selected top has a hard
+contradiction, so observed query-level contradiction-blocked auto counts are zero.
+That does not mean the gates are dispensable; the pair/probe checks below exercise them.
+
+All 35/9/6 rejected queries have a true candidate in the full partition corpus:
+false no-match rates are 35/602 (5.81%), 9/131 (6.87%), 6/127 (4.72%). Of these,
+28/6/6 also have a true candidate in the retrieved set: 28/595 (4.71%), 6/128
+(4.69%), 6/127 (4.72%). The 7/3/0 retrieval misses remain unchanged.
+
+The intentional no-match counts are 14/3/3. Every one has top score 50 and goes to
+review; none auto-match, and none is automatically rejected. Score 50 also occurs
+for true weak/ambiguous matches. A top-score cutoff alone does not separate these
+cases. Raising review to 55 rejects all three validation no-match queries, but
+raises corpus-true rejections from 9 to 24. C4 does not force a candidate or claim
+that routing to review establishes an identity.
+
+### Validation search, distributions and robustness
+
+Only train and validation routing outcomes enter development. A 20-policy grid
+compares likely thresholds 65/70/75/80/85 and review thresholds 40/45/50/55.
+The lexicographic rule minimizes validation unsafe autos, maximizes safe autos,
+minimizes corpus-true rejections, then prefers proximity to 75/45, followed by stable
+numeric ordering. Review is acceptable; it is not assigned a subjective cost or
+labeled unnecessary from identity truth alone. No F1 or overall accuracy objective
+is used. Thresholds must satisfy 0 <= review < likely <=100.
+
+Every searched policy has zero observed unsafe validation autos. The numeric
+winner, and best observed zero-unsafe policy within this grid, is 70/40: train
+469/133/14, validation 101/28/5 (auto/review/rejection). The extra validation auto
+is one transliteration query at score 70: email/phone 25 each, employer/location
+10 each, name zero. Four score-40 queries move from rejection to review: three
+missing-fields cases and one malformed case; two of their selected identities are
+wrong. This is a small coverage gain with no measured safety improvement.
+
+The adoption decision was frozen at **75/45 before held-out routing evaluation**.
+The numeric 70/40 challenger was also frozen for one held-out comparison: it yields
+100/29/1, with zero observed unsafe autos and all three no-match queries still in
+review. It adds one auto and five reviews over production. Those test outcomes
+were not used to revise the decision or search another policy. Subsequent runs
+only check logical reproducibility.
+
+Nearest-rank train/validation score summaries are stored in `analysis.json`. True
+pair medians are 90, maxima 100; false pair medians are 16/20, maxima 90. Hard
+contradiction pair medians are 70/80 and maxima 90. Selected wrong tops have median
+50, p95 55 and maximum 55 on both development splits; selected true tops have
+median 100, minimum 20. Ambiguous and no-match tops are all 50. Retrieved
+missing-fields tops are all 40. Strong false pairs overlap true scores, so score
+alone cannot replace gates. Selection did not inspect test distributions.
+
+Neighborhood checks move one threshold at a time by one point (0.01 on a 0..1
+score scale). All train/validation neighbors of both policies preserve zero unsafe
+autos. For production, likely 74/75 keeps 100 validation autos; 76 drops to 91.
+Review 44/45 keeps 9 rejections; 46 raises them to 15. For 70/40, likely 69/70
+keeps 101 autos; 71 drops to 100; review 39/40 keeps 5 rejections, 41 raises them
+to 9. Safety does not collapse, but gains sit on discrete boundaries and do not
+establish a broad, independently calibrated optimum.
+
+A top-two margin was inspected without searching or adding a margin policy.
+Three validation automatic queries have zero margin because both leading provider
+observations are true. Three ambiguous queries also have zero margin, but are
+already in review. With baseline unsafe autos already zero, a raw margin gate adds
+no observed safety benefit and confuses duplicate observations with rival identities.
+
+### Contradictions and scenario findings
+
+Isolating each retrieved candidate tests what happens when it is the only available
+record. At production threshold, high-scoring wrong suffix pairs number 72/18/18;
+high-scoring wrong full-middle pairs number 23/6/6 (train/validation/test). All go
+to review, none to automatic match. These are counterfactual pair gate opportunities,
+not extra query-level merges prevented. The synthetic benchmark often includes a
+true score-100 observation that wins over the contradictory distractor.
+
+Separate adversarial Arthur Pendelton Jr/Sr and II/III probes score 90; conflicting
+Alexander/Anthony full-middle names score 80 despite exact contact agreement. All
+remain in review when their score is artificially set to 100. Tests cover the
+current and alternative policies. The eight production demo cases keep their exact
+scores/routes, including Arthur's score-90 review. Moderate employer/geography
+differences can coexist with automatic matches, as designed.
+
+The held-out scenario groups overlap; counts below are not additive:
+
+| Scenario | Auto / review / rejection | Finding |
+| --- | ---: | --- |
+| Exact duplicates | 65 / 3 / 0 | Three linked-anchor queries require review |
+| Stale phone; stale email | 3 / 6 / 0; 3 / 3 / 0 | Review preserves weak/context-change cases |
+| Nickname; marriage/name change | 0 / 3 / 0 each | Correct tops reviewed |
+| Middle initial | 3 / 0 / 0 | Correct automatic identities |
+| Full-middle conflict; Jr/Sr; II/III | 3 / 0 / 0 each | True unblocked records win; distractor gates pass separately |
+| Employer change; geography change | 3 / 3 / 0 each | Two reviewed wrong tops in each overlapping group |
+| Shared household phone | 3 / 0 / 0 | No observed unsafe auto |
+| Namesakes | 44 / 12 / 0 | Six reviewed wrong tops, including no-match queries |
+| Ambiguous | 0 / 3 / 0 | Two reviewed wrong tops, no forced auto |
+| Transliteration | 1 / 1 / 1 | Sparse evidence can be rejected |
+| Missing fields; malformed | 0 / 0 / 2; 0 / 0 / 3 | Five of six corpus-true rejections |
+
+Missingness analysis reports explicit scenario membership, any missing query field,
+missing evidence on the selected pair, and complete queries separately. C3's
+asymmetric provider omissions remain frozen; thresholds neither re-rank candidates
+nor learn completeness. The extra validation auto has no missing evidence, so it
+is **not** the C3 missing-field-only recovery artifact. Three of four extra review
+cases do depend on the explicit missing-fields scenario, and their truth does not
+make weak name/location evidence reliable. Both limitations support retaining the
+current policy rather than claiming artifact-independent calibration.
+
+### Reproduction and verification
+
+From `backend/`, no external services or optional ML dependencies are required:
+
+```powershell
+uv sync --frozen
+uv run --frozen python -m benchmarks.identity_resolution.routing_experiment
+uv run --frozen python -m benchmarks.identity_resolution.routing_experiment --held-out
+```
+
+Development writes the selection freeze first. Held-out mode requires that freeze
+to match before constructing test routing cases; it cannot overwrite selection.
+Use `--output ../.system_generated/c4-repeat` with both commands for reproduction.
+`results/c4/` contains the manifest, compact grid/selection, development distributions,
+neighborhood/missingness/margin audits, gate probes/demo checks, and per-split routing
+reports. The runner verifies the frozen C1 manifest and logical retrieval outputs,
+and records SHA-256 hashes for every pre-C4 C1/C2/C3 JSON artifact, including timing.
+C1/C2/C3 artifacts remain untouched. No new dependency, CI change, production
+infrastructure change, ML model or semantic score is introduced.
+
+Local verification passed 151 tests with the existing optional ranking test group;
+one service-dependent integration test was skipped. The ordinary frozen dependency
+set passed 141 tests, with that integration test and the optional ML test module
+skipped; all 26 C4 tests ran. Ruff, formatting, mypy for the app and C4 modules, and
+frontend lint/typecheck/build passed. All six C4 JSON artifacts matched byte-for-byte
+on an independent run. The unchanged 96 applicable locked runtime/dev/ranking
+packages passed pip-audit with no known vulnerabilities; npm audit reported zero.
+The optional semantic group was not audited in C4. Lockfiles are unchanged.
+
+Zero observed unsafe automatic matches on this finite synthetic validation or test
+benchmark is not a real-world false-merge guarantee. Independently collected,
+reviewer-labeled real data with hard conflicts, contact reuse and balanced missingness
+is needed before production calibration. Remote C3 CI remains unconfirmed.

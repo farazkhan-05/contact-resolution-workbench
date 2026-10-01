@@ -1,0 +1,1178 @@
+{
+  "baseline_and_frozen_policy": {
+    "metrics": {
+      "contradictions": {
+        "blocked_auto_prevented": 0,
+        "blocked_wrong_auto_prevented": 0,
+        "hard_contradiction_no_match": 0,
+        "hard_contradiction_review": 0,
+        "top_hard_contradiction": 0
+      },
+      "empty_candidates": 0,
+      "false_no_match_corpus": 6,
+      "false_no_match_rate_corpus": 0.047244094488188976,
+      "false_no_match_rate_retrieved": 0.047244094488188976,
+      "false_no_match_retrieved": 6,
+      "intentional_no_match": {
+        "highest_top_scores": [
+          50,
+          50,
+          50
+        ],
+        "queries": 3,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        }
+      },
+      "queries": 130,
+      "review_correct_top": 17,
+      "review_or_abstention_rate": 0.23846153846153847,
+      "review_true_available": 22,
+      "review_wrong_top": 8,
+      "route_rates": {
+        "LIKELY_MATCH": 0.7615384615384615,
+        "NEEDS_REVIEW": 0.19230769230769232,
+        "NO_RELIABLE_MATCH": 0.046153846153846156
+      },
+      "routes": {
+        "LIKELY_MATCH": 99,
+        "NEEDS_REVIEW": 25,
+        "NO_RELIABLE_MATCH": 6
+      },
+      "safe_auto": 99,
+      "true_in_corpus": 127,
+      "true_retrieved": 127,
+      "unsafe_auto": 0,
+      "unsafe_auto_per_auto": 0.0,
+      "unsafe_auto_per_query": 0.0,
+      "wrong_auto": 0,
+      "wrong_auto_per_auto": 0.0,
+      "wrong_auto_per_query": 0.0
+    },
+    "missingness": {
+      "query_complete": {
+        "contradictions": {
+          "blocked_auto_prevented": 0,
+          "blocked_wrong_auto_prevented": 0,
+          "hard_contradiction_no_match": 0,
+          "hard_contradiction_review": 0,
+          "top_hard_contradiction": 0
+        },
+        "empty_candidates": 0,
+        "false_no_match_corpus": 3,
+        "false_no_match_rate_corpus": 0.02830188679245283,
+        "false_no_match_rate_retrieved": 0.02830188679245283,
+        "false_no_match_retrieved": 3,
+        "intentional_no_match": {
+          "highest_top_scores": [],
+          "queries": 0,
+          "routes": {
+            "LIKELY_MATCH": 0,
+            "NEEDS_REVIEW": 0,
+            "NO_RELIABLE_MATCH": 0
+          }
+        },
+        "queries": 106,
+        "review_correct_top": 5,
+        "review_or_abstention_rate": 0.09433962264150944,
+        "review_true_available": 7,
+        "review_wrong_top": 2,
+        "route_rates": {
+          "LIKELY_MATCH": 0.9056603773584906,
+          "NEEDS_REVIEW": 0.0660377358490566,
+          "NO_RELIABLE_MATCH": 0.02830188679245283
+        },
+        "routes": {
+          "LIKELY_MATCH": 96,
+          "NEEDS_REVIEW": 7,
+          "NO_RELIABLE_MATCH": 3
+        },
+        "safe_auto": 96,
+        "true_in_corpus": 106,
+        "true_retrieved": 106,
+        "unsafe_auto": 0,
+        "unsafe_auto_per_auto": 0.0,
+        "unsafe_auto_per_query": 0.0,
+        "wrong_auto": 0,
+        "wrong_auto_per_auto": 0.0,
+        "wrong_auto_per_query": 0.0
+      },
+      "query_missing_any": {
+        "contradictions": {
+          "blocked_auto_prevented": 0,
+          "blocked_wrong_auto_prevented": 0,
+          "hard_contradiction_no_match": 0,
+          "hard_contradiction_review": 0,
+          "top_hard_contradiction": 0
+        },
+        "empty_candidates": 0,
+        "false_no_match_corpus": 3,
+        "false_no_match_rate_corpus": 0.14285714285714285,
+        "false_no_match_rate_retrieved": 0.14285714285714285,
+        "false_no_match_retrieved": 3,
+        "intentional_no_match": {
+          "highest_top_scores": [
+            50,
+            50,
+            50
+          ],
+          "queries": 3,
+          "routes": {
+            "LIKELY_MATCH": 0,
+            "NEEDS_REVIEW": 3,
+            "NO_RELIABLE_MATCH": 0
+          }
+        },
+        "queries": 24,
+        "review_correct_top": 12,
+        "review_or_abstention_rate": 0.875,
+        "review_true_available": 15,
+        "review_wrong_top": 6,
+        "route_rates": {
+          "LIKELY_MATCH": 0.125,
+          "NEEDS_REVIEW": 0.75,
+          "NO_RELIABLE_MATCH": 0.125
+        },
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 18,
+          "NO_RELIABLE_MATCH": 3
+        },
+        "safe_auto": 3,
+        "true_in_corpus": 21,
+        "true_retrieved": 21,
+        "unsafe_auto": 0,
+        "unsafe_auto_per_auto": 0.0,
+        "unsafe_auto_per_query": 0.0,
+        "wrong_auto": 0,
+        "wrong_auto_per_auto": 0.0,
+        "wrong_auto_per_query": 0.0
+      },
+      "top_pair_missing_any": {
+        "contradictions": {
+          "blocked_auto_prevented": 0,
+          "blocked_wrong_auto_prevented": 0,
+          "hard_contradiction_no_match": 0,
+          "hard_contradiction_review": 0,
+          "top_hard_contradiction": 0
+        },
+        "empty_candidates": 0,
+        "false_no_match_corpus": 6,
+        "false_no_match_rate_corpus": 0.24,
+        "false_no_match_rate_retrieved": 0.24,
+        "false_no_match_retrieved": 6,
+        "intentional_no_match": {
+          "highest_top_scores": [
+            50,
+            50,
+            50
+          ],
+          "queries": 3,
+          "routes": {
+            "LIKELY_MATCH": 0,
+            "NEEDS_REVIEW": 3,
+            "NO_RELIABLE_MATCH": 0
+          }
+        },
+        "queries": 28,
+        "review_correct_top": 12,
+        "review_or_abstention_rate": 0.8928571428571429,
+        "review_true_available": 16,
+        "review_wrong_top": 7,
+        "route_rates": {
+          "LIKELY_MATCH": 0.10714285714285714,
+          "NEEDS_REVIEW": 0.6785714285714286,
+          "NO_RELIABLE_MATCH": 0.21428571428571427
+        },
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 19,
+          "NO_RELIABLE_MATCH": 6
+        },
+        "safe_auto": 3,
+        "true_in_corpus": 25,
+        "true_retrieved": 25,
+        "unsafe_auto": 0,
+        "unsafe_auto_per_auto": 0.0,
+        "unsafe_auto_per_query": 0.0,
+        "wrong_auto": 0,
+        "wrong_auto_per_auto": 0.0,
+        "wrong_auto_per_query": 0.0
+      }
+    },
+    "policy": {
+      "likely": 75,
+      "review": 45
+    },
+    "scenarios": {
+      "abbreviation": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "adversarial_notes": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ambiguous": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "conflicting_full_middle_name": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "contradictory_evidence": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 12,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 9,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 9,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "duplicated_provider_records": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "employer_change": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "exact_duplicate": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 68,
+        "review_correct_top": 2,
+        "review_wrong_top": 1,
+        "routes": {
+          "LIKELY_MATCH": 65,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 65,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "geography_change": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ii_iii": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "jr_sr": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "linked_hard_negative": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 65,
+        "review_correct_top": 2,
+        "review_wrong_top": 1,
+        "routes": {
+          "LIKELY_MATCH": 62,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 62,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "malformed": {
+        "false_no_match_corpus": 3,
+        "false_no_match_retrieved": 3,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 3
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "marriage_name_change": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "middle_initial": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "missing_fields": {
+        "false_no_match_corpus": 2,
+        "false_no_match_retrieved": 2,
+        "queries": 2,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 2
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "namesake": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 56,
+        "review_correct_top": 6,
+        "review_wrong_top": 6,
+        "routes": {
+          "LIKELY_MATCH": 44,
+          "NEEDS_REVIEW": 12,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 44,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "nickname": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "no_correct_candidate": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 3,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "shared_household_phone": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "stale_email": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "stale_phone": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 9,
+        "review_correct_top": 4,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 6,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "suffix_conflict": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 6,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 6,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "transliteration": {
+        "false_no_match_corpus": 1,
+        "false_no_match_retrieved": 1,
+        "queries": 3,
+        "review_correct_top": 1,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 1,
+          "NEEDS_REVIEW": 1,
+          "NO_RELIABLE_MATCH": 1
+        },
+        "safe_auto": 1,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    }
+  },
+  "frozen_numeric_challenger": {
+    "metrics": {
+      "contradictions": {
+        "blocked_auto_prevented": 0,
+        "blocked_wrong_auto_prevented": 0,
+        "hard_contradiction_no_match": 0,
+        "hard_contradiction_review": 0,
+        "top_hard_contradiction": 0
+      },
+      "empty_candidates": 0,
+      "false_no_match_corpus": 1,
+      "false_no_match_rate_corpus": 0.007874015748031496,
+      "false_no_match_rate_retrieved": 0.007874015748031496,
+      "false_no_match_retrieved": 1,
+      "intentional_no_match": {
+        "highest_top_scores": [
+          50,
+          50,
+          50
+        ],
+        "queries": 3,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        }
+      },
+      "queries": 130,
+      "review_correct_top": 18,
+      "review_or_abstention_rate": 0.23076923076923078,
+      "review_true_available": 26,
+      "review_wrong_top": 11,
+      "route_rates": {
+        "LIKELY_MATCH": 0.7692307692307693,
+        "NEEDS_REVIEW": 0.2230769230769231,
+        "NO_RELIABLE_MATCH": 0.007692307692307693
+      },
+      "routes": {
+        "LIKELY_MATCH": 100,
+        "NEEDS_REVIEW": 29,
+        "NO_RELIABLE_MATCH": 1
+      },
+      "safe_auto": 100,
+      "true_in_corpus": 127,
+      "true_retrieved": 127,
+      "unsafe_auto": 0,
+      "unsafe_auto_per_auto": 0.0,
+      "unsafe_auto_per_query": 0.0,
+      "wrong_auto": 0,
+      "wrong_auto_per_auto": 0.0,
+      "wrong_auto_per_query": 0.0
+    },
+    "missingness": {
+      "query_complete": {
+        "contradictions": {
+          "blocked_auto_prevented": 0,
+          "blocked_wrong_auto_prevented": 0,
+          "hard_contradiction_no_match": 0,
+          "hard_contradiction_review": 0,
+          "top_hard_contradiction": 0
+        },
+        "empty_candidates": 0,
+        "false_no_match_corpus": 0,
+        "false_no_match_rate_corpus": 0.0,
+        "false_no_match_rate_retrieved": 0.0,
+        "false_no_match_retrieved": 0,
+        "intentional_no_match": {
+          "highest_top_scores": [],
+          "queries": 0,
+          "routes": {
+            "LIKELY_MATCH": 0,
+            "NEEDS_REVIEW": 0,
+            "NO_RELIABLE_MATCH": 0
+          }
+        },
+        "queries": 106,
+        "review_correct_top": 4,
+        "review_or_abstention_rate": 0.08490566037735849,
+        "review_true_available": 9,
+        "review_wrong_top": 5,
+        "route_rates": {
+          "LIKELY_MATCH": 0.9150943396226415,
+          "NEEDS_REVIEW": 0.08490566037735849,
+          "NO_RELIABLE_MATCH": 0.0
+        },
+        "routes": {
+          "LIKELY_MATCH": 97,
+          "NEEDS_REVIEW": 9,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 97,
+        "true_in_corpus": 106,
+        "true_retrieved": 106,
+        "unsafe_auto": 0,
+        "unsafe_auto_per_auto": 0.0,
+        "unsafe_auto_per_query": 0.0,
+        "wrong_auto": 0,
+        "wrong_auto_per_auto": 0.0,
+        "wrong_auto_per_query": 0.0
+      },
+      "query_missing_any": {
+        "contradictions": {
+          "blocked_auto_prevented": 0,
+          "blocked_wrong_auto_prevented": 0,
+          "hard_contradiction_no_match": 0,
+          "hard_contradiction_review": 0,
+          "top_hard_contradiction": 0
+        },
+        "empty_candidates": 0,
+        "false_no_match_corpus": 1,
+        "false_no_match_rate_corpus": 0.047619047619047616,
+        "false_no_match_rate_retrieved": 0.047619047619047616,
+        "false_no_match_retrieved": 1,
+        "intentional_no_match": {
+          "highest_top_scores": [
+            50,
+            50,
+            50
+          ],
+          "queries": 3,
+          "routes": {
+            "LIKELY_MATCH": 0,
+            "NEEDS_REVIEW": 3,
+            "NO_RELIABLE_MATCH": 0
+          }
+        },
+        "queries": 24,
+        "review_correct_top": 14,
+        "review_or_abstention_rate": 0.875,
+        "review_true_available": 17,
+        "review_wrong_top": 6,
+        "route_rates": {
+          "LIKELY_MATCH": 0.125,
+          "NEEDS_REVIEW": 0.8333333333333334,
+          "NO_RELIABLE_MATCH": 0.041666666666666664
+        },
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 20,
+          "NO_RELIABLE_MATCH": 1
+        },
+        "safe_auto": 3,
+        "true_in_corpus": 21,
+        "true_retrieved": 21,
+        "unsafe_auto": 0,
+        "unsafe_auto_per_auto": 0.0,
+        "unsafe_auto_per_query": 0.0,
+        "wrong_auto": 0,
+        "wrong_auto_per_auto": 0.0,
+        "wrong_auto_per_query": 0.0
+      },
+      "top_pair_missing_any": {
+        "contradictions": {
+          "blocked_auto_prevented": 0,
+          "blocked_wrong_auto_prevented": 0,
+          "hard_contradiction_no_match": 0,
+          "hard_contradiction_review": 0,
+          "top_hard_contradiction": 0
+        },
+        "empty_candidates": 0,
+        "false_no_match_corpus": 1,
+        "false_no_match_rate_corpus": 0.04,
+        "false_no_match_rate_retrieved": 0.04,
+        "false_no_match_retrieved": 1,
+        "intentional_no_match": {
+          "highest_top_scores": [
+            50,
+            50,
+            50
+          ],
+          "queries": 3,
+          "routes": {
+            "LIKELY_MATCH": 0,
+            "NEEDS_REVIEW": 3,
+            "NO_RELIABLE_MATCH": 0
+          }
+        },
+        "queries": 28,
+        "review_correct_top": 14,
+        "review_or_abstention_rate": 0.8928571428571429,
+        "review_true_available": 21,
+        "review_wrong_top": 10,
+        "route_rates": {
+          "LIKELY_MATCH": 0.10714285714285714,
+          "NEEDS_REVIEW": 0.8571428571428571,
+          "NO_RELIABLE_MATCH": 0.03571428571428571
+        },
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 24,
+          "NO_RELIABLE_MATCH": 1
+        },
+        "safe_auto": 3,
+        "true_in_corpus": 25,
+        "true_retrieved": 25,
+        "unsafe_auto": 0,
+        "unsafe_auto_per_auto": 0.0,
+        "unsafe_auto_per_query": 0.0,
+        "wrong_auto": 0,
+        "wrong_auto_per_auto": 0.0,
+        "wrong_auto_per_query": 0.0
+      }
+    },
+    "policy": {
+      "likely": 70,
+      "review": 40
+    },
+    "scenarios": {
+      "abbreviation": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "adversarial_notes": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ambiguous": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "conflicting_full_middle_name": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "contradictory_evidence": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 12,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 9,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 9,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "duplicated_provider_records": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "employer_change": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "exact_duplicate": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 68,
+        "review_correct_top": 2,
+        "review_wrong_top": 1,
+        "routes": {
+          "LIKELY_MATCH": 65,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 65,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "geography_change": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 1,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "ii_iii": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "jr_sr": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "linked_hard_negative": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 65,
+        "review_correct_top": 2,
+        "review_wrong_top": 1,
+        "routes": {
+          "LIKELY_MATCH": 62,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 62,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "malformed": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 3,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "marriage_name_change": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "middle_initial": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "missing_fields": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 2,
+        "review_correct_top": 2,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 2,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "namesake": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 56,
+        "review_correct_top": 6,
+        "review_wrong_top": 6,
+        "routes": {
+          "LIKELY_MATCH": 44,
+          "NEEDS_REVIEW": 12,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 44,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "nickname": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "no_correct_candidate": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 3,
+        "routes": {
+          "LIKELY_MATCH": 0,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 0,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "shared_household_phone": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "stale_email": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 3,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 3,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "stale_phone": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 9,
+        "review_correct_top": 4,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 3,
+          "NEEDS_REVIEW": 6,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 3,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "suffix_conflict": {
+        "false_no_match_corpus": 0,
+        "false_no_match_retrieved": 0,
+        "queries": 6,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 6,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 0
+        },
+        "safe_auto": 6,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "transliteration": {
+        "false_no_match_corpus": 1,
+        "false_no_match_retrieved": 1,
+        "queries": 3,
+        "review_correct_top": 0,
+        "review_wrong_top": 0,
+        "routes": {
+          "LIKELY_MATCH": 2,
+          "NEEDS_REVIEW": 0,
+          "NO_RELIABLE_MATCH": 1
+        },
+        "safe_auto": 2,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    }
+  },
+  "gate_audit": {
+    "CONFLICTING_FULL_MIDDLE_NAME": {
+      "blocking_pairs": 12,
+      "high_score_pairs": 6,
+      "high_score_wrong_pairs": 6,
+      "isolated_likely": 0,
+      "isolated_review": 6,
+      "pairs": 12
+    },
+    "DIFFERING_EMPLOYER": {
+      "blocking_pairs": 0,
+      "high_score_pairs": 3,
+      "high_score_wrong_pairs": 0,
+      "isolated_likely": 3,
+      "isolated_review": 0,
+      "pairs": 26
+    },
+    "DIFFERING_GEOGRAPHY": {
+      "blocking_pairs": 0,
+      "high_score_pairs": 3,
+      "high_score_wrong_pairs": 0,
+      "isolated_likely": 3,
+      "isolated_review": 0,
+      "pairs": 25
+    },
+    "INCOMPATIBLE_NAME_SUFFIX": {
+      "blocking_pairs": 36,
+      "high_score_pairs": 18,
+      "high_score_wrong_pairs": 18,
+      "isolated_likely": 0,
+      "isolated_review": 18,
+      "pairs": 36
+    }
+  },
+  "policy_frozen_before_test": true,
+  "test_used_for_selection": false
+}
