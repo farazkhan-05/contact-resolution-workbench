@@ -221,6 +221,7 @@ def ingest_csv(
     file_content: str,
     workspace_id: str,
     resolution_service: ResolutionService | None = None,
+    commit: bool = True,
 ) -> CsvIngestResponse:
     """Validate, resolve, and persist records from uploaded CSV."""
     records = parse_and_validate_csv(file_content, db, workspace_id)
@@ -240,7 +241,8 @@ def ingest_csv(
                 source_type="csv_upload",
             )
             case_ids.append(new_case.id)
-        db.commit()
+        if commit:
+            db.commit()
     except Exception:
         db.rollback()
         raise

@@ -43,3 +43,50 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm run build
+
+  async-integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: workbench
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "0.9.18" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: uv sync --frozen
+      - run: uv run alembic upgrade head
+        env: { DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench }
+      - name: Run real broker and worker integration
+        env:
+          DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench
+          CELERY_BROKER_URL: redis://localhost:6379/0
+          RUN_ASYNC_INTEGRATION: "1"
+        run: |
+          uv run celery -A app.celery_app:celery_app worker --loglevel=warning > /tmp/celery-worker.log 2>&1 &
+          worker_pid=$!
+          cleanup() { kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if uv run celery -A app.celery_app:celery_app inspect ping --timeout=1 2>/dev/null | grep -q pong; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/celery-worker.log; exit 1; fi
+          uv run pytest tests/test_async_integration.py -q

@@ -2,19 +2,22 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.tasks as task_module
 from app.core.auth import FirebaseIdentity, get_firebase_identity
 from app.core.constants import WorkspaceRole
 from app.core.database import Base, get_db
 from app.main import app
 from app.models.case import Case
+from app.models.job import Job
 from app.models.workspace import User, Workspace, WorkspaceMembership
 from app.schemas.resolution import CaseQuery, RawCandidate
 from app.services.case_service import ingest_sample_cases
 from app.services.resolution_service import ResolutionService
+from app.tasks import ingest_csv_job
 
 # Isolated in-memory SQLite test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -264,7 +267,31 @@ def test_reviewer_decision_workflow() -> None:
     assert decision_events[0]["payload"]["decision"] == "REJECTED"
 
 
-def test_csv_ingestion_and_validation() -> None:
+def test_csv_ingestion_and_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    queued: list[str] = []
+    monkeypatch.setattr(task_module, "SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(
+        ingest_csv_job,
+        "delay",
+        lambda job_id, workspace_id: (
+            queued.append((job_id, workspace_id))
+            or type("AsyncResult", (), {"id": f"test-task-{job_id}"})()
+        ),
+    )
+
+    def process(response: object) -> Job:
+        job_id = response.json()["id"]  # type: ignore[attr-defined]
+        with TestingSessionLocal() as db:
+            job = db.get(Job, job_id)
+            assert job is not None
+            workspace_id = job.workspace_id
+        assert queued[-1] == (job_id, workspace_id)
+        ingest_csv_job.run(job_id, workspace_id)
+        with TestingSessionLocal() as db:
+            job = db.get(Job, job_id)
+            assert job is not None
+            return job
+
     # 19. Valid CSV upload succeeds
     valid_csv = """case_number,full_name,old_email,old_phone,employer,location
 CASE-CSV-01,Alice Springs,alice@springs.demo,+1 202-555-0101,Springs Co,Seattle WA
@@ -274,10 +301,15 @@ CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", valid_csv.encode("utf-8"), "text/csv")},
     )
-    assert res.status_code == 200
+    assert res.status_code == 202
     data = res.json()
-    assert data["ingested_count"] == 2
-    assert data["created_count"] == 2
+    assert data["status"] == "PENDING"
+    assert data["job_type"] == "CSV_INGEST"
+    valid_job = process(res)
+    assert valid_job.status == "SUCCEEDED"
+    assert valid_job.successful_rows == 2
+    cases_after_valid = client.get("/api/v1/cases").json()
+    assert {case["case_number"] for case in cases_after_valid} >= {"CASE-CSV-01", "CASE-CSV-02"}
 
     # 20. Missing required header fails
     missing_header_csv = """case_id,full_name\nCASE-99,John Doe"""
@@ -285,8 +317,10 @@ CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", missing_header_csv.encode("utf-8"), "text/csv")},
     )
-    assert res_m.status_code == 422
-    assert "missing required column: case_number" in res_m.json()["detail"]
+    assert res_m.status_code == 202
+    missing_header_job = process(res_m)
+    assert missing_header_job.failure_code == "INVALID_CSV"
+    assert "missing required column: case_number" in missing_header_job.failure_message
 
     # 21. Blank required row value fails with row number
     blank_name_csv = """case_number,full_name\nCASE-10,Valid Name\nCASE-11,  """
@@ -294,8 +328,10 @@ CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", blank_name_csv.encode("utf-8"), "text/csv")},
     )
-    assert res_b.status_code == 422
-    assert "Row 3: full_name is required" in res_b.json()["detail"]
+    assert res_b.status_code == 202
+    blank_row_job = process(res_b)
+    assert blank_row_job.failure_code == "INVALID_CSV"
+    assert "Row 3: full_name is required" in blank_row_job.failure_message
 
     # 22. Duplicate case_number within file fails
     dup_file_csv = """case_number,full_name\nCASE-20,Person One\nCASE-20,Person Two"""
@@ -303,8 +339,10 @@ CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", dup_file_csv.encode("utf-8"), "text/csv")},
     )
-    assert res_dup.status_code == 422
-    assert "duplicate case_number 'CASE-20'" in res_dup.json()["detail"]
+    assert res_dup.status_code == 202
+    duplicate_job = process(res_dup)
+    assert duplicate_job.failure_code == "INVALID_CSV"
+    assert duplicate_job.failure_message == "CSV contains duplicate case numbers."
 
     # 23. Existing database case_number fails
     existing_db_csv = """case_number,full_name\nCASE-CSV-01,Duplicate In DB"""
@@ -312,16 +350,21 @@ CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", existing_db_csv.encode("utf-8"), "text/csv")},
     )
-    assert res_db.status_code == 422
-    assert "case_number 'CASE-CSV-01' already exists in database" in res_db.json()["detail"]
+    assert res_db.status_code == 202
+    existing_job = process(res_db)
+    assert existing_job.failure_code == "INVALID_CSV"
+    assert existing_job.failure_message == (
+        "A case number in this CSV already exists in this workspace."
+    )
 
     # 24. Invalid batch persists zero rows
     before_count = len(client.get("/api/v1/cases").json())
     fail_batch = """case_number,full_name\nCASE-NEW-1,Valid One\nCASE-NEW-2,"""
-    client.post(
+    fail_response = client.post(
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", fail_batch.encode("utf-8"), "text/csv")},
     )
+    assert process(fail_response).status == "FAILED"
     after_count = len(client.get("/api/v1/cases").json())
     assert before_count == after_count
 
@@ -331,8 +374,13 @@ CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
         "/api/v1/ingest/csv",
         files={"file": ("test.csv", solo_csv.encode("utf-8"), "text/csv")},
     )
-    assert solo_res.status_code == 200
-    solo_case_id = solo_res.json()["case_ids"][0]
+    assert solo_res.status_code == 202
+    solo_job = process(solo_res)
+    assert solo_job.status == "SUCCEEDED"
+    with TestingSessionLocal() as db:
+        solo_case = db.scalar(select(Case).where(Case.case_number == "CASE-SOLO-1"))
+        assert solo_case is not None
+        solo_case_id = solo_case.id
     solo_detail = client.get(f"/api/v1/cases/{solo_case_id}").json()
     assert solo_detail["routing_status"] == "NO_RELIABLE_MATCH"
     assert len(solo_detail["candidates"]) == 0
@@ -410,13 +458,9 @@ def test_csv_ingestion_utf8_bom() -> None:
         "/api/v1/ingest/csv",
         files={"file": ("test_bom.csv", bom_csv.encode("utf-8"), "text/csv")},
     )
-    assert res.status_code == 200
+    assert res.status_code == 202
     data = res.json()
-    assert data["ingested_count"] == 1
-    case_id = data["case_ids"][0]
-    detail = client.get(f"/api/v1/cases/{case_id}").json()
-    assert detail["case_number"] == "CASE-BOM-01"
-    assert detail["raw_name"] == "BOM Tester"
+    assert data["job_type"] == "CSV_INGEST"
 
 
 def test_csv_export_formula_injection_sanitization() -> None:

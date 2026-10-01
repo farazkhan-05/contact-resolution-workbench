@@ -111,10 +111,21 @@ export interface SampleIngestResponse {
   case_ids: string[];
 }
 
-export interface CsvIngestResponse {
-  ingested_count: number;
-  created_count: number;
-  case_ids: string[];
+export interface Job {
+  id: string;
+  workspace_id: string;
+  job_type: string;
+  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+  total_rows: number | null;
+  processed_rows: number;
+  successful_rows: number;
+  rejected_rows: number;
+  source_label: string | null;
+  failure_code: string | null;
+  failure_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 export interface DecisionPayload {

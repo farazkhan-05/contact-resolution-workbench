@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     GEMINI_TIMEOUT_SECONDS: float = 10.0
     FIREBASE_SERVICE_ACCOUNT_JSON: str | None = None
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

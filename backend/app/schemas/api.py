@@ -20,9 +20,29 @@ class CsvIngestResponse(BaseModel):
     case_ids: list[str]
 
 
+class JobResponse(BaseModel):
+    id: str
+    workspace_id: str
+    job_type: str
+    status: str
+    total_rows: int | None = None
+    processed_rows: int
+    successful_rows: int
+    rejected_rows: int
+    source_label: str | None = None
+    failure_code: str | None = None
+    failure_message: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class UnstructuredEvidenceIngestRequest(BaseModel):
     raw_evidence_text: str = Field(
-        ..., min_length=5, description="Messy unstructured provider evidence text"
+        ...,
+        min_length=5,
+        max_length=10_000,
+        description="Messy unstructured provider evidence text",
     )
     source_identifier: str | None = Field(default=None, description="Optional source reference ID")
     case_number: str | None = Field(default=None, description="Optional case number override")

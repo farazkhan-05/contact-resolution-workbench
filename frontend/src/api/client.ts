@@ -1,4 +1,4 @@
-import type { CaseDetail, CaseSummary, CsvIngestResponse, DecisionPayload, ReviewDecision, RoutingStatus, SampleIngestResponse, UnstructuredIngestRequest, UnstructuredIngestResponse } from '../types';
+import type { CaseDetail, CaseSummary, DecisionPayload, Job, ReviewDecision, RoutingStatus, SampleIngestResponse, UnstructuredIngestRequest } from '../types';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 export interface WorkspaceSummary { id: string; name: string; role: string; }
@@ -41,7 +41,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 export const api = {
   async bootstrap(): Promise<AuthBootstrapResponse> { return handleResponse(await request('/api/v1/auth/bootstrap', { method: 'POST' }, false)); },
   async ingestSample(): Promise<SampleIngestResponse> { return handleResponse(await request('/api/v1/ingest/sample', { method: 'POST' })); },
-  async ingestCsv(file: File): Promise<CsvIngestResponse> { const body = new FormData(); body.append('file', file); return handleResponse(await request('/api/v1/ingest/csv', { method: 'POST', body })); },
+  async ingestCsv(file: File): Promise<Job> { const body = new FormData(); body.append('file', file); return handleResponse(await request('/api/v1/ingest/csv', { method: 'POST', body })); },
+  async getJob(jobId: string): Promise<Job> { return handleResponse(await request(`/api/v1/jobs/${jobId}`, { method: 'GET' })); },
   async getCases(params?: { routing_status?: RoutingStatus; review_decision?: ReviewDecision; search?: string }): Promise<CaseSummary[]> {
     const query = new URLSearchParams();
     if (params?.routing_status) query.set('routing_status', params.routing_status);
@@ -52,5 +53,5 @@ export const api = {
   async getCase(caseId: string): Promise<CaseDetail> { return handleResponse(await request(`/api/v1/cases/${caseId}`, { method: 'GET' })); },
   async submitDecision(caseId: string, payload: DecisionPayload): Promise<CaseDetail> { return handleResponse(await request(`/api/v1/cases/${caseId}/decision`, { method: 'POST', body: JSON.stringify(payload) })); },
   async exportReviewedCsv(): Promise<Blob> { const res = await request('/api/v1/export/csv', { method: 'GET' }); if (!res.ok) throw new ApiError(res.status, 'Failed to download export CSV'); return res.blob(); },
-  async ingestUnstructured(payload: UnstructuredIngestRequest): Promise<UnstructuredIngestResponse> { return handleResponse(await request('/api/v1/ingest/unstructured', { method: 'POST', body: JSON.stringify(payload) })); },
+  async ingestUnstructured(payload: UnstructuredIngestRequest): Promise<Job> { return handleResponse(await request('/api/v1/ingest/unstructured', { method: 'POST', body: JSON.stringify(payload) })); },
 };

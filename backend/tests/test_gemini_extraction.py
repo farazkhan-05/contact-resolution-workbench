@@ -2,14 +2,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.auth import FirebaseIdentity, get_firebase_identity
 from app.core.constants import RoutingStatus
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.case import Case
 from app.models.workspace import User, Workspace, WorkspaceMembership
 from app.schemas.resolution import CaseQuery, ExtractedCandidateProfile, RawCandidate
 from app.services.contradiction import evaluate_contradictions
@@ -270,7 +271,7 @@ def test_extracted_candidate_scored_by_deterministic_matcher() -> None:
 # 6. Unstructured Ingestion API Endpoint Workflow
 # ==============================================================================
 def test_unstructured_ingest_api_endpoint(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     mock_client = MagicMock()
     mock_response = MagicMock()
@@ -295,16 +296,30 @@ def test_unstructured_ingest_api_endpoint(
         "source_identifier": "MEMO-2025-01",
     }
 
-    res = client.post("/api/v1/ingest/unstructured", json=payload)
-    assert res.status_code == 200
-    data = res.json()
-    assert data["extracted_profile"]["name"] == "David Mitchell"
-    assert data["extracted_profile"]["employer"] == "Crestview Logistics"
-    assert data["routing_status"] == "LIKELY_MATCH"
-    assert data["top_score"] == 75 or data["top_score"] > 50
+    import app.tasks as task_module
+    from app.models.job import Job
+    from app.tasks import ingest_unstructured_job
 
-    # Detail view verification
-    case_id = data["case_id"]
+    monkeypatch.setattr(
+        ingest_unstructured_job,
+        "delay",
+        lambda *args: type("Result", (), {"id": "test"})(),
+    )
+    monkeypatch.setattr(
+        task_module,
+        "SessionLocal",
+        sessionmaker(bind=db_session.get_bind(), expire_on_commit=False),
+    )
+    res = client.post("/api/v1/ingest/unstructured", json=payload)
+    assert res.status_code == 202
+    data = res.json()
+    assert data["status"] == "PENDING"
+    ingest_unstructured_job.run(data["id"], data["workspace_id"])
+    with sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)() as db:
+        job = db.get(Job, data["id"])
+        assert job is not None and job.status == "SUCCEEDED"
+        # Deterministic resolution populated the workspace case after extraction.
+        case_id = db.scalar(select(Case.id).where(Case.raw_name == "David Mitchell"))
     detail_res = client.get(f"/api/v1/cases/{case_id}")
     assert detail_res.status_code == 200
     case_data = detail_res.json()

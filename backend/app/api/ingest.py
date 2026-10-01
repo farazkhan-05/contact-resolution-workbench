@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -5,17 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import WorkspaceContext, get_workspace_context
 from app.core.database import get_db
+from app.models.job import Job
 from app.schemas.api import (
-    CsvIngestResponse,
+    JobResponse,
     SampleIngestResponse,
     UnstructuredEvidenceIngestRequest,
-    UnstructuredIngestResponse,
 )
-from app.schemas.resolution import CaseQuery
-from app.services.case_service import ingest_csv, ingest_sample_cases, persist_case_resolution
-from app.services.csv_importer import CsvValidationError
-from app.services.extractor import GeminiExtractionError, GeminiExtractor
-from app.services.resolution_service import ProviderError, ResolutionService
+from app.services.case_service import ingest_sample_cases
+from app.services.resolution_service import ProviderError
+from app.tasks import ingest_csv_job, ingest_unstructured_job
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -34,93 +33,83 @@ def ingest_sample(
         ) from e
 
 
-@router.post("/csv", response_model=CsvIngestResponse)
+@router.post("/csv", response_model=JobResponse, status_code=202)
 def upload_csv(
     file: UploadFile = File(...),
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
-) -> CsvIngestResponse:
-    """Upload and validate synthetic profile CSV batch."""
+) -> JobResponse:
+    """Persist a bounded CSV payload and enqueue durable background ingestion."""
     try:
-        content = file.file.read().decode("utf-8-sig")
+        uploaded_bytes = file.file.read(256_001)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to read uploaded file: {e}") from e
+    if len(uploaded_bytes) > 256_000:
+        raise HTTPException(
+            status_code=413, detail="CSV exceeds the 256 KB asynchronous upload limit."
+        )
+    try:
+        content = uploaded_bytes.decode("utf-8-sig")
     except UnicodeDecodeError as e:
         raise HTTPException(
             status_code=422,
             detail=f"Could not read uploaded file as UTF-8 text: {e}",
         ) from e
-    except Exception as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Failed to read uploaded file: {e}",
-        ) from e
 
+    # Structural validation happens in the worker so deterministic failures are inspectable Jobs.
+    job = Job(
+        workspace_id=context.workspace.id,
+        job_type="CSV_INGEST",
+        status="PENDING",
+        source_label=file.filename or "upload.csv",
+        payload=content,
+    )
+    db.add(job)
+    db.commit()
     try:
-        return ingest_csv(db, content, context.workspace.id)
-    except CsvValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    except ProviderError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Candidate evidence could not be retrieved. {e}",
-        ) from e
+        async_result = ingest_csv_job.delay(job.id, context.workspace.id)
+        job.celery_task_id = async_result.id
+        db.commit()
+    except Exception:
+        job.status = "FAILED"
+        job.failure_code = "BROKER_UNAVAILABLE"
+        job.failure_message = "The ingestion queue is unavailable. Please try again later."
+        job.completed_at = datetime.now(UTC)
+        db.commit()
+    return JobResponse.model_validate(job, from_attributes=True)
 
 
-@router.post("/unstructured", response_model=UnstructuredIngestResponse)
+@router.post("/unstructured", response_model=JobResponse, status_code=202)
 def ingest_unstructured(
     request: UnstructuredEvidenceIngestRequest,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
-) -> UnstructuredIngestResponse:
-    """Extract structured fields from messy provider evidence via Gemini and resolve."""
-    extractor = GeminiExtractor()
-    try:
-        extracted = extractor.extract_from_unstructured_text(request.raw_evidence_text)
-    except GeminiExtractionError as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Unstructured evidence extraction failed: {e}",
-        ) from e
-
-    if not extracted.name or not extracted.name.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Extraction failed to identify a valid person name from the provided evidence.",
-        )
-
-    query = CaseQuery(
-        name=extracted.name.strip(),
-        email=extracted.email.strip() if extracted.email else None,
-        phone=extracted.phone.strip() if extracted.phone else None,
-        employer=extracted.employer.strip() if extracted.employer else None,
-        location=extracted.location.strip() if extracted.location else None,
-    )
-
-    resolver = ResolutionService()
-    try:
-        resolution = resolver.resolve(query)
-    except ProviderError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Candidate evidence could not be retrieved. {e}",
-        ) from e
-
+) -> JobResponse:
+    """Queue bounded Gemini evidence extraction; worker receives only the Job ID."""
     case_number = request.case_number or f"CASE-AI-{int(datetime.now(UTC).timestamp())}"
-    case = persist_case_resolution(
-        db=db,
+    job = Job(
         workspace_id=context.workspace.id,
-        case_number=case_number,
-        source_identifier=request.source_identifier or "UNSTRUCTURED_EVIDENCE_GEMINI",
-        query=query,
-        resolution=resolution,
-        source_type="gemini_unstructured_ingest",
+        job_type="GEMINI_UNSTRUCTURED_INGEST",
+        status="PENDING",
+        source_label=request.source_identifier,
+        payload=json.dumps(
+            {
+                "raw_evidence_text": request.raw_evidence_text,
+                "source_identifier": request.source_identifier,
+                "case_number": case_number,
+            }
+        ),
     )
+    db.add(job)
     db.commit()
-
-    return UnstructuredIngestResponse(
-        case_id=case.id,
-        case_number=case.case_number,
-        extracted_profile=extracted,
-        routing_status=resolution.routing_status,
-        top_score=resolution.top_score,
-        candidate_count=len(resolution.candidates),
-    )
+    try:
+        result = ingest_unstructured_job.delay(job.id, context.workspace.id)
+        job.celery_task_id = result.id
+        db.commit()
+    except Exception:
+        job.status = "FAILED"
+        job.failure_code = "BROKER_UNAVAILABLE"
+        job.failure_message = "The ingestion queue is unavailable. Please try again later."
+        job.completed_at = datetime.now(UTC)
+        db.commit()
+    return JobResponse.model_validate(job, from_attributes=True)

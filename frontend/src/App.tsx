@@ -40,6 +40,22 @@ export function App() {
 
   const hasTrackedAppOpen = useRef(false);
   const lastViewedCaseRef = useRef<string | null>(null);
+  const jobPollTimers = useRef(new Set<number>());
+  const pollingSessionActive = useRef(status === 'ready');
+
+  const clearJobPollTimers = () => {
+    jobPollTimers.current.forEach((timer) => window.clearTimeout(timer));
+    jobPollTimers.current.clear();
+  };
+
+  useEffect(() => () => clearJobPollTimers(), []);
+
+  useEffect(() => {
+    pollingSessionActive.current = status === 'ready';
+    if (!pollingSessionActive.current) {
+      clearJobPollTimers();
+    }
+  }, [status]);
 
   // Track initial app open once per browser session load
   useEffect(() => {
@@ -147,11 +163,27 @@ export function App() {
     try {
       const res = await api.ingestCsv(file);
       recordUsageEvent('CSV_UPLOADED');
-      setFeedback({
-        type: 'success',
-        message: `Successfully ingested CSV batch: ${res.ingested_count} cases created.`,
-      });
-      await fetchCases(res.case_ids[0]);
+      setFeedback({ type: 'info', message: 'CSV ingestion queued.' });
+      const poll = async (): Promise<void> => {
+        try {
+          const job = await api.getJob(res.id);
+          if (!pollingSessionActive.current) return;
+          if (job.status === 'SUCCEEDED') {
+            setFeedback({ type: 'success', message: `CSV ingestion completed: ${job.successful_rows} cases created.` });
+            await fetchCases();
+          } else if (job.status === 'FAILED') {
+            setFeedback({ type: 'error', message: job.failure_message || 'CSV ingestion failed.' });
+          } else {
+            setFeedback({ type: 'info', message: `CSV ingestion ${job.status.toLowerCase()}: ${job.processed_rows}/${job.total_rows ?? '?'} rows.` });
+            const timer = window.setTimeout(() => {
+              jobPollTimers.current.delete(timer);
+              void poll();
+            }, 1500);
+            jobPollTimers.current.add(timer);
+          }
+        } catch { setFeedback({ type: 'error', message: 'Could not check CSV ingestion status.' }); }
+      };
+      void poll();
     } catch (err) {
       const msg = err instanceof ApiError ? err.detail : 'Failed to process uploaded CSV.';
       setFeedback({ type: 'error', message: msg });
@@ -214,13 +246,19 @@ export function App() {
   };
 
 
-  const handleCaseCreatedFromAi = async (caseId: string) => {
-    await fetchCases(caseId);
-    setSelectedCaseId(caseId);
-    setMobileView('detail');
+  const handleCaseCreatedFromAi = async (caseNumber: string) => {
+    const refreshed = await api.getCases();
+    setCases(refreshed);
+    const created = refreshed.find((item) => item.case_number === caseNumber);
+    if (created) {
+      setSelectedCaseId(created.id);
+      setMobileView('detail');
+    }
     setFeedback({
       type: 'success',
-      message: 'AI extraction completed and case loaded into resolution workbench.',
+      message: created
+        ? 'AI extraction completed and case loaded into resolution workbench.'
+        : 'AI extraction completed. The case queue was refreshed.',
     });
   };
 

@@ -1,0 +1,28 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: workbench
+      POSTGRES_USER: workbench
+      POSTGRES_PASSWORD: workbench
+    ports: ["5432:5432"]
+  api:
+    image: contact-resolution-workbench-backend:local
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://workbench:workbench@postgres:5432/workbench
+      CELERY_BROKER_URL: redis://redis:6379/0
+    ports: ["8000:8000"]
+    depends_on: [redis, postgres]
+  worker:
+    image: contact-resolution-workbench-backend:local
+    command: celery -A app.celery_app:celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://workbench:workbench@postgres:5432/workbench
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on: [redis, postgres]
+    healthcheck:
+      disable: true

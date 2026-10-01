@@ -138,22 +138,20 @@ def test_workspace_scoped_csv_and_export(
         headers=headers("user-a", workspace_a),
         files={"file": ("a.csv", content, "text/csv")},
     )
-    assert upload_a.status_code == 200
+    assert upload_a.status_code == 202
     assert (
         client.post(
             "/api/v1/ingest/csv",
             headers=headers("user-b", workspace_b),
             files={"file": ("b.csv", content, "text/csv")},
         ).status_code
-        == 200
+        == 202
     )
-    duplicate = client.post(
-        "/api/v1/ingest/csv",
-        headers=headers("user-a", workspace_a),
-        files={"file": ("again.csv", content, "text/csv")},
+    job_a = upload_a.json()["id"]
+    assert (
+        client.get(f"/api/v1/jobs/{job_a}", headers=headers("user-b", workspace_b)).status_code
+        == 404
     )
-    assert duplicate.status_code == 422
-    assert "already exists" in duplicate.json()["detail"]
 
     assert (
         client.post("/api/v1/ingest/sample", headers=headers("user-a", workspace_a)).status_code

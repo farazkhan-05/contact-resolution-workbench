@@ -1,22 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
-  ArrowRight,
-  Bot,
-  CheckCircle2,
   Info,
   Loader2,
-  RotateCcw,
   Sparkles,
   X,
 } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
-import type { UnstructuredIngestResponse } from '../../types';
+import type { Job } from '../../types';
 
 interface AiExtractionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCaseCreated: (caseId: string) => Promise<void>;
+  onCaseCreated: (caseNumber: string) => Promise<void>;
 }
 
 const DEFAULT_SYNTHETIC_EVIDENCE =
@@ -30,7 +26,18 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
   const [evidenceText, setEvidenceText] = useState(DEFAULT_SYNTHETIC_EVIDENCE);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<UnstructuredIngestResponse | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
+  const [caseNumber, setCaseNumber] = useState<string | null>(null);
+  const timer = useRef<number | null>(null);
+  const active = useRef(true);
+
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      if (timer.current !== null) window.clearTimeout(timer.current);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -46,12 +53,30 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
         : `AI-DEMO-${Math.random().toString(36).substring(2, 10)}`;
 
     try {
-      const response = await api.ingestUnstructured({
+      const createdCaseNumber = uniqueDemoCaseNumber;
+      const submitted = await api.ingestUnstructured({
         case_number: uniqueDemoCaseNumber,
         raw_evidence_text: evidenceText.trim(),
         source_identifier: 'GEMINI_EXTRACTION_DEMO',
       });
-      setResult(response);
+      setCaseNumber(createdCaseNumber);
+      setJob(submitted);
+      const poll = async (): Promise<void> => {
+        try {
+          const current = await api.getJob(submitted.id);
+          if (!active.current) return;
+          setJob(current);
+          if (current.status === 'SUCCEEDED') {
+            await onCaseCreated(createdCaseNumber);
+            onClose();
+          } else if (current.status !== 'FAILED') {
+            timer.current = window.setTimeout(() => void poll(), 1800);
+          }
+        } catch {
+          if (active.current) setError('Could not check extraction status. The Job remains available in this workspace.');
+        }
+      };
+      timer.current = window.setTimeout(() => void poll(), 1000);
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -60,44 +85,6 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
       setError(message);
     } finally {
       setIsExtracting(false);
-    }
-  };
-
-  const handleOpenCase = async () => {
-    if (result) {
-      const caseIdToOpen = result.case_id;
-      onClose();
-      await onCaseCreated(caseIdToOpen);
-    }
-  };
-
-  const handleResetForm = () => {
-    setResult(null);
-    setError(null);
-    setEvidenceText(DEFAULT_SYNTHETIC_EVIDENCE);
-  };
-
-  const getRoutingBadgeClass = (status: string) => {
-    switch (status) {
-      case 'LIKELY_MATCH':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
-      case 'NEEDS_REVIEW':
-        return 'bg-amber-50 text-amber-800 border-amber-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  };
-
-  const getRoutingLabel = (status: string) => {
-    switch (status) {
-      case 'LIKELY_MATCH':
-        return 'Likely Match';
-      case 'NEEDS_REVIEW':
-        return 'Needs Review';
-      case 'NO_RELIABLE_MATCH':
-        return 'No Match';
-      default:
-        return status;
     }
   };
 
@@ -135,7 +122,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-          {!result ? (
+            {!job ? (
             <>
               <p className="text-xs text-foreground leading-relaxed">
                 Paste a messy synthetic provider note. Gemini extracts structured contact
@@ -164,7 +151,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
                   rows={4}
                   value={evidenceText}
                   onChange={(e) => setEvidenceText(e.target.value)}
-                  disabled={isExtracting}
+                  disabled={isExtracting || job !== null}
                   placeholder="Paste unstructured synthetic notes, call transcripts, or directory snippets..."
                   className="w-full rounded border border-border bg-background p-3 text-xs text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-60"
                 />
@@ -184,129 +171,23 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
                 >
                   <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold">Extraction Failed</p>
+                    <p className="font-semibold">Status check failed</p>
                     <p className="mt-0.5 text-[11px] text-rose-800">{error}</p>
                   </div>
                 </div>
               )}
             </>
-          ) : (
-            /* Success State */
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded p-2.5">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                <span>AI Extraction Complete ({result.case_number})</span>
-              </div>
-
-              {/* Extracted Fields Matrix */}
-              <div className="rounded border border-border bg-surface p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-foreground">
-                    <Bot className="h-3.5 w-3.5 text-accent" />
-                    <span>Gemini Structured Output</span>
-                  </div>
-                  <span className="text-[10px] text-muted font-mono">Pydantic Validated</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded bg-surface-muted/50 p-2 border border-border/50">
-                    <span className="text-[10px] font-medium text-muted block">Name</span>
-                    <span className="font-semibold text-foreground">
-                      {result.extracted_profile.name || (
-                        <span className="text-muted italic">Null</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="rounded bg-surface-muted/50 p-2 border border-border/50">
-                    <span className="text-[10px] font-medium text-muted block">Email</span>
-                    <span className="text-foreground">
-                      {result.extracted_profile.email || (
-                        <span className="text-muted italic">Null</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="rounded bg-surface-muted/50 p-2 border border-border/50">
-                    <span className="text-[10px] font-medium text-muted block">Phone</span>
-                    <span className="text-foreground">
-                      {result.extracted_profile.phone || (
-                        <span className="text-muted italic">Null</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="rounded bg-surface-muted/50 p-2 border border-border/50">
-                    <span className="text-[10px] font-medium text-muted block">Employer</span>
-                    <span className="text-foreground">
-                      {result.extracted_profile.employer || (
-                        <span className="text-muted italic">Null</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="rounded bg-surface-muted/50 p-2 border border-border/50">
-                    <span className="text-[10px] font-medium text-muted block">Job Title</span>
-                    <span className="text-foreground">
-                      {result.extracted_profile.job_title || (
-                        <span className="text-muted italic">Null</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="rounded bg-surface-muted/50 p-2 border border-border/50">
-                    <span className="text-[10px] font-medium text-muted block">Location</span>
-                    <span className="text-foreground">
-                      {result.extracted_profile.location || (
-                        <span className="text-muted italic">Null</span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Deterministic Evaluation Output */}
-              <div className="flex items-center justify-between rounded border border-border bg-surface-muted p-3">
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted block">
-                    Evidence Score
-                  </span>
-                  <span className="font-mono text-sm font-bold text-foreground">
-                    {result.top_score} <span className="text-xs font-normal text-muted">/ 100</span>
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted block">
-                    Routing Status
-                  </span>
-                  <span
-                    className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${getRoutingBadgeClass(
-                      result.routing_status
-                    )}`}
-                  >
-                    {getRoutingLabel(result.routing_status)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted block">
-                    Candidates
-                  </span>
-                  <span className="text-xs font-semibold text-foreground">
-                    {result.candidate_count} evaluated
-                  </span>
-                </div>
-              </div>
-
-              {/* Explicit Distinction Note */}
-              <div className="rounded border border-border bg-surface px-3 py-2 text-[11px] text-muted">
-                <p>
-                  <strong className="text-foreground">Architecture distinction:</strong> Gemini
-                  extracted the structured evidence. The evidence score and routing were calculated
-                  by deterministic matching rules.
-                </p>
-              </div>
+          ) : job ? (
+            <div className={`flex items-start space-x-2 rounded border p-3 text-xs ${job.status === 'FAILED' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-blue-200 bg-blue-50 text-blue-900'}`} role="status">
+              {job.status === 'FAILED' ? <AlertCircle className="h-4 w-4 shrink-0" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
+              <div><p className="font-semibold">Gemini ingestion {job.status.toLowerCase()}</p><p className="mt-0.5 text-[11px]">{job.failure_message || (caseNumber ? `Case ${caseNumber}` : 'Processing structured evidence and deterministic resolution.')}</p></div>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Modal Footer Actions */}
         <div className="flex items-center justify-between border-t border-border bg-surface-muted/40 px-5 py-3">
-          {!result ? (
+          {!job ? (
             <>
               <button
                 type="button"
@@ -337,22 +218,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={handleResetForm}
-                className="inline-flex items-center space-x-1 rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted hover:text-foreground"
-              >
-                <RotateCcw className="h-3 w-3" />
-                <span>Extract Another</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenCase}
-                className="inline-flex items-center space-x-1.5 rounded bg-accent px-4 py-1.5 text-xs font-medium text-accent-contrast shadow-sm hover:opacity-90"
-              >
-                <span>Open Case in Workbench</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+              <button type="button" onClick={onClose} className="rounded border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">Close</button>
             </>
           )}
         </div>
