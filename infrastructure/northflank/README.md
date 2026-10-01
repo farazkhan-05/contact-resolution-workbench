@@ -1,17 +1,47 @@
 # Northflank staging (Milestone E2)
 
-**Status, 2026-10-01: locally validated preparation; deployment pending.**
-No Northflank resources have been created. Account-visible costs, migration,
-HTTPS health, worker readiness and cloud smoke results are **not verified**.
+**Status, 2026-10-02: partial staging provisioning; deployment not accepted.**
+Northflank authentication and Neon authentication succeeded through their official
+CLIs. The user verified Developer Sandbox ($0.00/mo), starting usage $0.00 and an
+active payment method in the dashboard. The $50 billing limit is not free credit.
+No account upgrade was requested. The billing usage API returned an empty usage
+list after provisioning; this is not an independent settled-cost statement.
+
+Northflank project `crw-staging` exists in `europe-west`. Singapore was rejected
+with `Region does not support free projects`; Europe West accepted the Sandbox
+project. One private Redis addon is running: Redis 7.2.16, `nf-compute-10`, one
+replica, 4096 MB mandatory managed-addon storage, no public/VPC access and no TLS.
+No API service, worker, migration Job or runtime secret group exists yet.
+
+The first template run (`133157e9-d62d-4a58-be66-62c15c047b85`) created Redis,
+then failed with `nfObject not found`: secret restrictions referenced workloads
+not yet created. The template now uses project-wide secrets in the dedicated
+staging project, whose only intended workloads are API, worker and migration.
+The corrected template passed the official native schema locally. Its rerun
+(`643f1df7-fa32-4775-a52b-21a2d42fb562`) failed at Redis creation with
+`Maximum number of free addons exceeded`. Provisioning stopped at that explicit
+Sandbox limit. Do not blindly rerun creation mode or create a second addon;
+review native reuse of the retained addon before resuming. The correction has
+not yet been exercised through secret-group creation in the account.
+
+Neon organization reports `free`. Workbench project `proud-poetry-67237670` now
+has an isolated schema-only branch `productization-staging`
+(`br-lingering-king-b3d5wl98`), endpoint `ep-spring-recipe-b3uhsv9x`, fixed 0.25 CU,
+and a new empty database `workbench_staging` owned by `neondb_owner`. Free-account
+defaults were retained after an explicit suspend-interval override was rejected.
+Production branch `br-delicate-flower-b37n5n0u` remains the unchanged default.
+No migration was run against either database.
+
+Firebase Admin credentials were verified locally for `contact-resolution-staging`
+and supplied only to Northflank's secure template argument overrides, alongside
+the staging database URL. Native template ID is `crw-staging`; autorun is disabled.
+No credential contents, connection strings or tokens were written to Git.
+Migration, HTTPS health, worker readiness and all cloud smoke tests remain unrun.
 E1 was pushed to `origin/productization/v1` at
 `1378f7ed76f0910ae509c7820d62db26790906dd`. E2 must remain unpushed.
 
-The blocker is external authentication: neither a Northflank API token/official
-CLI context nor Neon API credentials/official CLI credentials were available.
-Neither CLI was installed. No Firebase Admin credential was available in the
-process environment or a backend `.env`. Sandbox activation/payment-method
-status cannot be inspected without account access. Do not enter payment details
-or select pay-as-you-go on the user's behalf.
+The remaining blocker is the explicit addon-quota rejection on template rerun,
+not authentication or payment setup. No paid resource or upgrade may resolve it.
 
 ## Architecture and allocation
 
@@ -31,11 +61,11 @@ The migration Job uses that build too. The source SHA is pinned to pushed E1
 in the Build node and both internal image selectors. Update all three selectors
 together when intentionally changing the application version.
 
-The sequential workflow creates private Redis and a restricted runtime secret
+The sequential workflow creates private Redis and a project-wide runtime secret
 group, creates the API at **zero replicas**, builds E1, runs the migration Job
 and waits for success, enables one API replica, then creates one worker replica.
 CI builds are disabled; migrations do not run at application startup. Creation
-mode preserves the existing API/Redis on later template runs. This workflow is
+mode can attempt to create Redis again and hit the Sandbox addon limit. This workflow is
 for initial staging acceptance; review subsequent release changes explicitly.
 The service conditions establish platform running state; the smoke establishes
 broker/task readiness. No worker HTTP endpoint or HTTP health check is added.
@@ -45,7 +75,8 @@ Developer Sandbox allocations of two services, two jobs and one addon. This
 template needs **two services, one job, one Redis addon**, plus one secret group.
 Northflank [requires a payment method and excludes production use of this tier](https://northflank.com/docs/v1/application/billing/pricing-on-northflank).
 These published allowances do not establish eligibility or remaining capacity
-for this account. No resource plan has actually been selected or used. Availability
+for this account. The deployed Redis uses `nf-compute-10`; other workloads have
+not been provisioned. Availability
 can change; no financial SLA or permanent free hosting is promised.
 
 Redis **7.2.16** is listed by the [official Redis guide](https://northflank.com/docs/v1/application/databases-and-persistence/deploy-databases-on-northflank/deploy-redis-on-northflank).
@@ -203,11 +234,11 @@ injection into staging or claim this CSV smoke validates investigations.
 | Acceptance item | E2 preparation result |
 | --- | --- |
 | Native schema / secret-free template / resource inventory | Passed locally |
-| Account Sandbox tier / payment activation / actual free plans | Blocked by Northflank authentication |
-| Neon staging branch/database verification or creation | Blocked by Neon authentication |
-| Firebase Admin provisioning / synthetic ID tokens | External setup pending |
-| Authenticated template dry-run / deployed spec comparison | Not run |
-| Migration / API health / worker / private Redis | Not deployed or run |
+| Account Sandbox tier / payment activation / actual free plans | Dashboard verified by user; API enforced free addon quota; usage list empty |
+| Neon staging branch/database verification or creation | Free organization; isolated branch and empty staging database created |
+| Firebase Admin provisioning / synthetic ID tokens | Secure template overrides configured; runtime group and tokens pending |
+| Authenticated template dry-run / deployed spec comparison | Two runs failed as documented; retained Redis matches intended private settings |
+| Migration / API health / worker / private Redis | Redis running; migration/API/worker not provisioned |
 | Async persistence / duplicate delivery / cross-tenant smoke | Script prepared; cloud execution pending |
 | LangGraph to MCP investigation | Not run in staging |
 

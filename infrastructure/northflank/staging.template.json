@@ -67,21 +67,7 @@
             "secretType": "environment",
             "priority": 10,
             "restrictions": {
-              "restricted": true,
-              "nfObjects": [
-                {
-                  "id": "staging-api",
-                  "type": "service"
-                },
-                {
-                  "id": "staging-worker",
-                  "type": "service"
-                },
-                {
-                  "id": "staging-migrate",
-                  "type": "job"
-                }
-              ]
+              "restricted": false
             },
             "secrets": {
               "variables": {
