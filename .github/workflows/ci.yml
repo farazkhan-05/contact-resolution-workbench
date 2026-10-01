@@ -21,8 +21,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: uv sync --frozen
-      - run: uv run pytest
+      - run: uv sync --frozen --group ai-evaluation
+      - run: uv run --frozen --group ai-evaluation pytest
+      - run: uv run --frozen --group ai-evaluation python -m benchmarks.ai_evaluation
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy app

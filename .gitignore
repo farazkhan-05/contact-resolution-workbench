@@ -75,3 +75,6 @@ Thumbs.db
 *.swo
 .gemini/
 .system_generated/
+
+# Optional local AI judge results
+backend/benchmarks/ai_evaluation/results/live.json

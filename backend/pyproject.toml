@@ -27,6 +27,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+ai-evaluation = [
+    "deepeval==4.2.7",
+]
 dev = [
     "httpx>=0.28.0",
     "mypy>=1.14.0",
@@ -45,6 +48,13 @@ semantic-benchmark = [
 ]
 
 # Manual experiments use released CPU wheels, never the default Linux CUDA stack.
+[tool.uv]
+# DeepEval needs Click <8.4; existing semantic tooling needs Click >=8.4.2.
+# Install these independent experiment groups separately, preserving both lock selections.
+conflicts = [
+    [{ group = "ai-evaluation" }, { group = "semantic-benchmark" }],
+]
+
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -70,5 +80,6 @@ disallow_incomplete_defs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+addopts = "-p no:deepeval"
 testpaths = ["tests"]
 pythonpath = ["."]
