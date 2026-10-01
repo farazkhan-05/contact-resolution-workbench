@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import WorkspaceContext, get_workspace_context
 from app.core.database import get_db
+from app.core.observability import traced
 from app.models.case import Case
 from app.models.investigation import InvestigationRun
 from app.schemas.investigation import HumanResponse, InvestigationResponse
@@ -38,6 +39,7 @@ def enqueue(db: Session, run: InvestigationRun) -> None:
 @router.post(
     "/cases/{case_id}/investigations", response_model=InvestigationResponse, status_code=202
 )
+@traced("api.investigation.start")
 def start(
     case_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
@@ -94,6 +96,7 @@ def get(
     response_model=InvestigationResponse,
     status_code=202,
 )
+@traced("api.investigation.resume")
 def resume(
     investigation_id: str,
     response: HumanResponse,

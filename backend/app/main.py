@@ -4,6 +4,9 @@ from pydantic import BaseModel
 
 from app.api import api_v1_router
 from app.core.config import settings
+from app.core.observability import initialize_observability
+
+initialize_observability(settings)
 
 
 class HealthResponse(BaseModel):

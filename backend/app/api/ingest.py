@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import WorkspaceContext, get_workspace_context
 from app.core.database import get_db
+from app.core.observability import traced
 from app.models.job import Job
 from app.schemas.api import (
     JobResponse,
@@ -34,6 +35,7 @@ def ingest_sample(
 
 
 @router.post("/csv", response_model=JobResponse, status_code=202)
+@traced("api.job.enqueue", **{"job.type": "CSV_INGEST"})
 def upload_csv(
     file: UploadFile = File(...),
     context: WorkspaceContext = Depends(get_workspace_context),
@@ -80,6 +82,7 @@ def upload_csv(
 
 
 @router.post("/unstructured", response_model=JobResponse, status_code=202)
+@traced("api.job.enqueue", **{"job.type": "UNSTRUCTURED_INGEST"})
 def ingest_unstructured(
     request: UnstructuredEvidenceIngestRequest,
     context: WorkspaceContext = Depends(get_workspace_context),

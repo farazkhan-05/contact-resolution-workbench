@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.celery_app import celery_app
 from app.core.database import SessionLocal
+from app.core.observability import annotate
 from app.models.job import Job
 from app.schemas.resolution import CaseQuery
 from app.services.case_service import ingest_csv, persist_case_resolution
@@ -43,6 +44,7 @@ def investigate_evidence(investigation_run_id: str) -> None:
                 )
             )
             db.commit()
+            annotate(**{"operation.status": "FAILED"})
 
 
 def _retry_if_transient(
@@ -56,6 +58,7 @@ def _retry_if_transient(
         .values(status="PENDING")
     )
     db.commit()
+    annotate(**{"operation.status": "RETRY"})
     raise task.retry(exc=exc, countdown=min(60, 5 * (2**task.request.retries)))
 
 

@@ -1,6 +1,7 @@
 from celery import Celery
 
 from app.core.config import settings
+from app.core.observability_celery import register_signals
 
 celery_app = Celery("contact_resolution_workbench", broker=settings.CELERY_BROKER_URL)
 celery_app.conf.update(
@@ -11,3 +12,4 @@ celery_app.conf.update(
     broker_connection_retry=False,
 )
 celery_app.autodiscover_tasks(["app"])
+register_signals()

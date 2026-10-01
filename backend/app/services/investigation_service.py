@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.observability import annotate, traced
 from app.models.audit import AuditLog
 from app.models.case import Case
 from app.models.investigation import InvestigationRun
@@ -104,6 +105,7 @@ def create_run(db: Session, workspace_id: str, user_id: str, case_id: str) -> In
     return run
 
 
+@traced("investigation.resume")
 def queue_resume(
     db: Session, run: InvestigationRun, response: HumanResponse, actor: str = "system"
 ) -> None:
@@ -144,8 +146,10 @@ def queue_resume(
     )
     db.commit()
     db.refresh(run)
+    annotate(**{"investigation.resumed": True})
 
 
+@traced("investigation.run", **{"langfuse.observation.type": "agent"})
 def execute_run(
     run_id: str,
     saver: BaseCheckpointSaver[Any],
@@ -240,7 +244,17 @@ def execute_run(
                 payload={"investigation_id": run.id, "outcome": run.outcome},
             )
         )
+        # Snapshot loaded metadata before commit expires ORM attributes. Telemetry
+        # must never trigger a new database read after the domain commit.
+        telemetry_status, telemetry_outcome = run.status, run.outcome
         coordination.commit()
+        annotate(
+            **{
+                "operation.status": telemetry_status,
+                "investigation.outcome": telemetry_outcome,
+                "investigation.interrupted": telemetry_status == "WAITING_FOR_HUMAN",
+            }
+        )
 
 
 if __name__ == "__main__":

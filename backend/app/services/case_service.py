@@ -12,6 +12,7 @@ from app.core.constants import (
     ReviewDecision,
     RoutingStatus,
 )
+from app.core.observability import annotate, traced
 from app.models.audit import AuditLog
 from app.models.case import CandidateRecord, Case, Contradiction, MatchEvidence
 from app.schemas.api import (
@@ -449,6 +450,7 @@ def get_case_detail(db: Session, workspace_id: str, case_id: str) -> CaseDetailR
     )
 
 
+@traced("review.decision")
 def record_decision(
     db: Session,
     workspace_id: str,
@@ -500,6 +502,7 @@ def record_decision(
     )
     db.add(audit)
     db.commit()
+    annotate(**{"review.decision": request.decision.value, "operation.status": "SUCCEEDED"})
 
     detail = get_case_detail(db, workspace_id, case_id)
     if not detail:

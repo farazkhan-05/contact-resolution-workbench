@@ -6,6 +6,7 @@ from google.genai import types
 from pydantic import ValidationError
 
 from app.core.config import settings
+from app.core.observability import annotate, traced
 from app.schemas.investigation import EvidenceGap
 from app.schemas.resolution import ExtractedCandidateProfile, RawCandidate
 
@@ -65,10 +66,22 @@ class GeminiExtractor:
         except Exception as e:
             raise GeminiExtractionError("Failed to initialize Gemini client.") from e
 
+    @traced(
+        "gemini.extract",
+        **{
+            "gen_ai.provider.name": "google",
+            "gen_ai.operation.name": "extract",
+            "langfuse.observation.type": "generation",
+            "model.retries": 0,
+            "model.fallback": False,
+            "structured_output.valid": False,
+        },
+    )
     def extract_from_unstructured_text(self, text: str) -> ExtractedCandidateProfile:
         """Extract structured profile fields from raw messy provider evidence."""
         if not text or not text.strip():
             raise GeminiExtractionError("Evidence text is empty.")
+        annotate(**{"gen_ai.request.model": self.model})
 
         client = self._get_client()
         prompt = (
@@ -92,18 +105,34 @@ class GeminiExtractor:
             logger.error("Gemini extraction call failed.")
             raise GeminiExtractionError("Gemini API extraction failed.") from e
 
+        _observe_usage(response)
         if not response or not response.text:
             raise GeminiExtractionError("Gemini returned empty response text.")
 
         try:
-            return ExtractedCandidateProfile.model_validate_json(response.text)
+            extracted = ExtractedCandidateProfile.model_validate_json(response.text)
+            annotate(**{"structured_output.valid": True})
+            return extracted
         except (ValidationError, Exception) as e:
             logger.error("Gemini output failed schema validation.")
             raise GeminiExtractionError("Gemini output failed schema validation.") from e
 
+    @traced(
+        "gemini.evidence_gap",
+        **{
+            "gen_ai.provider.name": "google",
+            "gen_ai.operation.name": "evidence_gap",
+            "langfuse.observation.type": "generation",
+            "model.retries": 0,
+            "model.fallback": False,
+            "structured_output.valid": False,
+        },
+    )
     def determine_evidence_gap(self, context: dict[str, Any]) -> EvidenceGap:
         """Choose a category and governed operation; never generate tool arguments."""
         import json
+
+        annotate(**{"gen_ai.request.model": self.model})
 
         try:
             response = self._get_client().models.generate_content(
@@ -122,7 +151,10 @@ class GeminiExtractor:
                     temperature=0.0,
                 ),
             )
-            return EvidenceGap.model_validate_json(response.text or "")
+            _observe_usage(response)
+            gap = EvidenceGap.model_validate_json(response.text or "")
+            annotate(**{"structured_output.valid": True})
+            return gap
         except Exception as exc:
             # Investigation errors must not disclose provider responses, keys or record content.
             raise GeminiExtractionError("Evidence gap assessment failed.") from exc
@@ -155,3 +187,16 @@ class GeminiExtractor:
                 f'"{raw_evidence_text.strip()}"'
             ),
         )
+
+
+def _observe_usage(response: Any) -> None:
+    try:
+        usage = response.usage_metadata
+        annotate(
+            **{
+                "gen_ai.usage.input_tokens": usage.prompt_token_count,
+                "gen_ai.usage.output_tokens": usage.candidates_token_count,
+            }
+        )
+    except Exception:
+        pass

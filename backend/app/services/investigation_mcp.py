@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.observability import operation
 from app.models.audit import AuditLog
 from app.models.case import CandidateRecord, Case, MatchEvidence
 from app.models.investigation import InvestigationRun
@@ -309,6 +310,16 @@ def create_tool_server(
     async def safe_governance(
         ctx: ServerRequestContext[Any, Any], call_next: CallNext
     ) -> HandlerResult:
+        if ctx.method != "tools/call":
+            return await governed(ctx, call_next)
+        name = (ctx.params or {}).get("name")
+        safe_name = name if isinstance(name, str) and name in TOOL_ARGUMENTS else "unavailable"
+        with operation(
+            "mcp.tool", **{"mcp.tool.name": safe_name, "langfuse.observation.type": "tool"}
+        ):
+            return await governed(ctx, call_next)
+
+    async def governed(ctx: ServerRequestContext[Any, Any], call_next: CallNext) -> HandlerResult:
         try:
             return await governance(ctx, call_next)
         except Exception:

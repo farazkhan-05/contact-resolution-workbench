@@ -8,6 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import RetryPolicy, interrupt
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.observability import annotate, traced
 from app.schemas.investigation import EvidenceGap, HumanResponse, Operation
 from app.services.extractor import GeminiExtractor
 from app.services.investigation_mcp import (
@@ -39,6 +40,7 @@ class MCPInvestigationOperations:
     def call(self, state: InvestigationState, name: str, request: CaseRequest) -> dict[str, Any]:
         return call_investigation_tool(self.sessions, self.extractor, state, name, request)
 
+    @traced("investigation.plan", **{"workflow.node": "plan", "langfuse.observation.type": "agent"})
     def plan(self, state: InvestigationState) -> InvestigationState:
         context = self.call(state, "get_resolution_case", CaseRequest(case_id=state["case_id"]))
         artifact_id = context.pop("artifact_id")
@@ -57,6 +59,7 @@ class MCPInvestigationOperations:
             "outcome": None,
         }
 
+    @traced("investigation.retrieve", **{"workflow.node": "retrieve"})
     def retrieve(self, state: InvestigationState) -> InvestigationState:
         if state.get("notes_used"):
             raise ValueError("Synthetic operation budget exhausted.")
@@ -67,6 +70,7 @@ class MCPInvestigationOperations:
         )
         return {"notes_used": True, "extracted": {}}
 
+    @traced("investigation.analyze", **{"workflow.node": "analyze"})
     def analyze(self, state: InvestigationState) -> InvestigationState:
         result = self.call(
             state,
@@ -79,6 +83,7 @@ class MCPInvestigationOperations:
             "outcome": result["outcome"],
         }
 
+    @traced("investigation.human", **{"workflow.node": "human"})
     def human(self, state: InvestigationState) -> InvestigationState:
         self.call(
             state,
@@ -95,7 +100,9 @@ class MCPInvestigationOperations:
 
 def human(state: InvestigationState) -> InvestigationState:
     # No side effects precede interrupt. This node restarts on resume.
+    annotate(**{"investigation.interrupted": True})
     response = interrupt(interrupt_context(state), response_schema=HumanResponse)
+    annotate(**{"investigation.resumed": True})
     if response.action not in interrupt_context(state)["allowed_actions"]:
         raise ValueError("Human action is unavailable.")
     return {
