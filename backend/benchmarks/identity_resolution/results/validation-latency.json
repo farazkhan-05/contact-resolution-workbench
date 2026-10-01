@@ -1,0 +1,14 @@
+{
+  "corpus_size": 262,
+  "machine": "AMD64",
+  "mean_ms": 0.3140865671641791,
+  "median_ms": 0.24575,
+  "p95_ms": 0.6298,
+  "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+  "python": "3.13.13",
+  "repeats": 5,
+  "scope": "Local warm retrieval calls, including normalization, blocking and ordering; excluding generation, index construction, truth evaluation and I/O",
+  "split": "validation",
+  "system": "Windows",
+  "timed_calls": 670
+}

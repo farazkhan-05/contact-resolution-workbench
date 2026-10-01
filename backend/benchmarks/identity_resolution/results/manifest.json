@@ -1,0 +1,60 @@
+{
+  "candidate_count": 1720,
+  "configuration": {
+    "groups_per_scenario": 20,
+    "seed": 20261001
+  },
+  "group_count": 440,
+  "identity_count": 880,
+  "no_correct_candidate_queries": 20,
+  "query_count": 880,
+  "record_count": 2600,
+  "scenario_query_counts": {
+    "abbreviation": 20,
+    "adversarial_notes": 20,
+    "ambiguous": 20,
+    "conflicting_full_middle_name": 20,
+    "contradictory_evidence": 80,
+    "duplicated_provider_records": 20,
+    "employer_change": 40,
+    "exact_duplicate": 460,
+    "geography_change": 40,
+    "ii_iii": 20,
+    "jr_sr": 20,
+    "linked_hard_negative": 440,
+    "malformed": 20,
+    "marriage_name_change": 20,
+    "middle_initial": 20,
+    "missing_fields": 20,
+    "namesake": 380,
+    "nickname": 20,
+    "no_correct_candidate": 20,
+    "shared_household_phone": 20,
+    "stale_email": 40,
+    "stale_phone": 60,
+    "suffix_conflict": 40,
+    "transliteration": 20
+  },
+  "sha256": "60b7ea16fb27eba3ced9a256e1ea13e63ac97b2f27580b9276d7a69961b2aaaa",
+  "splits": {
+    "test": {
+      "candidates": 254,
+      "groups": 65,
+      "identities": 130,
+      "queries": 130
+    },
+    "train": {
+      "candidates": 1204,
+      "groups": 308,
+      "identities": 616,
+      "queries": 616
+    },
+    "validation": {
+      "candidates": 262,
+      "groups": 67,
+      "identities": 134,
+      "queries": 134
+    }
+  },
+  "version": "c1-synthetic-v1"
+}
