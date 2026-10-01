@@ -8,11 +8,13 @@
     "JOB_PLAN": "",
     "REDIS_PLAN": "",
     "REDIS_STORAGE_MB": "",
+    "EXISTING_REDIS_ADDON_ID": "",
     "STAGING_ORIGIN": "",
     "DATABASE_URL": "",
     "FIREBASE_SERVICE_ACCOUNT_JSON": "",
     "GEMINI_API_KEY": "",
     "HEALTH_PATH": "/api/health",
+    "API_READINESS_SUCCESS_THRESHOLD": 1,
     "API_PORT": 8000
   },
   "spec": {
@@ -27,6 +29,7 @@
           "kind": "Addon",
           "ref": "redis",
           "updateMode": "create",
+          "skipNodeExecution": "${fn.neq(args.EXISTING_REDIS_ADDON_ID, '')}",
           "spec": {
             "name": "staging-redis",
             "type": "redis",
@@ -52,7 +55,7 @@
             "spec": {
               "type": "running",
               "data": {
-                "addonId": "${refs.redis.id}",
+                "addonId": "${fn.if(fn.eq(args.EXISTING_REDIS_ADDON_ID, ''), refs.redis.id, args.EXISTING_REDIS_ADDON_ID)}",
                 "timeoutDuration": 600
               }
             }
@@ -82,7 +85,7 @@
             },
             "addonDependencies": [
               {
-                "addonId": "${refs.redis.id}",
+                "addonId": "${fn.if(fn.eq(args.EXISTING_REDIS_ADDON_ID, ''), refs.redis.id, args.EXISTING_REDIS_ADDON_ID)}",
                 "keys": [
                   {
                     "keyName": "REDIS_MASTER_URL",
@@ -152,6 +155,7 @@
                 "initialDelaySeconds": 10,
                 "periodSeconds": 10,
                 "timeoutSeconds": 3,
+                "successThreshold": "${args.API_READINESS_SUCCESS_THRESHOLD}",
                 "failureThreshold": 3
               },
               {

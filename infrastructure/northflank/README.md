@@ -1,48 +1,16 @@
-# Northflank staging (Milestone E2)
+﻿# Northflank staging (Milestone E2)
 
-**Status, 2026-10-02: partial staging provisioning; deployment not accepted.**
-Northflank authentication and Neon authentication succeeded through their official
-CLIs. The user verified Developer Sandbox ($0.00/mo), starting usage $0.00 and an
-active payment method in the dashboard. The $50 billing limit is not free credit.
-No account upgrade was requested. The billing usage API returned an empty usage
-list after provisioning; this is not an independent settled-cost statement.
+**Status, 2026-10-02: staging deployed; async acceptance is partial.** Northflank and Neon authentication succeeded through their official CLIs. The user verified Developer Sandbox ($0.00/mo), starting usage $0.00 and an active payment method. The $50 billing limit is not free credit. The account inventory is two services, one job, one addon and one secret group. The official usage API reports an hourly entry with `$0` total and zero PaaS price; no finalized invoices are listed. This reflects available account data, not a financial SLA or future cost guarantee.
 
-Northflank project `crw-staging` exists in `europe-west`. Singapore was rejected
-with `Region does not support free projects`; Europe West accepted the Sandbox
-project. One private Redis addon is running: Redis 7.2.16, `nf-compute-10`, one
-replica, 4096 MB mandatory managed-addon storage, no public/VPC access and no TLS.
-No API service, worker, migration Job or runtime secret group exists yet.
+Northflank project `crw-staging` is in `europe-west`. Its only addon is the retained private Redis 7.2.16 resource `staging-redis`, one replica, `nf-compute-10`, 4096 MB mandatory managed-addon storage, no public access and no TLS. The recovery template reused this addon; it created no second addon. API (`staging-api`) and worker (`staging-worker`) are running, the build succeeded, and migration Job (`staging-migrate`) completed.
 
-The first template run (`133157e9-d62d-4a58-be66-62c15c047b85`) created Redis,
-then failed with `nfObject not found`: secret restrictions referenced workloads
-not yet created. The template now uses project-wide secrets in the dedicated
-staging project, whose only intended workloads are API, worker and migration.
-The corrected template passed the official native schema locally. Its rerun
-(`643f1df7-fa32-4775-a52b-21a2d42fb562`) failed at Redis creation with
-`Maximum number of free addons exceeded`. Provisioning stopped at that explicit
-Sandbox limit. Do not blindly rerun creation mode or create a second addon;
-review native reuse of the retained addon before resuming. The correction has
-not yet been exercised through secret-group creation in the account.
+The first template run created Redis then failed because secret restrictions referenced workloads not yet created. The subsequent run attempted a second addon and was rejected by the free-addon quota. The current native template takes optional `EXISTING_REDIS_ADDON_ID`; with it set, `skipNodeExecution` bypasses addon creation and the secret group links that existing addon. Without it, initial deployment creates Redis and links the new resource. The successful recovery run created the secret group and remaining workloads using the retained addon.
 
-Neon organization reports `free`. Workbench project `proud-poetry-67237670` now
-has an isolated schema-only branch `productization-staging`
-(`br-lingering-king-b3d5wl98`), endpoint `ep-spring-recipe-b3uhsv9x`, fixed 0.25 CU,
-and a new empty database `workbench_staging` owned by `neondb_owner`. Free-account
-defaults were retained after an explicit suspend-interval override was rejected.
-Production branch `br-delicate-flower-b37n5n0u` remains the unchanged default.
-No migration was run against either database.
+Neon organization reports `free`. The isolated branch `productization-staging` and database `workbench_staging` are on the existing Neon project. The migration Job applied Alembic to current head, confirmed by a read-only query. Production branch `br-delicate-flower-b37n5n0u` was not used or modified.
 
-Firebase Admin credentials were verified locally for `contact-resolution-staging`
-and supplied only to Northflank's secure template argument overrides, alongside
-the staging database URL. Native template ID is `crw-staging`; autorun is disabled.
-No credential contents, connection strings or tokens were written to Git.
-Migration, HTTPS health, worker readiness and all cloud smoke tests remain unrun.
-E1 was pushed to `origin/productization/v1` at
-`1378f7ed76f0910ae509c7820d62db26790906dd`. E2 must remain unpushed.
+Firebase Admin configuration for `contact-resolution-staging` was supplied through Northflank's secret configuration. API `/api/health` returned HTTP 200. Missing and invalid Firebase tokens returned 401; two legitimate Anonymous Firebase identities bootstrapped into separate workspaces. A synthetic CSV Job reached `SUCCEEDED`, with its workspace-scoped Case persisted in staging Neon. A cross-workspace object request returned 404, and a request with mismatched workspace membership returned 403. Worker and private Redis pings passed. A duplicate replay was attempted, but Northflank command-exec terminated with exit code 9 before a verifiable result; duplicate idempotency remains unverified. LangGraph/MCP was skipped because no deterministic synthetic provider/MCP setup is configured, and adding a provider or auth bypass would be unsafe.
 
-The remaining blocker is the explicit addon-quota rejection on template rerun,
-not authentication or payment setup. No paid resource or upgrade may resolve it.
-
+E1 remains pushed to `origin/productization/v1` at `1378f7ed76f0910ae509c7820d62db26790906dd`. E2 corrective changes are local and unpushed. Render remains the rollback/stable deployment. Production Vercel, production Neon, DNS and `main` were not changed; no production cutover occurred.
 ## Architecture and allocation
 
 ```text
@@ -61,12 +29,10 @@ The migration Job uses that build too. The source SHA is pinned to pushed E1
 in the Build node and both internal image selectors. Update all three selectors
 together when intentionally changing the application version.
 
-The sequential workflow creates private Redis and a project-wide runtime secret
+The sequential workflow creates or reuses private Redis and a project-wide runtime secret
 group, creates the API at **zero replicas**, builds E1, runs the migration Job
 and waits for success, enables one API replica, then creates one worker replica.
-CI builds are disabled; migrations do not run at application startup. Creation
-mode can attempt to create Redis again and hit the Sandbox addon limit. This workflow is
-for initial staging acceptance; review subsequent release changes explicitly.
+CI builds are disabled; migrations do not run at application startup. For recovery, set `EXISTING_REDIS_ADDON_ID` to the retained addon ID; this account-specific template argument is not a secret.
 The service conditions establish platform running state; the smoke establishes
 broker/task readiness. No worker HTTP endpoint or HTTP health check is added.
 
@@ -159,7 +125,7 @@ deployment; browser tests require the explicit allowed origin above.
    run `celery -A app.celery_app:celery_app inspect ping --timeout=5` in the worker.
    Never print runtime environment or connection credentials.
 8. Run the synthetic smoke below. Retain only redacted pass/fail results and
-   synthetic Job/Case IDs. No staging acceptance can be claimed until this passes.
+   synthetic Job/Case IDs. The cloud run passed API, worker, migration, async persistence and cross-tenant checks; duplicate replay remains unverified as recorded above.
 
 ## Local template validation
 
@@ -178,10 +144,7 @@ the published payload schema disallows that annotation. Local validation passed
 with SHA256 `45a787ea96e384c048e6186dfa6f5ff569c0e7dfcec0240ebfec6b29ece16da0`.
 It does not prove free eligibility, actual argument values or cloud execution.
 
-Final local gate: `uv sync --frozen --group ai-evaluation` and the matching pytest
-gate passed (**267 passed, 7 skipped**); backend Ruff, format and `mypy app` passed.
-Infrastructure Ruff/format and four fail-closed smoke guard tests passed. The
-smoke's cloud success path remains unexecuted. No application/container/frontend
+The prior E1 local gate passed (**267 passed, 7 skipped**). This recovery passed the six focused fail-closed smoke guard tests and official native template schema validation. No application/container/frontend
 files changed, so no Docker rebuild or frontend gate was needed.
 
 ## Real synthetic smoke
@@ -222,7 +185,7 @@ restores events to disabled; run on the dedicated staging worker with events
 initially disabled and no other event consumers. Tokens, URLs and driver exception
 details are not printed. Synthetic records are retained for review, not deleted.
 
-LangGraph/MCP cloud smoke is separate and **pending**. When an intentional
+LangGraph/MCP cloud smoke was not run. When an intentional
 provider/credential path is available, create a synthetic unresolved review case,
 start `/api/v1/cases/{id}/investigations`, poll the scoped run, resume a human
 interrupt with `STOP`, and confirm `SUCCEEDED`, durable checkpoints and scoped
@@ -234,12 +197,12 @@ injection into staging or claim this CSV smoke validates investigations.
 | Acceptance item | E2 preparation result |
 | --- | --- |
 | Native schema / secret-free template / resource inventory | Passed locally |
-| Account Sandbox tier / payment activation / actual free plans | Dashboard verified by user; API enforced free addon quota; usage list empty |
+| Account Sandbox tier / payment activation / actual free plans | Dashboard verified by user; inventory is two services, one job, one addon; hourly usage total `$0`, no finalized invoices |
 | Neon staging branch/database verification or creation | Free organization; isolated branch and empty staging database created |
-| Firebase Admin provisioning / synthetic ID tokens | Secure template overrides configured; runtime group and tokens pending |
-| Authenticated template dry-run / deployed spec comparison | Two runs failed as documented; retained Redis matches intended private settings |
-| Migration / API health / worker / private Redis | Redis running; migration/API/worker not provisioned |
-| Async persistence / duplicate delivery / cross-tenant smoke | Script prepared; cloud execution pending |
+| Firebase Admin provisioning / synthetic ID tokens | Admin credential configured in Northflank secret group; real staging auth passed |
+| Authenticated template dry-run / deployed spec comparison | Recovery run succeeded; retained private Redis reused; two services, one job, one addon, one secret group |
+| Migration / API health / worker / private Redis | Staging migration head, API health, worker ping and private Redis ping passed |
+| Async persistence / duplicate delivery / cross-tenant smoke | CSV persistence and cross-workspace denial passed; duplicate replay result unavailable (command-exec exit 9) |
 | LangGraph to MCP investigation | Not run in staging |
 
 Render remains the stable deployment and rollback path. E2 changed no Render

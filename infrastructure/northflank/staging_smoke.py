@@ -6,7 +6,9 @@ No Firebase overrides, local API substitutes, migrations, or production writes.
 """
 
 import argparse
+import ipaddress
 import os
+import socket
 import sys
 import time
 import uuid
@@ -20,7 +22,10 @@ from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import make_url
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "backend"))
+BACKEND_ROOT = ROOT / "backend"
+if not (BACKEND_ROOT / "alembic").is_dir() and (ROOT / "alembic").is_dir():
+    BACKEND_ROOT = ROOT
+sys.path.insert(0, str(BACKEND_ROOT))
 
 
 def required(key: str) -> str:
@@ -33,6 +38,23 @@ def required(key: str) -> str:
 def check(condition: bool, message: str) -> None:
     if not condition:
         raise RuntimeError(message)
+
+
+def is_private_redis_host(host: str | None) -> bool:
+    if host is None:
+        return False
+    if host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".svc.cluster.local"):
+        return True
+    try:
+        addresses = {
+            ipaddress.ip_address(result[4][0])
+            for result in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+        }
+    except OSError:
+        return False
+    return bool(addresses) and all(
+        address.is_private or address.is_loopback or address.is_link_local for address in addresses
+    )
 
 
 def main() -> None:
@@ -71,10 +93,7 @@ def main() -> None:
     check(
         broker.scheme in {"redis", "rediss"}
         and broker.hostname is not None
-        and (
-            broker.hostname in {"localhost", "127.0.0.1"}
-            or broker.hostname.endswith(".svc.cluster.local")
-        ),
+        and is_private_redis_host(broker.hostname),
         "Use private Redis DNS or official loopback forwarding",
     )
     token_a, token_b = (
@@ -90,14 +109,15 @@ def main() -> None:
     )
     from alembic.config import Config
     from alembic.script import ScriptDirectory
+
     from app.celery_app import celery_app
     from app.models.case import Case
     from app.models.job import Job
     from app.tasks import ingest_csv_job
 
     engine = create_engine(db_url.set(drivername="postgresql+psycopg"))
-    config = Config(str(ROOT / "backend" / "alembic.ini"))
-    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
     heads = set(ScriptDirectory.from_config(config).get_heads())
     with engine.connect() as db:
         check(
@@ -175,13 +195,10 @@ def main() -> None:
             ).one()
             case_id = row[0]
             check(
-                db.scalar(select(Job.workspace_id).where(Job.id == job_id))
-                == workspace_a,
+                db.scalar(select(Job.workspace_id).where(Job.id == job_id)) == workspace_a,
                 "Job workspace mismatch",
             )
-        print(
-            "PASS HTTPS health, authentication, async SUCCEEDED and Neon Case persistence"
-        )
+        print("PASS HTTPS health, authentication, async SUCCEEDED and Neon Case persistence")
 
         for path in (f"/api/v1/jobs/{job_id}", f"/api/v1/cases/{case_id}"):
             check(
