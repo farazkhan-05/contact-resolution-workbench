@@ -14,6 +14,7 @@ import { ContradictionAlert } from './ContradictionAlert';
 import { EvidenceMatrix } from './EvidenceMatrix';
 import { OriginalRecord } from './OriginalRecord';
 import { ReviewConsole } from './ReviewConsole';
+import { InvestigationPanel } from './InvestigationPanel';
 
 interface CaseDetailProps {
   caseDetail: CaseDetailType | null;
@@ -21,6 +22,7 @@ interface CaseDetailProps {
   onBackMobile: () => void;
   onSubmitDecision: (decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmittingDecision: boolean;
+  onRefresh: () => void;
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({
@@ -29,6 +31,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
   onBackMobile,
   onSubmitDecision,
   isSubmittingDecision,
+  onRefresh,
 }) => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
 
@@ -144,6 +147,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
 
       {/* 1. Original Record Panel */}
       <OriginalRecord caseDetail={caseDetail} />
+      <InvestigationPanel key={caseDetail.id} caseId={caseDetail.id}
+        eligible={isNeedsReview && ['PENDING', 'NEED_MORE_EVIDENCE'].includes(caseDetail.review_decision)}
+        onComplete={onRefresh} />
 
       {/* 2. Candidate Match Selector */}
       <CandidateList

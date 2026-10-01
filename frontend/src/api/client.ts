@@ -1,4 +1,4 @@
-import type { CaseDetail, CaseSummary, DecisionPayload, Job, ReviewDecision, RoutingStatus, SampleIngestResponse, UnstructuredIngestRequest } from '../types';
+import type { CaseDetail, CaseSummary, DecisionPayload, InvestigationRun, Job, ReviewDecision, RoutingStatus, SampleIngestResponse, UnstructuredIngestRequest } from '../types';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 export interface WorkspaceSummary { id: string; name: string; role: string; }
@@ -39,6 +39,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export const api = {
+  async startInvestigation(caseId: string): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/cases/${caseId}/investigations`, { method: 'POST' })); },
+  async listInvestigations(caseId: string): Promise<InvestigationRun[]> { return handleResponse(await request(`/api/v1/cases/${caseId}/investigations`, { method: 'GET' })); },
+  async getInvestigation(id: string): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/investigations/${id}`, { method: 'GET' })); },
+  async resumeInvestigation(id: string, action: 'STOP' | 'RETRIEVE_SYNTHETIC_NOTES'): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/investigations/${id}/resume`, { method: 'POST', body: JSON.stringify({ action }) })); },
   async bootstrap(): Promise<AuthBootstrapResponse> { return handleResponse(await request('/api/v1/auth/bootstrap', { method: 'POST' }, false)); },
   async ingestSample(): Promise<SampleIngestResponse> { return handleResponse(await request('/api/v1/ingest/sample', { method: 'POST' })); },
   async ingestCsv(file: File): Promise<Job> { const body = new FormData(); body.append('file', file); return handleResponse(await request('/api/v1/ingest/csv', { method: 'POST', body })); },

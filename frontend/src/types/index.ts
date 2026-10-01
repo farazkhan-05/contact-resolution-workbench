@@ -158,3 +158,13 @@ export interface UnstructuredIngestResponse {
   candidate_count: number;
 }
 
+export interface InvestigationRun {
+  id: string;
+  case_id: string;
+  status: 'PENDING' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'SUCCEEDED' | 'FAILED';
+  outcome: string | null;
+  current_step: string | null;
+  last_error_message: string | null;
+  interrupt: { reason: string; evidence_gap: string; allowed_actions: string[] } | null;
+}
+

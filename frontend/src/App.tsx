@@ -15,7 +15,7 @@ import type {
 } from './types';
 
 export function App() {
-  const { status, signOutUser } = useAuth();
+  const { status, workspace, signOutUser } = useAuth();
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseDetailType | null>(null);
@@ -313,6 +313,8 @@ export function App() {
             }`}
           >
             <CaseDetail
+              key={workspace?.id}
+              onRefresh={() => { if (selectedCaseId) { void fetchCaseDetail(selectedCaseId); void fetchCases(selectedCaseId); } }}
               caseDetail={selectedCaseDetail}
               isLoading={isLoadingDetail}
               onBackMobile={() => setMobileView('queue')}

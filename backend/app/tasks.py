@@ -17,6 +17,34 @@ from app.services.job_service import fail_job, utcnow
 from app.services.resolution_service import ResolutionService
 
 
+@celery_app.task(acks_late=True, reject_on_worker_lost=True)  # type: ignore[untyped-decorator]
+def investigate_evidence(investigation_run_id: str) -> None:
+    from app.services.investigation_service import execute_run, postgres_checkpointer
+
+    try:
+        with postgres_checkpointer() as saver:
+            execute_run(investigation_run_id, saver)
+    except Exception:
+        from app.models.investigation import InvestigationRun
+
+        with SessionLocal() as db:
+            db.execute(
+                update(InvestigationRun)
+                .where(
+                    InvestigationRun.id == investigation_run_id,
+                    InvestigationRun.status.in_(["PENDING", "RUNNING"]),
+                )
+                .values(
+                    status="FAILED",
+                    last_error_code="CHECKPOINT_UNAVAILABLE",
+                    last_error_message="Investigation persistence is unavailable.",
+                    completed_at=utcnow(),
+                    updated_at=utcnow(),
+                )
+            )
+            db.commit()
+
+
 def _retry_if_transient(
     task: Task, db: Session, job_id: str, workspace_id: str, exc: Exception
 ) -> None:
