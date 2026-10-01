@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  CELERY_BROKER_URL: redis://redis:6379/0
+  OBSERVABILITY_ENABLED: "false"
+  OBSERVABILITY_ENVIRONMENT: kind-validation
+  CORS_ORIGINS: '["http://localhost:5173"]'

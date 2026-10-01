@@ -29,3 +29,11 @@ DeepEval checks tool permissions, expected calls and raw extraction schema offli
 Normal CI uses scripted synthetic model responses and has no live AI dependency.
 Domain and security rules remain in deterministic pytest. Gemini G-Eval is an explicit
 local opt-in; its scores support review and cannot override deterministic policy.
+
+E1 adds [Kubernetes deployment validation](../infrastructure/k8s/README.md) for
+the API and Celery worker using the same backend image with different commands.
+A dedicated CI workflow uses ephemeral kind clusters, a deliberate migration
+Job, and the existing deterministic async integration tests. PostgreSQL and
+Redis in kind are disposable test infrastructure. Kubernetes is not the
+production hosting platform; Vercel, Render and external Neon remain unchanged.
+Terraform is deferred to E2 until it can manage actual staging or live resources.
