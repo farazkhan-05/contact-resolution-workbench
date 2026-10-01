@@ -109,7 +109,7 @@ jobs:
           CELERY_BROKER_URL: redis://localhost:6379/0
           RUN_ASYNC_INTEGRATION: "1"
         run: |
-          uv run celery -A app.celery_app:celery_app worker --loglevel=warning > /tmp/celery-worker.log 2>&1 &
+          uv run celery -A app.celery_app:celery_app worker --include tests.mcp_worker --loglevel=warning > /tmp/celery-worker.log 2>&1 &
           worker_pid=$!
           cleanup() { kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true; }
           trap cleanup EXIT

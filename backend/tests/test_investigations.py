@@ -24,7 +24,8 @@ from app.schemas.resolution import CaseQuery, ExtractedCandidateProfile
 from app.services import investigation_service
 from app.services.case_service import persist_case_resolution
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
-from app.services.investigation_graph import InvestigationOperations, build_graph, is_transient
+from app.services.investigation_graph import build_graph, is_transient
+from app.services.investigation_operations import InvestigationOperations
 from app.services.investigation_service import create_run, execute_run, queue_resume
 from app.services.resolution_service import ResolutionService
 from tests.test_workspace_isolation import bootstrap, headers

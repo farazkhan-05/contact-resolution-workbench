@@ -11,17 +11,20 @@ class Operation(StrEnum):
     HUMAN_INPUT = "HUMAN_INPUT"
 
 
+type EvidenceGapCategory = Literal[
+    "missing_phone",
+    "missing_email",
+    "conflicting_name",
+    "employer_history",
+    "geography",
+    "insufficient_evidence",
+    "human_clarification",
+]
+
+
 class EvidenceGap(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    category: Literal[
-        "missing_phone",
-        "missing_email",
-        "conflicting_name",
-        "employer_history",
-        "geography",
-        "insufficient_evidence",
-        "human_clarification",
-    ]
+    category: EvidenceGapCategory
     operation: Operation
 
 

@@ -20,11 +20,11 @@ from app.models.investigation import InvestigationRun
 from app.schemas.investigation import HumanResponse, InterruptContext, InvestigationResponse
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
 from app.services.investigation_graph import (
-    InvestigationState,
     build_graph,
-    interrupt_context,
     is_transient,
 )
+from app.services.investigation_mcp import MCPToolFailure
+from app.services.investigation_operations import InvestigationState, interrupt_context
 
 
 @contextmanager
@@ -213,10 +213,19 @@ def execute_run(
             run.status = "FAILED"
             run.outcome = (
                 "PROVIDER_UNAVAILABLE"
-                if (isinstance(exc, GeminiExtractionError) or is_transient(exc))
+                if (
+                    isinstance(exc, GeminiExtractionError)
+                    or is_transient(exc)
+                    or isinstance(exc, MCPToolFailure)
+                    and exc.error.category == "provider_failure"
+                )
                 else "INSUFFICIENT_EVIDENCE"
             )
-            run.last_error_code = "EVIDENCE_OPERATION_FAILED"
+            run.last_error_code = (
+                exc.error.category.upper()
+                if isinstance(exc, MCPToolFailure)
+                else "EVIDENCE_OPERATION_FAILED"
+            )
             run.last_error_message = "Investigation could not obtain validated evidence."
             run.completed_at = datetime.now(UTC)
             event = "INVESTIGATION_FAILED"

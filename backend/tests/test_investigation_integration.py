@@ -10,10 +10,12 @@ from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.models.audit import AuditLog
 from app.models.case import Case
 from app.models.investigation import InvestigationRun
 from app.schemas.investigation import HumanResponse
-from app.services.investigation_graph import InvestigationOperations, build_graph
+from app.services.investigation_graph import build_graph
+from app.services.investigation_operations import InvestigationOperations
 from app.services.investigation_service import (
     execute_run,
     postgres_checkpointer,
@@ -21,6 +23,7 @@ from app.services.investigation_service import (
     setup_checkpoints,
 )
 from app.tasks import investigate_evidence
+from tests.mcp_worker import investigate_mcp_fixture
 from tests.test_investigations import FakeExtractor, counts, seed_run
 
 pytestmark = pytest.mark.skipif(
@@ -144,3 +147,54 @@ def test_investigation_crosses_real_broker_worker_interrupt_resume() -> None:
     after = counts(SessionLocal)
     assert after[:2] == before[:2]
     assert after[2] == before[2] + 2
+
+
+def test_celery_postgres_resume_obtains_mcp_evidence_idempotently() -> None:
+    run = seed_run(SessionLocal)
+    investigate_mcp_fixture.delay(run.id)
+    investigate_mcp_fixture.delay(run.id)
+    wait_status(run.id, "WAITING_FOR_HUMAN")
+    with SessionLocal() as db:
+        queue_resume(
+            db, db.get(InvestigationRun, run.id), HumanResponse(action="RETRIEVE_SYNTHETIC_NOTES")
+        )
+    investigate_mcp_fixture.delay(run.id)
+    wait_status(run.id, "WAITING_FOR_HUMAN")
+    with postgres_checkpointer() as saver:
+        checkpoint = saver.get_tuple({"configurable": {"thread_id": run.thread_id}})
+        assert checkpoint is not None
+        assert checkpoint.checkpoint["channel_values"]["notes_used"]
+        assert checkpoint.checkpoint["channel_values"]["deterministic_routing"]
+    with SessionLocal() as db:
+        events = db.scalars(
+            select(AuditLog).where(
+                AuditLog.case_id == run.case_id, AuditLog.event_type == "INVESTIGATION_MCP_TOOL"
+            )
+        ).all()
+        assert {row.payload["mcp_tool"] for row in events} == {
+            "get_resolution_case",
+            "request_human_review",
+            "retrieve_synthetic_notes",
+            "get_case_evidence",
+        }
+        evidence = db.scalar(
+            select(AuditLog).where(
+                AuditLog.case_id == run.case_id,
+                AuditLog.event_type == "INVESTIGATION_EVIDENCE_ADDED",
+            )
+        )
+        assert evidence.payload["mcp_tool"] == "retrieve_synthetic_notes"
+        queue_resume(db, db.get(InvestigationRun, run.id), HumanResponse(action="STOP"))
+    before = counts(SessionLocal)
+    investigate_mcp_fixture.delay(run.id)
+    wait_status(run.id, "SUCCEEDED")
+    after = counts(SessionLocal)
+    assert before[:2] == after[:2]
+    assert after[2] == before[2] + 1  # Completion; review-tool provenance already exists.
+    investigate_mcp_fixture.delay(run.id)
+    # A synchronous redelivery after the worker transition also leaves effects unchanged.
+    with postgres_checkpointer() as saver:
+        execute_run(run.id, saver, SessionLocal, FakeExtractor())
+    assert counts(SessionLocal) == after
+    with SessionLocal() as db:
+        assert db.get(Case, run.case_id).review_decision == "PENDING"
