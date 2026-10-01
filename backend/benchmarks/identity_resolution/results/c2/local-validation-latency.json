@@ -1,0 +1,56 @@
+{
+  "dataset_sha256": "60b7ea16fb27eba3ced9a256e1ea13e63ac97b2f27580b9276d7a69961b2aaaa",
+  "deterministic": {
+    "mean_ms": 0.32315522388059703,
+    "median_ms": 0.2489,
+    "p95_ms": 0.6513,
+    "repeats": 5,
+    "scope": "Warm exact retrieval/order only; embeddings already computed",
+    "timed_calls": 670
+  },
+  "document_embeddings": {
+    "amortized_ms_per_input": 8.84611259541526,
+    "api_calls": 0,
+    "batch_size": 32,
+    "generation_seconds": 2.3176814999987982,
+    "input_count": 262,
+    "role": "document"
+  },
+  "environment": {
+    "device": "cpu",
+    "machine": "AMD64",
+    "numpy": "2.5.3",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "python": "3.13.13",
+    "sentence_transformers": "6.1.0",
+    "system": "Windows",
+    "torch": "2.14.1+cpu",
+    "torch_threads": 2
+  },
+  "local": {
+    "mean_ms": 0.11709492537313433,
+    "median_ms": 0.1127,
+    "p95_ms": 0.1327,
+    "repeats": 5,
+    "scope": "Warm exact retrieval/order only; embeddings already computed",
+    "timed_calls": 670
+  },
+  "local-hybrid": {
+    "mean_ms": 0.8917271641791045,
+    "median_ms": 0.7752,
+    "p95_ms": 1.4654,
+    "repeats": 5,
+    "scope": "Warm exact retrieval/order only; embeddings already computed",
+    "timed_calls": 670
+  },
+  "model_loading_seconds": 6.50462460000017,
+  "partition_total_seconds": 5.656333799999629,
+  "query_embeddings": {
+    "amortized_ms_per_input": 8.979099253731725,
+    "api_calls": 0,
+    "batch_size": 32,
+    "generation_seconds": 1.2031993000000512,
+    "input_count": 134,
+    "role": "query"
+  }
+}

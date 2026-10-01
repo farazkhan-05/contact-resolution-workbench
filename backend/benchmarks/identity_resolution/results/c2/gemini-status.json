@@ -1,0 +1,9 @@
+{
+  "benchmark_version": "c1-synthetic-v1",
+  "dataset_sha256": "60b7ea16fb27eba3ced9a256e1ea13e63ac97b2f27580b9276d7a69961b2aaaa",
+  "dimension": 768,
+  "model_id": "gemini-embedding-2",
+  "performance_conclusion": null,
+  "reason": "Requires --live-gemini and GEMINI_API_KEY",
+  "status": "not_executed"
+}

@@ -4,9 +4,18 @@ import platform
 import statistics
 import time
 from collections.abc import Sequence
+from typing import Protocol
 
+from app.schemas.resolution import RawCandidate
 from benchmarks.identity_resolution.dataset import VERSION, Dataset, FeatureRecord, Split
 from benchmarks.identity_resolution.retrieval import BASELINE, Retriever
+
+
+class Searcher(Protocol):
+    records: dict[str, RawCandidate]
+    limit: int
+
+    def search(self, query: FeatureRecord, split: Split) -> list[str]: ...
 
 
 def percentile95(values: Sequence[float]) -> float:
@@ -56,13 +65,18 @@ def partition(data: Dataset, split: Split) -> tuple[tuple[FeatureRecord, ...], R
     return queries, Retriever(split, corpus)
 
 
-def evaluate(data: Dataset, split: Split) -> dict[str, object]:
-    queries, retriever = partition(data, split)
+def evaluate(
+    data: Dataset, split: Split, retriever: Searcher | None = None, baseline: str = BASELINE
+) -> dict[str, object]:
+    queries, default_retriever = partition(data, split)
+    configured = retriever if retriever is not None else default_retriever
+    if set(configured.records) != set(default_retriever.records):
+        raise ValueError("Retriever corpus differs from the configured benchmark partition")
     outcomes: list[tuple[bool, int | None, int]] = []
     scenarios: dict[str, list[tuple[bool, int | None, int]]] = {}
     for query in queries:
         label = data.labels[query.record_id]
-        ids = retriever.search(query, split)
+        ids = configured.search(query, split)
         relevant = {
             c.record_id
             for c in data.candidates
@@ -82,9 +96,9 @@ def evaluate(data: Dataset, split: Split) -> dict[str, object]:
         "configuration": data.manifest()["configuration"],
         "dataset_sha256": data.manifest()["sha256"],
         "split": split,
-        "baseline": BASELINE,
-        "candidate_limit": retriever.limit,
-        "corpus_size": len(retriever.records),
+        "baseline": baseline,
+        "candidate_limit": configured.limit,
+        "corpus_size": len(configured.records),
         "metrics": summarize(outcomes),
         "scenario_metrics": {s: summarize(v) for s, v in sorted(scenarios.items())},
     }
