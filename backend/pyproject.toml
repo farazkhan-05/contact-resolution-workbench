@@ -28,6 +28,11 @@ dev = [
     "pytest>=8.3.0",
     "ruff>=0.9.0",
 ]
+ranking-benchmark = [
+    "scikit-learn==1.9.1",
+    "xgboost-cpu==3.4.1; sys_platform == 'linux' or sys_platform == 'win32'",
+    "xgboost==3.4.1; sys_platform != 'linux' and sys_platform != 'win32'",
+]
 semantic-benchmark = [
     "sentence-transformers==6.1.0",
     "torch>=2.2",

@@ -1,4 +1,4 @@
-# Identity retrieval benchmark (C1 and C2)
+# Identity resolution benchmark (C1, C2 and C3)
 
 Run from `backend/`:
 
@@ -255,3 +255,201 @@ offset the losses. Gemini performance remains unassessed until a credentialed li
 run; its infrastructure is retained as an optional manual experiment only.
 **Semantic retrieval is not adopted; pgvector is not justified by C2.** Production
 code, matching/routing policy, database schema, deployment, and infrastructure are unchanged.
+
+## C3 learned candidate ranking
+
+C3 trains pair classifiers on exactly C1's deterministic top-20 candidate sets.
+Each query/candidate receives one model score, then sorts by descending score and
+opaque record ID. Truth supplies the binary label only. Identity groups and all
+candidate records stay inside their original partition. The runner verifies the
+frozen manifest and all C1 logical results before fitting; C2 files are untouched.
+
+From `backend/`, without model downloads, external APIs, databases or brokers:
+
+```powershell
+uv sync --frozen --group ranking-benchmark
+uv run --frozen --group ranking-benchmark python -m benchmarks.identity_resolution.ranking_experiment
+uv run --frozen --group ranking-benchmark python -m benchmarks.identity_resolution.ranking_experiment --challenger --held-out
+```
+
+The default evaluates Logistic train/validation only. `--challenger` adds XGBoost;
+`--held-out` scores test after configuration selection and the validation feature
+audit are recorded. `--output` supports a separate reproducibility run. Parameters,
+versions, feature order, metrics, coefficient/gain explanations, validation-only
+distributions and timing are in `results/c3/`. There are no pickle files, model
+caches, production loaders or model registry. The Logistic JSON contains our fitted
+coefficients, intercept and scaler; XGBoost is reproduced by retraining its fixed
+configuration. Outputs are uncalibrated candidate scores, not identity probabilities.
+
+### Features and fitting
+
+Schema `c3-structured-components-v1` has 19 features in an explicit stable order:
+five existing matcher components (name, exact email, exact phone, employer,
+geography), normalized full/first/last-name token similarity, middle-initial
+agreement, suffix agreement, five field-missing indicators, and the existing suffix,
+full-middle-name, employer and geography contradiction flags. Missing means either
+side lacks usable evidence, using the matcher's existing definition. Explicit name
+parts take precedence over parsed parts. The final deterministic aggregate score,
+source constants, contact substrings, notes, truth, scenarios, split labels,
+embeddings and Gemini outputs are excluded. No aggregate-score ablation is needed.
+
+| Split | Pairs | Positive | Negative | Negative/positive |
+| --- | ---: | ---: | ---: | ---: |
+| Train | 6,900 | 1,175 | 5,725 | 4.87 |
+| Validation | 719 | 253 | 466 | 1.84 |
+| Test | 802 | 251 | 551 | 2.20 |
+
+[Official PyPI](https://pypi.org/project/scikit-learn/) verified scikit-learn 1.9.1
+as stable and compatible with Python 3.13. Logistic uses a train-fitted
+`StandardScaler`, L2, `lbfgs`, `max_iter=2000`, seed `20261001`. Six validation runs
+compare C=0.1/1/10 with ordinary/balanced class weights. Ranking safety and MRR lead
+selection; false pairs scoring at least 0.9 break ties, then the first configuration
+wins an exact tie. The chosen configuration is C=0.1, ordinary class weights. No
+oversampling or extra synthetic pairs are used; models remain fitted on train.
+
+[XGBoost PyPI](https://pypi.org/project/xgboost/) verified stable 3.4.1. The
+[official CPU variant](https://xgboost.readthedocs.io/en/stable/install.html#minimal-installation-cpu-only)
+is pinned to `xgboost-cpu==3.4.1` on Windows/Linux, avoiding CUDA/NCCL packages; other
+platforms use `xgboost==3.4.1` with CPU execution. One `XGBClassifier` challenger
+uses binary logistic, CPU hist, one thread, depth 3, up to 200 trees, learning rate
+0.05, min child weight 5, lambda 5, alpha 0.1, full row/column sampling and the same
+seed. Validation log loss supports 20-round early stopping; best iteration was 199,
+so all 200 trees were used. `scale_pos_weight=1`: ordinary Logistic weights already
+worked on the 4.87:1 training ratio, so no XGBoost imbalance search was warranted.
+
+### Ranking and safety measurements
+
+These recall/MRR denominators include all eligible queries, preserving C1's
+definition. Artifacts also report metrics conditional on a true candidate being
+available. Candidate-generation misses stay 7/3/0 for train/validation/test;
+the learned models cannot recover them. No-match queries (14/3/3) are separate.
+
+| Split / ranker | Recall@1 | Recall@5 | Recall@10 | MRR | Wrong identity top-1 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Train / C1 | 92.19% | 98.50% | 98.84% | 0.95314 | 40 |
+| Train / Logistic | 96.18% | 98.84% | 98.84% | 0.97370 | 16 |
+| Train / XGBoost | 96.18% | 98.84% | 98.84% | 0.97370 | 16 |
+| Validation / C1 | 89.31% | 97.71% | 97.71% | 0.93384 | 11 |
+| Validation / Logistic | 94.66% | 97.71% | 97.71% | 0.96056 | 4 |
+| Validation / XGBoost | 94.66% | 97.71% | 97.71% | 0.96056 | 4 |
+| Test / C1 | 92.91% | 100% | 100% | 0.95932 | 9 |
+| Test / Logistic | 97.64% | 100% | 100% | 0.98688 | 3 |
+| Test / XGBoost | 97.64% | 100% | 100% | 0.98688 | 3 |
+
+Raw and contradiction-aware model ranking have the same aggregate results in this
+run. The gate demotes blocked records while retaining them in recall/scenario
+analysis, and excludes them from threshold-positive decisions even if all records
+are blocked. Neither learned model puts a blocked wrong identity first or gives a
+blocked false pair a score of at least 0.5. Tests inject scores of 1 into Jr/Sr and
+full-middle conflicts to verify that a score cannot bypass the existing hard gate.
+An unblocked top candidate still does not establish a safe automatic match.
+
+Pair metrics below use the fixed diagnostic probe 0.5, with official scikit-learn
+metrics; raw and gated values agree for both models. These probes are not proposed
+production thresholds. Pair accuracy is not the primary measure.
+
+| Split / model | Precision | Recall | F1 | TP / FP / FN / TN |
+| --- | ---: | ---: | ---: | --- |
+| Train / Logistic | 94.77% | 86.38% | 90.38% | 1015 / 56 / 160 / 5669 |
+| Validation / Logistic | 94.83% | 86.96% | 90.72% | 220 / 12 / 33 / 454 |
+| Test / Logistic | 94.35% | 86.45% | 90.23% | 217 / 13 / 34 / 538 |
+| Train / XGBoost | 91.53% | 91.91% | 91.72% | 1080 / 100 / 95 / 5625 |
+| Validation / XGBoost | 91.76% | 92.49% | 92.13% | 234 / 21 / 19 / 445 |
+| Test / XGBoost | 89.49% | 91.63% | 90.55% | 230 / 27 / 21 / 524 |
+
+At 0.9, Logistic false-positive pair counts are 14/3/3; XGBoost counts are 0/0/0.
+At 0.99 both have zero false-positive pairs, with lower recall. C1's aggregate score
+divided by 100 has zero gated false-positive pairs at 0.9, but its held-out pair
+recall there is 61.35%, versus Logistic 76.49% and XGBoost 66.93%. Those scores have
+different scales; equal numeric probes are not equivalent operating points. A
+zero count on this synthetic sample does not establish a production-safe threshold.
+All three test no-match queries have Logistic top score 0.49527 and XGBoost 0.51515.
+XGBoost would therefore classify no-match pairs positive at 0.5. C4 threshold work
+has not been performed.
+
+Both learned models show eight held-out top-1 wins and two losses versus C1. Primary
+scenario recall rises for malformed fields (0% to 100%, n=3), ambiguity (33.33% to
+100%, n=3), transliteration (66.67% to 100%, n=3), stale phone (77.78% to 100%, n=9),
+and overlapping employer/geography change (66.67% to 100%, each n=6). Exact-duplicate
+recall falls from 98.53% to 95.59% (n=68), including easy linked-anchor queries.
+Namesakes stay 94.34% (n=53) with two wins and two losses. Suffix conflicts, full
+middle conflicts, household phone, nicknames, middle initials, marriage/name change,
+stale email and missing fields retain their C1 top-1 results. Scenario samples are
+small and overlap; the apparent gains require the feature audit below.
+
+### Feature audit and decision
+
+Logistic's largest standardized coefficients are email exact +1.91, phone exact
++1.55, missing geography -1.20, suffix conflict -1.18 and first-name similarity
++1.08. Employer missing is +0.47 and geography agreement is unexpectedly negative
+(-0.82). XGBoost's normalized gain is led by email exact (45.1%), phone exact
+(12.4%), suffix conflict (11.5%) and full-middle conflict (8.7%). Importance is not
+causality, and correlated features make individual coefficients difficult to
+interpret independently.
+
+Inspection found a predictive construction pattern: C1's primary identity gets a
+partial provider observation missing phone/employer, while the linked identity
+gets one missing geography. Every recovered validation query for each model (9/9)
+separates its highest-ranked true observation from its best false observation only
+through those omissions and their effect on component/conflict values. The feature
+audit records the exact differing feature names for each recovery. This is not
+truth-ID or split leakage; it is an accidental association between record
+completeness and identity ownership within a synthetic group.
+
+Three train-fitted, validation-only Logistic ablations investigate the association
+without changing the chosen model or scoring any test pairs: masking five explicit
+missing indicators retains 94.66% Recall@1 because components still encode missing
+evidence; masking geography signals gives 93.89%; masking missing indicators and
+employer/geography signals falls to C1's 89.31%. Name/contact agreement and hard
+name conflicts alone do not reproduce the claimed improvement. Missingness can be
+useful on real records, but this benchmark's fixed omission pattern does not support
+an identity conclusion.
+
+The numeric validation rule initially prefers Logistic: seven net top-1 wins with
+better MRR and fewer wrong identities, while XGBoost adds no ordering benefit and
+has more false pairs at 0.5. The validation feature audit vetoes both. **Keep
+deterministic ranking.** Reject Logistic's apparent improvement as dependent on the
+synthetic observation pattern; reject XGBoost for the same reason plus its additional
+complexity without ranking benefit. This is a benchmark limitation, not incorrect
+labels or partitions requiring C1/C2 regeneration. C3 changes neither the frozen
+data nor production behavior. A future independently designed evaluation would be
+needed before reconsidering a learned ranker; it is outside C3.
+
+### Reproduction, dependencies and timing
+
+The isolated CI ranking job installs only the optional `ranking-benchmark` group
+and checks ML isolation, deterministic ordering, train-only preprocessing, label
+correctness, reproducible fits and hard gates. Ordinary API CI remains offline and
+uses existing dependencies. The lock inspection found no existing package version
+changes; only the two platform-specific official XGBoost distributions were added.
+Scikit-learn and its transitives already existed in the C2 optional lock. A
+pip-audit 2.10.1 audit of 97 applicable locked runtime/dev/ranking packages found no
+known vulnerabilities; frontend npm audit also found zero. The audit excludes the
+uninstalled semantic group and does not certify packages against unknown flaws.
+Official wheels, lock hashes, TLS and integrity checks remain in use.
+
+Timing separates feature extraction, model scoring and contradiction-aware sorting
+for each local query batch, with five passes after warmup. Candidate generation is
+excluded; C1's separate timing includes normalization, blocking and ordering. These
+are Windows AMD64/Python 3.13.13 local measurements, not production latency. Exact
+medians/p95 and selected fit times are in `results/c3/latency.json`. Independent
+fixed-seed runs reproduce logical artifacts; timings vary.
+
+| Test query batch / component | Median ms | p95 ms |
+| --- | ---: | ---: |
+| Logistic / feature extraction | 0.514 | 1.252 |
+| Logistic / model scoring | 0.297 | 0.386 |
+| Logistic / sorting | 0.013 | 0.019 |
+| XGBoost / feature extraction | 0.549 | 1.315 |
+| XGBoost / model scoring | 0.316 | 0.477 |
+| XGBoost / sorting | 0.014 | 0.023 |
+
+Selected fits took 0.0147 s for Logistic and 0.1276 s for XGBoost, excluding feature
+generation and search. Sixteen logical JSON artifacts matched byte-for-byte on a
+fresh fixed-seed run; timing and the separately executed dependency audit are
+excluded from that comparison. Final local verification: 125 pytest tests passed,
+one existing PostgreSQL/Redis/Celery integration test skipped without its services;
+Ruff, format checks, mypy for the app and new experiment modules, and frontend
+lint/typecheck/build passed. The ordinary dependency set also passed 115 tests with
+the ML module and service-dependent integration test skipped. The existing real
+service CI job remains in place; C3 was not pushed for a remote CI run.

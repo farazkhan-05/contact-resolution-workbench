@@ -1,0 +1,41 @@
+{
+  "acceptance_reason": "All recovered validation queries separate the top true and best false observation only through missing-field effects. C1's asymmetric partial-observation construction is an accidental predictive pattern, not defensible identity evidence. Reject both learned rankers; preserve their measured results without retuning the benchmark.",
+  "configurations": {
+    "logistic": {
+      "C": 0.1,
+      "class_weight": null,
+      "max_iter": 2000,
+      "preprocessing": "StandardScaler, train only",
+      "random_state": 20261001,
+      "regularization": "L2",
+      "solver": "lbfgs"
+    },
+    "xgboost": {
+      "best_iteration": 199,
+      "colsample_bytree": 1.0,
+      "device": "cpu",
+      "early_stopping_rounds": 20,
+      "eval_metric": "logloss",
+      "importance_type": "gain",
+      "learning_rate": 0.05,
+      "max_depth": 3,
+      "min_child_weight": 5,
+      "n_estimators": 200,
+      "n_jobs": 1,
+      "objective": "binary:logistic",
+      "random_state": 20261001,
+      "reg_alpha": 0.1,
+      "reg_lambda": 5,
+      "scale_pos_weight": 1.0,
+      "subsample": 1.0,
+      "tree_method": "hist"
+    }
+  },
+  "feature_audit_veto": true,
+  "held_out_used_for_selection": false,
+  "metric_selected_before_feature_audit": "logistic",
+  "production_integration": false,
+  "rule": "Require >=2 net validation top1 wins, better MRR, no increase in raw or gated wrong top1. Prefer LR unless XGB adds >=2 wins with better MRR and no worse FP at 0.9/0.99.",
+  "selected": "deterministic",
+  "selection_split": "validation"
+}
