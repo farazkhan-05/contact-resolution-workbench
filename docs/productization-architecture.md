@@ -36,4 +36,14 @@ A dedicated CI workflow uses ephemeral kind clusters, a deliberate migration
 Job, and the existing deterministic async integration tests. PostgreSQL and
 Redis in kind are disposable test infrastructure. Kubernetes is not the
 production hosting platform; Vercel, Render and external Neon remain unchanged.
-Terraform is deferred to E2 until it can manage actual staging or live resources.
+E2 prepares [Northflank Developer Sandbox staging](../infrastructure/northflank/README.md)
+using native Northflank Templates as its IaC source: two services (FastAPI and
+Celery sharing the backend image), a migration Job, private managed Redis and
+a runtime secret group. A separate staging Neon branch/database is required;
+the addon slot is reserved for Redis. Observability stays disabled by default
+and Firebase authentication is preserved. The native template passed local
+official schema validation; deployment and staging acceptance remain pending
+external Northflank/Neon authentication, Sandbox/payment activation and credentials.
+Render remains the stable deployment/rollback path, production Vercel and Neon
+are untouched, and no production cutover has occurred. Terraform is deferred
+to a later step with a mature supported provider, likely Vercel.

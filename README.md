@@ -110,6 +110,11 @@ npm audit
 
 ## Deployment
 
+Northflank **staging** preparation is documented in
+[the E2 deployment runbook](infrastructure/northflank/README.md). Its native
+Template is locally validated; cloud deployment is pending account authentication
+and setup. The stable Vercel/Render/Neon deployment below remains unchanged.
+
 Target architecture: **Browser -> Vercel (React/Vite) -> Render Web Service (FastAPI) -> Neon (PostgreSQL)**.
 
 ### 1. Database (Neon PostgreSQL)

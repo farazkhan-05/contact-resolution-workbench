@@ -1,0 +1,293 @@
+{
+  "$schema": "https://api.northflank.com/v1/schemas/template",
+  "apiVersion": "v1.2",
+  "arguments": {
+    "PROJECT_ID": "crw-staging",
+    "SERVICE_PLAN": "",
+    "BUILD_PLAN": "",
+    "JOB_PLAN": "",
+    "REDIS_PLAN": "",
+    "REDIS_STORAGE_MB": "",
+    "STAGING_ORIGIN": "",
+    "DATABASE_URL": "",
+    "FIREBASE_SERVICE_ACCOUNT_JSON": "",
+    "GEMINI_API_KEY": "",
+    "HEALTH_PATH": "/api/health",
+    "API_PORT": 8000
+  },
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "context": {
+        "projectId": "${args.PROJECT_ID}"
+      },
+      "steps": [
+        {
+          "kind": "Addon",
+          "ref": "redis",
+          "updateMode": "create",
+          "spec": {
+            "name": "staging-redis",
+            "type": "redis",
+            "version": "7.2.16",
+            "billing": {
+              "deploymentPlan": "${args.REDIS_PLAN}",
+              "storage": "${args.REDIS_STORAGE_MB}",
+              "replicas": 1
+            },
+            "tlsEnabled": false,
+            "externalAccessEnabled": false,
+            "vpcAccessible": false,
+            "typeSpecificSettings": {
+              "redisSentinelEnabled": false,
+              "redisMaxMemoryPolicy": "noeviction"
+            }
+          }
+        },
+        {
+          "kind": "Condition",
+          "spec": {
+            "kind": "Addon",
+            "spec": {
+              "type": "running",
+              "data": {
+                "addonId": "${refs.redis.id}",
+                "timeoutDuration": 600
+              }
+            }
+          }
+        },
+        {
+          "kind": "SecretGroup",
+          "ref": "config",
+          "spec": {
+            "name": "staging-runtime",
+            "type": "secret",
+            "secretType": "environment",
+            "priority": 10,
+            "restrictions": {
+              "restricted": true,
+              "nfObjects": [
+                {
+                  "id": "staging-api",
+                  "type": "service"
+                },
+                {
+                  "id": "staging-worker",
+                  "type": "service"
+                },
+                {
+                  "id": "staging-migrate",
+                  "type": "job"
+                }
+              ]
+            },
+            "secrets": {
+              "variables": {
+                "DATABASE_URL": "${args.DATABASE_URL}",
+                "FIREBASE_SERVICE_ACCOUNT_JSON": "${args.FIREBASE_SERVICE_ACCOUNT_JSON}",
+                "GEMINI_API_KEY": "${args.GEMINI_API_KEY}",
+                "CORS_ORIGINS": "[\"${args.STAGING_ORIGIN}\"]",
+                "OBSERVABILITY_ENVIRONMENT": "northflank-staging",
+                "OBSERVABILITY_ENABLED": "false",
+                "OTEL_SERVICE_NAME": "contact-resolution-workbench-staging"
+              }
+            },
+            "addonDependencies": [
+              {
+                "addonId": "${refs.redis.id}",
+                "keys": [
+                  {
+                    "keyName": "REDIS_MASTER_URL",
+                    "aliases": [
+                      "CELERY_BROKER_URL"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "CombinedService",
+          "ref": "api",
+          "updateMode": "create",
+          "spec": {
+            "name": "staging-api",
+            "billing": {
+              "deploymentPlan": "${args.SERVICE_PLAN}",
+              "buildPlan": "${args.BUILD_PLAN}"
+            },
+            "disabledCI": true,
+            "vcsData": {
+              "projectUrl": "https://github.com/farazkhan-05/contact-resolution-workbench",
+              "projectType": "github",
+              "projectBranch": "productization/v1"
+            },
+            "buildSettings": {
+              "dockerfile": {
+                "buildEngine": "buildkit",
+                "dockerFilePath": "/backend/Dockerfile",
+                "dockerWorkDir": "/backend"
+              }
+            },
+            "deployment": {
+              "instances": 0,
+              "docker": {
+                "configType": "customCommand",
+                "customCommand": "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+              }
+            },
+            "ports": [
+              {
+                "name": "http",
+                "internalPort": 8000,
+                "protocol": "HTTP",
+                "public": true
+              }
+            ],
+            "healthChecks": [
+              {
+                "protocol": "HTTP",
+                "type": "startupProbe",
+                "path": "${args.HEALTH_PATH}",
+                "port": "${args.API_PORT}",
+                "initialDelaySeconds": 10,
+                "periodSeconds": 10,
+                "timeoutSeconds": 3,
+                "failureThreshold": 12
+              },
+              {
+                "protocol": "HTTP",
+                "type": "readinessProbe",
+                "path": "${args.HEALTH_PATH}",
+                "port": "${args.API_PORT}",
+                "initialDelaySeconds": 10,
+                "periodSeconds": 10,
+                "timeoutSeconds": 3,
+                "failureThreshold": 3
+              },
+              {
+                "protocol": "HTTP",
+                "type": "livenessProbe",
+                "path": "${args.HEALTH_PATH}",
+                "port": "${args.API_PORT}",
+                "initialDelaySeconds": 10,
+                "periodSeconds": 10,
+                "timeoutSeconds": 3,
+                "failureThreshold": 3
+              }
+            ]
+          }
+        },
+        {
+          "kind": "Build",
+          "ref": "backendBuild",
+          "condition": "success",
+          "spec": {
+            "id": "${refs.api.id}",
+            "type": "service",
+            "branch": "productization/v1",
+            "sha": "1378f7ed76f0910ae509c7820d62db26790906dd",
+            "reuseExistingBuilds": true
+          }
+        },
+        {
+          "kind": "Job",
+          "ref": "migration",
+          "spec": {
+            "name": "staging-migrate",
+            "billing": {
+              "deploymentPlan": "${args.JOB_PLAN}"
+            },
+            "deployment": {
+              "internal": {
+                "id": "crw-staging/staging-api",
+                "branch": "productization/v1",
+                "buildSHA": "1378f7ed76f0910ae509c7820d62db26790906dd"
+              },
+              "docker": {
+                "configType": "customCommand",
+                "customCommand": "alembic upgrade head"
+              }
+            },
+            "settings": {
+              "backoffLimit": 0,
+              "runOnSourceChange": "never",
+              "activeDeadlineSeconds": 600
+            }
+          }
+        },
+        {
+          "kind": "JobRun",
+          "ref": "migrationRun",
+          "condition": "success",
+          "spec": {
+            "jobId": "${refs.migration.id}"
+          }
+        },
+        {
+          "kind": "CombinedService",
+          "updateMode": "patch",
+          "spec": {
+            "name": "staging-api",
+            "deployment": {
+              "instances": 1
+            }
+          }
+        },
+        {
+          "kind": "DeploymentService",
+          "ref": "worker",
+          "spec": {
+            "name": "staging-worker",
+            "billing": {
+              "deploymentPlan": "${args.SERVICE_PLAN}"
+            },
+            "deployment": {
+              "instances": 1,
+              "internal": {
+                "id": "crw-staging/staging-api",
+                "branch": "productization/v1",
+                "buildSHA": "1378f7ed76f0910ae509c7820d62db26790906dd"
+              },
+              "docker": {
+                "configType": "customCommand",
+                "customCommand": "celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=1"
+              }
+            },
+            "ports": [],
+            "healthChecks": []
+          }
+        },
+        {
+          "kind": "Condition",
+          "spec": {
+            "kind": "Service",
+            "spec": {
+              "type": "running",
+              "data": {
+                "serviceId": "${refs.api.id}",
+                "timeoutDuration": 600
+              }
+            }
+          }
+        },
+        {
+          "kind": "Condition",
+          "spec": {
+            "kind": "Service",
+            "spec": {
+              "type": "running",
+              "data": {
+                "serviceId": "${refs.worker.id}",
+                "timeoutDuration": 600
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
