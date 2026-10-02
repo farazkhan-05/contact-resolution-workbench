@@ -160,7 +160,7 @@ test("E4: public Sources, real API batches, credential lifecycle and isolation",
   const card = page.locator("article").filter({ hasText: incoming.name });
   await expect(card.getByText(/SUCCEEDED/)).toBeVisible();
   await card.getByRole("button", { name: "View ingestion history" }).click();
-  await expect(card.getByText(run.id, { exact: true })).toBeVisible();
+  await expect(card.getByRole("cell").filter({ hasText: run.id })).toBeVisible();
   const rotatedResponse = await request.post(
     `${backend}/api/v1/sources/${incoming.id}/rotate`,
     { headers: session },
