@@ -53,7 +53,11 @@ export const api = {
   async listInvestigations(caseId: string): Promise<InvestigationRun[]> { return handleResponse(await request(`/api/v1/cases/${caseId}/investigations`, { method: 'GET' })); },
   async getInvestigation(id: string): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/investigations/${id}`, { method: 'GET' })); },
   async resumeInvestigation(id: string, action: 'STOP' | 'RETRIEVE_SYNTHETIC_NOTES'): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/investigations/${id}/resume`, { method: 'POST', body: JSON.stringify({ action }) })); },
-  async bootstrap(): Promise<AuthBootstrapResponse> { return handleResponse(await request('/api/v1/auth/bootstrap', { method: 'POST' }, false)); },
+  async bootstrap(provider: TokenProvider): Promise<AuthBootstrapResponse> {
+    const token = await provider();
+    if (!token) throw new ApiError(401, 'Authentication is required.');
+    return handleResponse(await fetch(`${BASE_URL}/api/v1/auth/bootstrap`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }));
+  },
   async ingestSample(): Promise<SampleIngestResponse> { return handleResponse(await request('/api/v1/ingest/sample', { method: 'POST' })); },
   async ingestCsv(file: File): Promise<Job> { const body = new FormData(); body.append('file', file); return handleResponse(await request('/api/v1/ingest/csv', { method: 'POST', body })); },
   async getJob(jobId: string): Promise<Job> { return handleResponse(await request(`/api/v1/jobs/${jobId}`, { method: 'GET' })); },

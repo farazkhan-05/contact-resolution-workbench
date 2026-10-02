@@ -1,10 +1,19 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, type Auth } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, type Auth, type User, type UserCredential } from 'firebase/auth';
 import { api, clearAuthenticatedApiSession, setAuthenticatedApiSession, type WorkspaceSummary } from '../api/client';
+import { bootstrapErrorMessage, firebaseErrorMessage } from './errors';
 
 type AuthStatus = 'loading' | 'signed_out' | 'bootstrapping' | 'ready' | 'error';
-type AuthContextValue = { status: AuthStatus; workspace: WorkspaceSummary | null; error: string | null; signIn: (email: string, password: string) => Promise<void>; signUp: (email: string, password: string) => Promise<void>; continueAsDemo: () => Promise<void>; signOutUser: () => Promise<void>; };
+type AuthOperation = 'sign_in' | 'sign_up' | 'demo' | 'sign_out' | null;
+type AuthContextValue = {
+  status: AuthStatus; workspace: WorkspaceSummary | null; error: string | null;
+  authenticated: boolean; accountCreated: boolean; operation: AuthOperation;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  continueAsDemo: () => Promise<void>; signOutUser: () => Promise<void>;
+  retryBootstrap: () => Promise<void>;
+};
 const AuthContext = createContext<AuthContextValue | null>(null);
 let firebaseApp: FirebaseApp | null = null;
 let firebaseAuth: Auth | null = null;
@@ -22,33 +31,147 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let active = true;
-    try {
-      const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (user) => {
-        clearAuthenticatedApiSession(); setWorkspace(null);
-        if (!user) { if (active) setStatus('signed_out'); return; }
-        if (active) setStatus('bootstrapping');
-        try {
-          setAuthenticatedApiSession(() => user.getIdToken(), 'bootstrap');
-          const bootstrap = await api.bootstrap();
-          const initialWorkspace = bootstrap.workspaces[0];
-          if (!initialWorkspace) throw new Error('No workspace was provisioned for this account.');
-          setAuthenticatedApiSession(() => user.getIdToken(), initialWorkspace.id);
-          if (active) { setWorkspace(initialWorkspace); setError(null); setStatus('ready'); }
-        } catch (err) {
-          clearAuthenticatedApiSession();
-          if (active) { setError(err instanceof Error ? err.message : 'Could not start your workspace session.'); setStatus('error'); }
-        }
-      });
-      return () => { active = false; unsubscribe(); };
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Firebase could not be initialized.'); setStatus('error');
+  const [authenticated, setAuthenticated] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [operation, setOperation] = useState<AuthOperation>(null);
+  const currentUser = useRef<User | null>(null);
+  const generation = useRef(0);
+  const mounted = useRef(false);
+  const busy = useRef<AuthOperation>(null);
+  const pending = useRef<{ generation: number; promise: Promise<void> } | null>(null);
+
+  const changeUser = useCallback((user: User | null) => {
+    if (currentUser.current?.uid !== user?.uid) {
+      generation.current += 1;
+      pending.current = null;
+      clearAuthenticatedApiSession();
+      setWorkspace(null);
+      setError(null);
+      setAccountCreated(false);
     }
-    return () => { active = false; };
+    currentUser.current = user;
+    setAuthenticated(user !== null);
   }, []);
-  const action = async (callback: (auth: Auth) => Promise<unknown>): Promise<void> => { setError(null); try { await callback(getFirebaseAuth()); } catch (err) { setError(err instanceof Error ? err.message : 'Authentication failed.'); throw err; } };
-  const value = useMemo<AuthContextValue>(() => ({ status, workspace, error, signIn: (email, password) => action((auth) => signInWithEmailAndPassword(auth, email, password)), signUp: (email, password) => action((auth) => createUserWithEmailAndPassword(auth, email, password)), continueAsDemo: () => action((auth) => signInAnonymously(auth)), signOutUser: async () => { clearAuthenticatedApiSession(); await signOut(getFirebaseAuth()); } }), [status, workspace, error]);
+
+  const bootstrapApplicationSession = useCallback((user: User): Promise<void> => {
+    if (!mounted.current || getFirebaseAuth().currentUser?.uid !== user.uid) return Promise.resolve();
+    changeUser(user);
+    const requestGeneration = generation.current;
+    if (pending.current?.generation === requestGeneration) return pending.current.promise;
+    const isCurrent = () => mounted.current && generation.current === requestGeneration && currentUser.current?.uid === user.uid;
+    setStatus('bootstrapping');
+    setWorkspace(null);
+    setError(null);
+    clearAuthenticatedApiSession();
+    const promise = (async () => {
+      try {
+        // Bind this request to its user rather than the mutable shared API session.
+        const bootstrap = await api.bootstrap(() => user.getIdToken());
+        const initialWorkspace = bootstrap.workspaces[0];
+        if (!initialWorkspace) throw new Error('Workspace missing');
+        if (!isCurrent()) return;
+        setAuthenticatedApiSession(() => user.getIdToken(), initialWorkspace.id);
+        setWorkspace(initialWorkspace);
+        setStatus('ready');
+      } catch (err) {
+        if (!isCurrent()) return;
+        setError(bootstrapErrorMessage(err));
+        setStatus('error');
+      } finally {
+        if (isCurrent()) pending.current = null;
+      }
+    })();
+    pending.current = { generation: requestGeneration, promise };
+    return promise;
+  }, [changeUser]);
+
+  useEffect(() => {
+    mounted.current = true;
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+        if (!mounted.current || getFirebaseAuth().currentUser?.uid !== user?.uid) return;
+        // A delayed notification for the same user must not retry a completed
+        // failed attempt. Sign-in and Retry explicitly own same-user recovery.
+        if (user && currentUser.current?.uid === user.uid) return;
+        changeUser(user);
+        if (!user) { setStatus('signed_out'); return; }
+        // The explicit Firebase operation owns bootstrap until its credential
+        // resolves. A fast callback failure must not cause a hidden second attempt.
+        if (busy.current && busy.current !== 'sign_out') {
+          setStatus('bootstrapping');
+          return;
+        }
+        void bootstrapApplicationSession(user);
+      });
+    } catch {
+      setError('Authentication is unavailable. Please reload and try again.');
+      setStatus('error');
+    }
+    return () => {
+      mounted.current = false;
+      generation.current += 1;
+      pending.current = null;
+      currentUser.current = null;
+      clearAuthenticatedApiSession();
+      unsubscribe?.();
+    };
+  }, [bootstrapApplicationSession, changeUser]);
+
+  const authenticate = useCallback(async (kind: Exclude<AuthOperation, 'sign_out' | null>, callback: (auth: Auth) => Promise<UserCredential>) => {
+    if (busy.current || pending.current) return;
+    busy.current = kind;
+    const actionGeneration = generation.current;
+    setOperation(kind);
+    setError(null);
+    try {
+      const auth = getFirebaseAuth();
+      const credential = await callback(auth);
+      if (!mounted.current || auth.currentUser?.uid !== credential.user.uid) return;
+      changeUser(credential.user);
+      setAccountCreated(kind === 'sign_up');
+      // Explicit even for same-UID sign-in: Firebase need not emit a callback.
+      await bootstrapApplicationSession(credential.user);
+    } catch (err) {
+      if (mounted.current && generation.current === actionGeneration) setError(firebaseErrorMessage(err));
+    } finally {
+      busy.current = null;
+      if (mounted.current) setOperation(null);
+    }
+  }, [bootstrapApplicationSession, changeUser]);
+
+  const retryBootstrap = useCallback(async () => {
+    if (busy.current) return;
+    const user = getFirebaseAuth().currentUser;
+    if (user) await bootstrapApplicationSession(user);
+  }, [bootstrapApplicationSession]);
+
+  const signOutUser = useCallback(async () => {
+    if (busy.current) return;
+    busy.current = 'sign_out';
+    setOperation('sign_out');
+    // Invalidate outstanding bootstrap before awaiting Firebase sign-out.
+    generation.current += 1;
+    pending.current = null;
+    clearAuthenticatedApiSession();
+    setWorkspace(null);
+    try {
+      await signOut(getFirebaseAuth());
+      if (mounted.current) { changeUser(null); setStatus('signed_out'); }
+    } catch {
+      if (mounted.current) { setError('Could not sign out. Please try again.'); setStatus('error'); }
+    } finally {
+      busy.current = null;
+      if (mounted.current) setOperation(null);
+    }
+  }, [changeUser]);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    status, workspace, error, authenticated, accountCreated, operation, retryBootstrap, signOutUser,
+    signIn: (email, password) => authenticate('sign_in', (auth) => signInWithEmailAndPassword(auth, email, password)),
+    signUp: (email, password) => authenticate('sign_up', (auth) => createUserWithEmailAndPassword(auth, email, password)),
+    continueAsDemo: () => authenticate('demo', signInAnonymously),
+  }), [status, workspace, error, authenticated, accountCreated, operation, retryBootstrap, signOutUser, authenticate]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

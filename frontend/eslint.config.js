@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   { ignores: ['dist'] },
   {
-    files: ['playwright.staging.config.mjs', 'smoke/**/*.mjs'],
+    files: ['playwright.*.config.mjs', 'smoke/**/*.mjs'],
     extends: [js.configs.recommended],
     languageOptions: { ecmaVersion: 'latest', globals: globals.node },
   },

@@ -1,15 +1,19 @@
+import json
+import logging
 from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core import auth
+from app.core.bootstrap_diagnostics import BootstrapDiagnostics
 from app.core.database import Base, get_db
 from app.main import app
-from app.models.workspace import User, WorkspaceMembership
+from app.models.workspace import User, Workspace, WorkspaceMembership
 
 
 @pytest.fixture
@@ -17,7 +21,9 @@ def isolated_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[tuple[TestClient, sessionmaker[Session]]]:
     engine = create_engine(
-        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False, "autocommit": False},
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(engine)
     testing_session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -191,3 +197,166 @@ def test_anonymous_accounts_receive_distinct_demo_workspaces(
         == 200
     )
     assert client.get("/api/v1/cases", headers=headers("anonymous-b", workspace_b)).json() == []
+
+
+def diagnostic_records(caplog: pytest.LogCaptureFixture) -> list[dict[str, object]]:
+    return [
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "uvicorn.error.bootstrap"
+    ]
+
+
+def test_bootstrap_reuses_existing_records_and_emits_safe_phases(
+    isolated_client: tuple[TestClient, sessionmaker[Session]], caplog: pytest.LogCaptureFixture
+) -> None:
+    client, testing_session = isolated_client
+    caplog.set_level(logging.INFO, logger="uvicorn.error.bootstrap")
+    first = client.post("/api/v1/auth/bootstrap", headers={"Authorization": "Bearer user-a"})
+    second = client.post("/api/v1/auth/bootstrap", headers={"Authorization": "Bearer user-a"})
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    with testing_session() as db:
+        assert len(db.scalars(select(User)).all()) == 1
+        assert len(db.scalars(select(Workspace)).all()) == 1
+        assert len(db.scalars(select(WorkspaceMembership)).all()) == 1
+    records = diagnostic_records(caplog)
+    assert len({record["request_id"] for record in records}) == 2
+    phases = {record["phase"] for record in records if record["event"] == "bootstrap.phase"}
+    assert phases == {
+        "verified_token",
+        "application_user",
+        "membership_lookup",
+        "workspace_create",
+        "membership_create",
+        "workspace_lookup",
+        "transaction_commit",
+    }
+    assert all(record["outcome"] == "success" for record in records if "outcome" in record)
+    assert all(isinstance(record["total_duration_ms"], (int, float)) for record in records)
+    assert not any(
+        value in caplog.text
+        for value in (
+            "a@example.demo",
+            "firebase-a",
+            "Bearer",
+            "Authorization",
+            "password",
+            "user-a",
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "failure_phase", ["workspace_create", "membership_create", "transaction_commit"]
+)
+def test_bootstrap_failure_rolls_back_and_emits_safe_error_then_retry_succeeds(
+    isolated_client: tuple[TestClient, sessionmaker[Session]],
+    caplog: pytest.LogCaptureFixture,
+    failure_phase: str,
+) -> None:
+    client, testing_session = isolated_client
+    caplog.set_level(logging.INFO, logger="uvicorn.error.bootstrap")
+    rolled_back = []
+
+    def inject_flush(db: Session, *_: object) -> None:
+        target = Workspace if failure_phase == "workspace_create" else WorkspaceMembership
+        if any(isinstance(value, target) for value in db.new):
+            raise RuntimeError(
+                "email=a@example.demo token=Bearer-secret password=secret "
+                "Authorization=secret database=secret"
+            )
+
+    def inject_commit(db: Session) -> None:
+        if not db.in_nested_transaction():
+            raise RuntimeError("database credentials and SQL personal values")
+
+    def rollback_seen(db: Session) -> None:
+        rolled_back.append(True)
+
+    listener = inject_commit if failure_phase == "transaction_commit" else inject_flush
+    event_name = "before_commit" if failure_phase == "transaction_commit" else "before_flush"
+    event.listen(testing_session, event_name, listener)
+    event.listen(testing_session, "after_rollback", rollback_seen)
+    try:
+        response = client.post("/api/v1/auth/bootstrap", headers={"Authorization": "Bearer user-a"})
+    finally:
+        event.remove(testing_session, event_name, listener)
+        event.remove(testing_session, "after_rollback", rollback_seen)
+    assert response.status_code == 500
+    assert response.json() == {"detail": "The workspace could not be initialized. Please retry."}
+    assert rolled_back
+    with testing_session() as db:
+        assert db.scalars(select(User)).all() == []
+        assert db.scalars(select(Workspace)).all() == []
+        assert db.scalars(select(WorkspaceMembership)).all() == []
+    records = diagnostic_records(caplog)
+    errors = [record for record in records if record["event"] == "bootstrap.error"]
+    assert errors[0]["exception_class"] == "RuntimeError"
+    assert errors[0]["phase"] == failure_phase
+    assert errors[0]["exception_category"] == "server"
+    assert "inject_" in str(errors[0]["code_locations"])
+    assert any(
+        record.get("phase") == "transaction_rollback" and record.get("outcome") == "success"
+        for record in records
+    )
+    assert records[-1]["event"] == "bootstrap.completed"
+    assert records[-1]["status_code"] == 500
+    assert not any(
+        value in caplog.text
+        for value in (
+            "a@example.demo",
+            "Bearer-secret",
+            "password=",
+            "Authorization=",
+            "credentials and SQL",
+        )
+    )
+    bootstrap(client, "user-a")
+
+
+def test_bootstrap_auth_failure_stays_401_with_token_phase_diagnostic(
+    isolated_client: tuple[TestClient, sessionmaker[Session]], caplog: pytest.LogCaptureFixture
+) -> None:
+    client, _ = isolated_client
+    caplog.set_level(logging.INFO, logger="uvicorn.error.bootstrap")
+    assert client.post("/api/v1/auth/bootstrap").status_code == 401
+    assert (
+        client.post(
+            "/api/v1/auth/bootstrap", headers={"Authorization": "Bearer secret-invalid-token"}
+        ).status_code
+        == 401
+    )
+    errors = [
+        record for record in diagnostic_records(caplog) if record["event"] == "bootstrap.error"
+    ]
+    assert len(errors) == 2
+    assert all(
+        record["phase"] == "verified_token" and record["exception_class"] == "HTTPException"
+        for record in errors
+    )
+    assert "secret-invalid-token" not in caplog.text
+
+
+def test_database_exception_diagnostics_exclude_sql_parameters_and_driver_message(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="uvicorn.error.bootstrap")
+    diagnostics = BootstrapDiagnostics()
+    try:
+        with diagnostics.phase("application_user"):
+            raise OperationalError(
+                "SELECT private_email FROM users WHERE email='private@example.invalid'",
+                {"password": "private-password", "token": "private-token"},
+                RuntimeError("database credentials Authorization: private-header"),
+                connection_invalidated=True,
+            )
+    except OperationalError as exc:
+        diagnostics.failure(exc)
+    error = diagnostic_records(caplog)[-1]
+    assert error["exception_class"] == "OperationalError"
+    assert error["exception_category"] == "database"
+    assert error["connection_invalidated"] is True
+    assert error["phase"] == "application_user"
+    assert "private" not in caplog.text
+    assert "SELECT" not in caplog.text
