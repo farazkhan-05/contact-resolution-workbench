@@ -64,7 +64,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   </div>;
   return <div className="app-shell">
     <header className="global-header">
-      <div className="product-brand"><ProductLogo className="product-logo" /><div><p className="product-name">Contact Resolution Workbench</p><p className="environment-note">Synthetic Demo Data Only</p></div></div>
+      <div className="product-brand"><ProductLogo className="product-logo" /><p className="product-name">Contact Resolution Workbench</p></div>
       <nav aria-label="Product navigation" className="product-nav">
         <button type="button" aria-current={activePage === 'cases' ? 'page' : undefined} onClick={() => onNavigate('cases')}>Cases</button>
         <div className="sources-nav"><button type="button" aria-current={activePage === 'sources' ? 'page' : undefined} onClick={() => onNavigate('sources')}>Sources</button><HelpTooltip label="Sources" text="Manage where your records come from." /></div>
@@ -119,5 +119,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       )}
 
     <main className="shell-workspace">{children}</main>
+    <footer className="environment-note">Synthetic demo data only</footer>
   </div>;
 };

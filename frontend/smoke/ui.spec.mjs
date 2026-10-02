@@ -64,6 +64,23 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('/');
+    const disclosure = page.locator('footer.environment-note');
+    await expect(disclosure).toHaveText('Synthetic demo data only');
+    const disclosureStyle = await disclosure.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return { top: rect.top, bottom: rect.bottom, paddingLeft: style.paddingLeft, fontSize: style.fontSize,
+        fontWeight: style.fontWeight, position: style.position, background: style.backgroundColor,
+        border: style.borderTopWidth };
+    });
+    expect(disclosureStyle.bottom).toBeLessThanOrEqual(height);
+    expect(disclosureStyle.paddingLeft).toBe(width <= 767 ? '16px' : '24px');
+    expect(disclosureStyle.fontSize).toBe('11px');
+    expect(disclosureStyle.fontWeight).toBe('400');
+    expect(disclosureStyle.position).not.toBe('fixed');
+    expect(disclosureStyle.background).toBe('rgba(0, 0, 0, 0)');
+    expect(disclosureStyle.border).toBe('0px');
+    await expect(page.locator('.global-header')).not.toContainText('Synthetic demo data');
     await expect(page.getByRole('heading', { name: 'Start reviewing cases' })).toBeVisible();
     await expect(page.getByLabel('Search cases')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);

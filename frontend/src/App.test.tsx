@@ -31,6 +31,12 @@ describe('authenticated workbench shell', () => {
   it('shares favicon artwork, separates navigation from workflows and removes duplicate AI entry', async () => {
     await mountEmpty();
     expect(screen.getByText('Contact Resolution Workbench')).toBeTruthy();
+    const disclosure = screen.getByText('Synthetic demo data only');
+    expect(disclosure.tagName).toBe('FOOTER');
+    expect(disclosure.classList.contains('environment-note')).toBe(true);
+    expect(disclosure.closest('.global-header')).toBeNull();
+    expect(disclosure.closest('.shell-workspace')).toBeNull();
+    expect(disclosure.children).toHaveLength(0);
     expect(document.querySelector('.product-logo')?.getAttribute('src')).toBe(document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.href);
     const nav = screen.getByRole('navigation', { name: 'Product navigation' });
     expect(within(nav).getByRole('button', { name: 'Cases' }).getAttribute('aria-current')).toBe('page');
