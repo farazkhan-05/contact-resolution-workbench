@@ -36,14 +36,28 @@ A dedicated CI workflow uses ephemeral kind clusters, a deliberate migration
 Job, and the existing deterministic async integration tests. PostgreSQL and
 Redis in kind are disposable test infrastructure. Kubernetes is not the
 production hosting platform; Vercel, Render and external Neon remain unchanged.
-E2 prepares [Northflank Developer Sandbox staging](../infrastructure/northflank/README.md)
+E2 deployed [Northflank Developer Sandbox staging](../infrastructure/northflank/README.md)
 using native Northflank Templates as its IaC source: two services (FastAPI and
 Celery sharing the backend image), a migration Job, private managed Redis and
 a runtime secret group. A separate staging Neon branch/database is required;
-the addon slot is reserved for Redis. Observability stays disabled by default
-and Firebase authentication is preserved. The native template passed local
-official schema validation; deployment and staging acceptance remain pending
-external Northflank/Neon authentication, Sandbox/payment activation and credentials.
-Render remains the stable deployment/rollback path, production Vercel and Neon
-are untouched, and no production cutover has occurred. Terraform is deferred
-to a later step with a mature supported provider, likely Vercel.
+the addon slot is reserved for Redis. Observability stays disabled and Firebase
+authentication is preserved. The deployed API and worker use Neon branch
+`productization-staging`, database `workbench_staging`, and Firebase project
+`contact-resolution-staging`. E2 acceptance verified asynchronous synthetic CSV
+ingestion, duplicate-delivery idempotency and workspace isolation.
+
+E3 adds the [public staging Preview and release validation](staging-preview.md)
+on the existing Vercel Hobby project. Only `productization/v1` Preview variables
+target Northflank and Firebase staging. A stable staging-only alias is public;
+production aliases and protection are preserved. The browser smoke uses real
+Firebase anonymous authentication, durable Jobs and the existing Celery worker;
+it checks case evidence, review persistence and the public security boundary.
+Queue loading now waits for Firebase session restoration and workspace bootstrap.
+Render remains the stable public backend. Production Vercel, Render, Neon and
+`main` are unchanged; this is a synthetic portfolio/staging environment, with
+no production cutover, Kubernetes hosting claim or availability/scale SLA.
+
+Terraform evaluated and intentionally not adopted because no current infrastructure resource benefits from introducing Terraform state.
+Importing the established Vercel project solely to manage Preview variables
+would introduce state and drift risk without useful ownership. Northflank uses
+its supported native template; no unofficial Neon/Northflank provider is added.

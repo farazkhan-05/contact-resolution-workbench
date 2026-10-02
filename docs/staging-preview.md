@@ -1,0 +1,124 @@
+# Public staging Preview (Milestone E3)
+
+Release validation date: 2026-10-02. This is a synthetic public portfolio/staging
+environment, not production-grade Kubernetes or enterprise infrastructure.
+No availability, SLA or scale guarantee is claimed.
+
+**Release gate passed:** `npm ci`, ESLint (including the smoke suite),
+TypeScript, Vite build and `npm audit` (zero vulnerabilities). The real public
+Chromium smoke passed, observing `RUNNING` → `SUCCEEDED`, case
+`fc126e99-924e-448b-993c-f1303e3b35e6`, Job
+`8b4c9aeb-74ca-490a-b130-d3c1f603bba4`, persisted review and all boundary checks.
+The frontend fix was verified on immutable Preview
+`https://contact-resolution-workbench-4c4r9yq3p-farazkhanss-projects.vercel.app`
+through its public stable alias. Backend application/configuration code did
+not change; backend suites were not repeated.
+
+## Deployment and isolation
+
+| Component | Staging configuration |
+| --- | --- |
+| Frontend | [Stable staging Preview](https://contact-resolution-workbench-productization-v1.vercel.app) |
+| Backend | [Northflank health](https://http--staging-api--t686v9g45v9c.code.run/api/health) |
+| Firebase | `contact-resolution-staging`, app `contact-resolution-staging-web` |
+| Database | Neon `productization-staging` / `workbench_staging` |
+| Queue | Retained project-private Redis 7.2.16 → existing Celery worker |
+| Vercel | Existing `contact-resolution-workbench`, root `frontend`, Vite, Hobby |
+| Branch | `productization/v1`; production branch remains `main` |
+
+Official Vercel CLI browser/device authentication succeeded. The authenticated
+account reported Hobby before deployment. Standard Preview and the staging
+alias's [domain-specific protection exception](https://vercel.com/changelog/protect-production-deployments-for-free-on-every-plan)
+use the existing free entitlement. No upgrade, domain purchase, paid protection,
+analytics or other paid feature was enabled.
+
+Only Preview variables scoped to `productization/v1` were added:
+`VITE_API_BASE_URL`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`. The API value is the backend
+origin, without `/api/v1`; the client appends endpoint paths. Firebase values
+came from the official Firebase Management API using Google authentication and
+the staging quota-project header. These are public browser SDK config fields;
+Admin service-account credentials remain exclusively on the backend.
+
+The official Google Identity Toolkit admin API added only the stable staging
+hostname to staging Authorized Domains, preserving existing entries and auth
+settings. Northflank's staging API service has a direct `CORS_ORIGINS` override
+for that exact HTTPS origin; comparison confirmed no other effective runtime
+value changed. No wildcard frontend origins are allowed.
+
+The stable URL is an explicitly assigned staging alias, rather than a
+Vercel-generated Git branch alias. Updating it with `vercel alias set` must
+always target a verified Preview deployment. Its public exception persists
+when the alias is reassigned. Commit-specific deployment URLs retain normal
+Vercel authentication protection and are not CORS-approved frontend origins.
+
+Windows denied the CLI's scan of an unrelated local pytest cache, including
+with `.vercelignore`. Deployment therefore used an isolated copy containing
+only frontend source/config/lockfile and the existing project link. No local
+environment files, backend files or diagnostic credentials were uploaded.
+The CLI explicitly supplied `githubCommitRef=productization/v1` and commit SHA
+metadata. An uncommitted validation build carries dirty-source metadata; the
+final release deployment must identify the committed release SHA.
+
+## Browser validation
+
+The supplied Browser runtime reported no available browser. A small official
+`@playwright/test` 1.63.0 dev dependency provides one Chromium-only real staging
+smoke test. There are no API mocks, CAPTCHA workarounds or auth bypasses.
+Run explicitly from `frontend`:
+
+```powershell
+npm ci
+npx playwright install chromium
+npm run smoke:staging
+```
+
+Normal frontend CI runs no browser installation or staging test. The smoke
+creates two anonymous staging Firebase identities in isolated browser contexts
+and one uniquely numbered synthetic CSV Case. It uses the repository's
+synthetic Claire Reynolds fixture (`.demo` email), never real personal data.
+Tokens remain in process memory; no auth storage snapshots, network traces,
+videos or screenshots are retained. Synthetic staging users/jobs/cases remain
+available for inspection and can be removed through a later staging cleanup.
+
+Checks cover public HTTP 200 and JavaScript assets, staging Firebase sign-in
+and workspace bootstrap, HTTP 202 durable Job submission, actual frontend
+polling to `SUCCEEDED`, candidate/evidence rendering, a human
+`NEED_MORE_EVIDENCE` review with a synthetic note, and persistence after reload.
+Boundary checks require 401 without auth or with an invalid token, 404 for a
+foreign workspace's Case, 403 for a mismatched membership header, exact-origin
+CORS preflight 200 with credentials, and untrusted-origin preflight 400 without
+an allow-origin header. Built JavaScript must contain staging endpoints and
+exclude Render and Firebase Admin credential markers; all observed application
+API requests must use Northflank staging.
+
+An initial CSV attempt returned a generic worker error. A rollback-only
+diagnostic successfully reprocessed its synthetic payload; the next browser
+attempt completed ingestion. The original transient failure's cause was not
+established, and no backend fix or reliability claim is made. Release smoke
+also found and fixed a reproducible frontend reload bug: queue requests ran
+before Firebase session restoration and were not repeated after bootstrap.
+Queue/detail loading now waits for the ready workspace session.
+
+LangGraph/MCP staging execution remains intentionally outside this release
+gate: no deterministic staging provider path is configured. Existing local
+implementation/integration tests remain the evidence for that feature.
+
+## Rollback and Terraform
+
+Production Vercel environment metadata, deployment ID, production branch and
+protection were compared before/after and remained unchanged. Production
+aliases continue to target the original production deployment. No commands
+modified Render, production Neon, production Firebase or `main`.
+
+To withdraw staging, remove its alias/public exception or delete its Preview
+deployment; branch-specific Preview variables can be removed separately.
+Northflank staging can remain isolated. The staging Neon branch can be retained
+or removed in a later intentional cleanup. Production Render remains the
+current stable public backend; no production rollback is needed.
+
+Terraform evaluated and intentionally not adopted because no current infrastructure resource benefits from introducing Terraform state.
+Importing the established Vercel project for branch Preview configuration
+would add state/drift risk without useful ownership. Northflank retains its
+supported native template; no unofficial Neon/Northflank Terraform providers
+are introduced.

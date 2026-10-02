@@ -78,3 +78,5 @@ Thumbs.db
 
 # Optional local AI judge results
 backend/benchmarks/ai_evaluation/results/live.json
+
+.vercel

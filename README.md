@@ -110,10 +110,12 @@ npm audit
 
 ## Deployment
 
-Northflank **staging** preparation is documented in
-[the E2 deployment runbook](infrastructure/northflank/README.md). Its native
-Template is locally validated; cloud deployment is pending account authentication
-and setup. The stable Vercel/Render/Neon deployment below remains unchanged.
+Northflank **staging** is deployed. The productized frontend uses a public
+[Vercel Preview](https://contact-resolution-workbench-productization-v1.vercel.app)
+on `productization/v1`, Firebase staging authentication and isolated Neon staging.
+See the [E3 release validation runbook](docs/staging-preview.md) and
+[E2 backend deployment runbook](infrastructure/northflank/README.md).
+The stable production Vercel/Render/Neon deployment below remains unchanged.
 
 Target architecture: **Browser -> Vercel (React/Vite) -> Render Web Service (FastAPI) -> Neon (PostgreSQL)**.
 

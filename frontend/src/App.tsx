@@ -123,14 +123,21 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    fetchCases();
-  }, [fetchCases]);
+    if (status === 'ready' && workspace) {
+      void fetchCases();
+    } else {
+      setCases([]);
+      setSelectedCaseId(null);
+      setSelectedCaseDetail(null);
+      setFeedback(null);
+    }
+  }, [fetchCases, status, workspace]);
 
   useEffect(() => {
-    if (selectedCaseId) {
-      fetchCaseDetail(selectedCaseId);
+    if (status === 'ready' && selectedCaseId) {
+      void fetchCaseDetail(selectedCaseId);
     }
-  }, [selectedCaseId, fetchCaseDetail]);
+  }, [selectedCaseId, fetchCaseDetail, status]);
 
   const handleSelectCase = (caseId: string) => {
     setSelectedCaseId(caseId);
