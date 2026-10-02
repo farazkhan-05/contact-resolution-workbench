@@ -1,7 +1,6 @@
-# Public staging Preview (Milestone E3)
+# Public staging
 
-Release validation date: 2026-10-02. This is a synthetic public portfolio/staging
-environment, not production-grade Kubernetes or enterprise infrastructure.
+Release validation date: 2026-10-02. This portfolio/staging environment is for synthetic data.
 No availability, SLA or scale guarantee is claimed.
 
 **Release gate passed:** `npm ci`, ESLint (including the smoke suite),
@@ -26,12 +25,6 @@ not change; backend suites were not repeated.
 | Vercel | Existing `contact-resolution-workbench`, root `frontend`, Vite, Hobby |
 | Branch | `productization/v1`; production branch remains `main` |
 
-Official Vercel CLI browser/device authentication succeeded. The authenticated
-account reported Hobby before deployment. Standard Preview and the staging
-alias's [domain-specific protection exception](https://vercel.com/changelog/protect-production-deployments-for-free-on-every-plan)
-use the existing free entitlement. No upgrade, domain purchase, paid protection,
-analytics or other paid feature was enabled.
-
 Only Preview variables scoped to `productization/v1` were added:
 `VITE_API_BASE_URL`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
 `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`. The API value is the backend
@@ -52,19 +45,13 @@ always target a verified Preview deployment. Its public exception persists
 when the alias is reassigned. Commit-specific deployment URLs retain normal
 Vercel authentication protection and are not CORS-approved frontend origins.
 
-Windows denied the CLI's scan of an unrelated local pytest cache, including
-with `.vercelignore`. Deployment therefore used an isolated copy containing
-only frontend source/config/lockfile and the existing project link. No local
-environment files, backend files or diagnostic credentials were uploaded.
-The CLI explicitly supplied `githubCommitRef=productization/v1` and commit SHA
-metadata. An uncommitted validation build carries dirty-source metadata; the
-final release deployment must identify the committed release SHA.
+Preview deployments should identify their committed source SHA.
 
 ## Browser validation
 
-The supplied Browser runtime reported no available browser. A small official
-`@playwright/test` 1.63.0 dev dependency provides one Chromium-only real staging
-smoke test. There are no API mocks, CAPTCHA workarounds or auth bypasses.
+`@playwright/test` 1.63.0 provides Chromium staging smoke tests for CSV
+and Source ingestion. See [Source acceptance](e4-verification.md) for the latter.
+There are no API mocks, CAPTCHA workarounds or auth bypasses.
 Run explicitly from `frontend`:
 
 ```powershell
@@ -117,7 +104,7 @@ Northflank staging can remain isolated. The staging Neon branch can be retained
 or removed in a later intentional cleanup. Production Render remains the
 current stable public backend; no production rollback is needed.
 
-Terraform evaluated and intentionally not adopted because no current infrastructure resource benefits from introducing Terraform state.
+Terraform was evaluated and not adopted; no Terraform state is maintained.
 Importing the established Vercel project for branch Preview configuration
 would add state/drift risk without useful ownership. Northflank retains its
 supported native template; no unofficial Neon/Northflank Terraform providers

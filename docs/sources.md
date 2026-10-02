@@ -59,9 +59,10 @@ and must start with a letter or digit. Maximums: 100 records, 256 KB JSON,
 per phone. Empty batches and duplicate external IDs within a batch are rejected.
 Only synthetic data belongs in the public staging environment.
 
-The response includes an ingestion ID and its durable Job. Poll the authenticated
-`GET /api/v1/jobs/{job_id}` or inspect Source history. A 202 response acknowledges
-durable receipt; inspect Job status to confirm processing succeeded. Failed
+The response includes an ingestion ID and its durable Job. Workspace members can
+poll `GET /api/v1/jobs/{job_id}` using a Firebase bearer token and `X-Workspace-ID`,
+or inspect Source history. The Source key authorizes batch submission only.
+A 202 response acknowledges durable receipt; inspect Job status to confirm processing succeeded. Failed
 batches roll back all domain writes and expose a safe failure code. A queue
 outage is recorded as `BROKER_UNAVAILABLE`; after recovery, submit a new batch
 key. An identical retry refers to the original failed Job, rather than silently

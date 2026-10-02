@@ -1,6 +1,10 @@
-﻿# Northflank staging (Milestone E2)
+# Northflank staging
 
-**Status, 2026-10-02: staging deployed; E2 acceptance complete per release handoff.** Northflank and Neon authentication succeeded through their official CLIs. The user verified Developer Sandbox ($0.00/mo), starting usage $0.00 and an active payment method. The $50 billing limit is not free credit. The account inventory is two services, one job, one addon and one secret group. The official usage API reports an hourly entry with `$0` total and zero PaaS price; no finalized invoices are listed. This reflects available account data, not a financial SLA or future cost guarantee. E3 adds a [public Vercel Preview and browser release validation](../../docs/staging-preview.md).
+Verified on 2026-10-02. The staging account contains two services, one migration
+job, one Redis addon and one secret group. Available usage entries reported USD 0;
+this is historical account evidence, not a future cost guarantee. The deployed
+application and Source acceptance are recorded in [E4 verification](../../docs/e4-verification.md).
+The [public frontend](../../docs/staging-preview.md) uses Vercel Preview.
 
 Northflank project `crw-staging` is in `europe-west`. Its only addon is the retained private Redis 7.2.16 resource `staging-redis`, one replica, `nf-compute-10`, 4096 MB mandatory managed-addon storage, no public access and no TLS. The recovery template reused this addon; it created no second addon. API (`staging-api`) and worker (`staging-worker`) are running, the build succeeded, and migration Job (`staging-migrate`) completed.
 
@@ -8,9 +12,10 @@ The first template run created Redis then failed because secret restrictions ref
 
 Neon organization reports `free`. The isolated branch `productization-staging` and database `workbench_staging` are on the existing Neon project. The migration Job applied Alembic to current head, confirmed by a read-only query. Production branch `br-delicate-flower-b37n5n0u` was not used or modified.
 
-Firebase Admin configuration for `contact-resolution-staging` was supplied through Northflank's secret configuration. API `/api/health` returned HTTP 200. Missing and invalid Firebase tokens returned 401; two legitimate Anonymous Firebase identities bootstrapped into separate workspaces. A synthetic CSV Job reached `SUCCEEDED`, with its workspace-scoped Case persisted in staging Neon. A cross-workspace object request returned 404, and a request with mismatched workspace membership returned 403. Worker and private Redis pings passed. The initial duplicate-replay attempt was interrupted by command-exec exit code 9; subsequent duplicate-delivery idempotency was verified in the completed E2 handoff. LangGraph/MCP was skipped because no deterministic synthetic provider/MCP setup is configured, and adding a provider or auth bypass would be unsafe.
+Firebase Admin configuration for `contact-resolution-staging` was supplied through Northflank's secret configuration. API `/api/health` returned HTTP 200. Missing and invalid Firebase tokens returned 401; two legitimate Anonymous Firebase identities bootstrapped into separate workspaces. A synthetic CSV Job reached `SUCCEEDED`, with its workspace-scoped Case persisted in staging Neon. A cross-workspace object request returned 404, and a request with mismatched workspace membership returned 403. Worker and private Redis pings passed. E4 observed a completed duplicate delivery without additional Case records. LangGraph/MCP was not exercised in staging; no deterministic staging provider path is configured.
 
-E3 started from clean local and remote `productization/v1` at `27a28cc94cd27cda9ea84f6628695410bee637e0`, including E2 corrective changes. Render remains the stable production deployment. Production Vercel, production Neon, DNS and `main` were not changed; no production cutover occurred. E3 overrides only the staging API service's `CORS_ORIGINS` with `["https://contact-resolution-workbench-productization-v1.vercel.app"]`; the read-back confirmed every other runtime value remained unchanged.
+Production Vercel, Render, Neon, Firebase, DNS and `main` were not changed.
+The staging API permits only the public staging frontend's exact CORS origin.
 
 The E2 provisioning history is retained. Current deployment and completed
 Source/duplicate-delivery acceptance are recorded in
@@ -52,9 +57,7 @@ Developer Sandbox allocations of two services, two jobs and one addon. This
 template needs **two services, one job, one Redis addon**, plus one secret group.
 Northflank [requires a payment method and excludes production use of this tier](https://northflank.com/docs/v1/application/billing/pricing-on-northflank).
 These published allowances do not establish eligibility or remaining capacity
-for this account. The deployed Redis uses `nf-compute-10`; other workloads have
-not been provisioned. Availability
-can change; no financial SLA or permanent free hosting is promised.
+for this account. The deployed Redis uses `nf-compute-10`. Plan availability can change; no financial SLA or permanent free hosting is promised.
 
 Redis **7.2.16** is listed by the [official Redis guide](https://northflank.com/docs/v1/application/databases-and-persistence/deploy-databases-on-northflank/deploy-redis-on-northflank).
 One replica, no Sentinel/HA, no public or VPC load-balancer access, no backups
@@ -91,13 +94,12 @@ are no kind test-auth overrides in this deployment. Production Vercel keeps its
 current Render API URL. A local HTTP client can test staging without a frontend
 deployment; browser tests require the explicit allowed origin above.
 
-## Resume deployment after authentication
+## Provision a staging environment
 
 1. Authenticate using the official Northflank API, dashboard or
    [CLI](https://northflank.com/docs/v1/api/use-the-cli).
-   If needed, the official current stable CLI checked for this milestone is
-   `@northflank/cli` 0.13.0 (`npx @northflank/cli@0.13.0`); recheck the stable
-   release when resuming. Never retrieve credentials from unrelated stores.
+   The provisioning record used `@northflank/cli` 0.13.0
+   (`npx @northflank/cli@0.13.0`). Verify compatibility before a new deployment.
 2. Inspect the authenticated account's billing tier, payment activation, remaining
    resource allocations and eligible service/job/build/addon plans (`list plans`
    or the dashboard). Record the **actual plan IDs and zero-charge entitlement**
@@ -120,11 +122,11 @@ deployment; browser tests require the explicit allowed origin above.
    inspect the generated resource specifications and argument resolution, and
    review every billing/network field before running. Northflank performs an
    [authenticated dry-run before executing nodes](https://northflank.com/docs/v1/application/infrastructure-as-code/make-a-template-dynamic).
-   This server check has **not run** during E2 preparation. Do not enable autorun
+   Local schema validation alone does not run this authenticated server check. Do not enable autorun
    or run-on-creation to bypass review. Do not serialize resolved secret values
    into tracked JSON or deployment reports.
 6. Run the template. Require the build and migration Job to succeed before
-   acceptance. Confirm API, migration and worker select the same built E1 SHA/image
+   acceptance. Confirm API, migration and worker select the same intended SHA/image
    digest; API replicas must remain zero until migration success. Confirm exactly
    two services, one Job, one Redis addon and one secret group, with no public
    worker/Redis ports. Compare the deployed specs to this template, including
@@ -138,7 +140,7 @@ deployment; browser tests require the explicit allowed origin above.
 8. Run the synthetic smoke below. Retain only redacted pass/fail results and
    synthetic Job/Case IDs. Completed E4 acceptance verified API, worker, migration,
    Source persistence, cross-tenant checks and an observed completed duplicate
-   replay. Preserve the earlier interrupted attempt as historical evidence.
+   replay. The CSV smoke below does not cover the Source API; use the E4 suite for that contract.
 
 ## Local template validation
 
@@ -207,7 +209,7 @@ injection into staging or claim this CSV smoke validates investigations.
 
 ## Deployment record and rollback
 
-| Acceptance item | E2 preparation result |
+| Acceptance item | Recorded result |
 | --- | --- |
 | Native schema / secret-free template / resource inventory | Passed locally |
 | Account Sandbox tier / payment activation / actual free plans | Dashboard verified by user; inventory is two services, one job, one addon; hourly usage total `$0`, no finalized invoices |
@@ -215,7 +217,7 @@ injection into staging or claim this CSV smoke validates investigations.
 | Firebase Admin provisioning / synthetic ID tokens | Admin credential configured in Northflank secret group; real staging auth passed |
 | Authenticated template dry-run / deployed spec comparison | Recovery run succeeded; retained private Redis reused; two services, one job, one addon, one secret group |
 | Migration / API health / worker / private Redis | Staging migration head, API health, worker ping and private Redis ping passed |
-| Async persistence / duplicate delivery / cross-tenant smoke | Initial duplicate attempt was interrupted (exit 9); completed E2 handoff and E4 observed replay subsequently verified idempotency, persistence and cross-workspace denial |
+| Async persistence / duplicate delivery / cross-tenant smoke | E4 observed completed replay verified idempotency, persistence and cross-workspace denial |
 | LangGraph to MCP investigation | Not run in staging |
 
 Render remains the stable deployment and rollback path. E2 changed no Render

@@ -77,7 +77,9 @@ deployment, migrations, rollouts, health, four async/D1 tests and cluster cleanu
 The complete Compose integration selection passed five tests. The backend final
 gate passed 267 tests with seven skipped, Ruff, formatting and mypy; the frontend
 install/lint/TypeScript/build gate also passed. Remote Actions inspection was
-unavailable because GitHub CLI was unauthenticated; E1 was not pushed.
+unavailable because GitHub CLI was unauthenticated. These are historical E1
+results; the [final audit](../../docs/final-audit.md#final-verification) records
+the later backend and service gates.
 
-Terraform is deferred to E2 until staging/hosting decisions identify actual
-resources for it to manage. E1 changes no production infrastructure.
+Staging uses the native Northflank template and Vercel Preview configuration.
+Terraform was evaluated and not adopted; no Terraform state is maintained.

@@ -1,18 +1,23 @@
 # Identity Resolution Workbench
 
-A multi-tenant workbench for resolving duplicate and stale identities without letting a high similarity score override contradictory identity evidence.
+A multi-tenant workbench that compares incoming contact records with reference identities and queues uncertain matches for human review. Suffix and full-middle-name conflicts block automatic likely-match routing even when contact details agree.
 
 ## Live staging
 
 [Open the public staging workbench](https://contact-resolution-workbench-productization-v1.vercel.app). Choose the anonymous demo or sign in. Use synthetic data only.
 
+The portfolio staging deployment uses React/Vercel, Firebase, FastAPI on Northflank,
+Neon/PostgreSQL and Redis/Celery. See the [engineering evidence](docs/project-evidence.md)
+for tests, synthetic benchmarks and deployment checks. Automatic routing recommends
+an outcome; it does not silently merge records or submit a reviewer decision.
+
 ## Why this exists
 
 Businesses accumulate outdated contact details and duplicate identities across systems. Exact matching misses legitimate changes; loose fuzzy matching can incorrectly join different people, including family members with similar names.
 
-AI handles ambiguous evidence. Deterministic constraints protect identity. Humans handle uncertainty.
+Optional Gemini extraction turns unstructured notes into schema-validated fields. LangGraph/MCP investigations check extracted values against approved evidence and rerun deterministic analysis. AI cannot set scores, choose a workspace, override contradiction gates or submit the reviewer's Accept/Reject decision. Investigation retrieval currently uses synthetic notes; it has local test evidence but has not run in public staging.
 
-## How companies use it
+## Data ingestion
 
 ### Initial onboarding / ad-hoc
 
@@ -20,11 +25,11 @@ Upload a CSV of incoming identities to create resolution Cases. Inspect candidat
 
 ### Ongoing operation
 
-Create a **REFERENCE Source** for master records and an **INCOMING Source** for identities requiring resolution. External applications submit canonical batches using a Source-specific API key and an Idempotency-Key. Owners can rotate keys or disable ingestion; members can inspect processing history. Both incoming paths use the same deterministic scoring, contradiction checks and review workflow.
+Create a REFERENCE Source for master records and an INCOMING Source for identities requiring resolution. External applications submit ongoing machine-to-machine batches using a Source-specific API key and an Idempotency-Key. Owners can rotate keys or disable ingestion; members can inspect processing history. Both incoming paths use the same deterministic scoring, contradiction checks and review workflow.
 
 See the [Source API contract](docs/sources.md) for the schema and retry behavior.
 
-## Architecture
+## Runtime architecture
 
 ```mermaid
 flowchart LR
@@ -136,10 +141,10 @@ OTel/Langfuse export allowlisted operation metadata, excluding identities, sourc
 ## Documentation links
 
 - [Architecture and component boundaries](docs/productization-architecture.md)
-- [Project evidence, product vision, interview explanation and resume bullets](docs/project-evidence.md)
+- [Engineering claims, evidence and caveats](docs/project-evidence.md)
 - [Final engineering/security audit](docs/final-audit.md)
 - [Source API and ongoing ingestion](docs/sources.md)
 - [Identity benchmark](docs/identity-resolution-benchmark.md) / [AI evaluation](docs/ai-evaluation.md)
 - [Evidence investigations](docs/evidence-investigation.md)
-- [E4 acceptance](docs/e4-verification.md) / [public staging](docs/staging-preview.md)
+- [Source ingestion acceptance](docs/e4-verification.md) / [public staging](docs/staging-preview.md)
 - [Northflank runbook](infrastructure/northflank/README.md) / [Kubernetes/kind](infrastructure/k8s/README.md)

@@ -91,9 +91,9 @@ addon, one secret group**. No resource or paid feature was added; replica and
 plan allocations were retained. Available hourly usage entries all report
 **USD 0**, and no invoices are listed. The team-scoped CLI token cannot read the
 organisation-only team endpoint; the Developer Sandbox entitlement remains the
-previously verified handoff configuration, with no plan change in E4.
+previously verified account configuration, with no plan change in E4.
 
 Production Render, Vercel, Neon, Firebase, DNS, and `main` were not modified.
 Remote `main` remains `3bbda287bbe6525164f282a227c14926d6e20cb5`.
-E4 is complete; no implementation or staging acceptance blocker remains.
-The final release audit has not begun.
+The subsequent [engineering audit](final-audit.md) records the final gates and
+remaining reliability and retrieval limitations.

@@ -2,9 +2,9 @@
 
 `productization/v1` contains the productized system. Its verified public deployment is staging. The earlier Vercel/Render demo on `main` and its production services remain separate; this document does not authorize a cutover.
 
-## Production runtime components
+## Application runtime components
 
-These are implemented application/runtime components, deployed in a production-like staging environment. This heading describes their role, not a claim of production enterprise usage.
+The table distinguishes active staging components from optional capabilities with local test evidence.
 
 | Component | Responsibility | Public staging |
 | --- | --- | --- |

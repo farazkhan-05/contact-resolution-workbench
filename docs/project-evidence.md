@@ -43,30 +43,11 @@ The dataset contains 880 synthetic identities and 2,600 records. Partition integ
 
 MiniLM was evaluated and rejected from runtime retrieval. Logistic Regression and XGBoost improved synthetic top-1, but the feature investigation exposed a missing-field dataset artifact; neither was adopted. Gemini embedding performance remains unassessed. Offline AI evaluation's scripted 1.0 scores are contract regressions, not live Gemini accuracy.
 
-## Product operating model / vision
+## Ingestion operating model
 
-Today, CSV supports onboarding and ad-hoc incoming imports. REFERENCE Sources populate persistent master data; authenticated INCOMING Sources support ongoing programmatic resolution. A company can start with a batch review and later have its systems submit the same canonical Source contract without changing the resolution/review pipeline.
+CSV supports onboarding and ad-hoc incoming imports. REFERENCE Sources populate persistent master data; authenticated INCOMING Sources support ongoing programmatic resolution. A company can start with a batch review and later have its systems submit the same canonical Source contract without changing the resolution/review pipeline.
 
 Salesforce, HubSpot, ERP systems, warehouses and internal applications could integrate by adapting their records to that contract and retaining their own external IDs. Those vendor connectors are an extension model, not implemented integrations. CSV reference loading would also require an adapter or an explicitly added importer; the current CSV endpoint creates incoming Cases.
-
-## How to explain this project in an interview
-
-**Problem:** Businesses accumulate duplicate and stale identities across systems. Exact matches miss legitimate changes; broad fuzzy matching risks joining different people.
-
-**Product:** A multi-tenant identity-resolution workbench with a user/workspace model, machine integrations, credential lifecycle, asynchronous Jobs, provenance, review workflow, observability, deployment and operational history.
-
-**Operational flow:** Reference data arrives through REFERENCE Sources; incoming identities arrive through CSV or INCOMING Sources. The system generates candidates and routes cases using deterministic evidence scores. Contradictions block unsafe likely-match recommendations. Humans handle ambiguous cases and own final decisions. LangGraph/MCP can gather governed evidence and recompute deterministic analysis. CSV reference import is not implemented.
-
-**AI boundary:** AI interprets ambiguous evidence through validated schemas and approved operations. It cannot choose another workspace, override identity constraints, set final scores or make the reviewer's Accept/Reject decision.
-
-**Engineering judgment:** I evaluated semantic and learned ranking alternatives, investigated apparent gains and retained the deterministic approach when the evidence did not justify adoption. The deployment is staging; hard-crash recovery and large candidate blocks remain documented operational constraints.
-
-## Resume-ready bullets
-
-- Built a multi-tenant identity-resolution workbench combining deterministic matching, contradiction gates and human review, with Firebase authentication and workspace-scoped authorization.
-- Designed CSV onboarding and authenticated REFERENCE/INCOMING Source ingestion with PostgreSQL Jobs, Redis/Celery processing, credential rotation, provenance and HTTP/task idempotency.
-- Implemented a LangGraph investigation workflow through governed MCP v2 tools, enforcing server-owned scope, grounded evidence and idempotent human interrupt/resume; verified it with disposable PostgreSQL and real-worker tests.
-- Benchmarked deterministic, semantic and learned ranking approaches, rejecting artifact-driven gains; deployed public staging on Vercel/Northflank/Neon with optional privacy-safe tracing and Kubernetes/kind validation.
 
 ## Release boundaries and limitations
 

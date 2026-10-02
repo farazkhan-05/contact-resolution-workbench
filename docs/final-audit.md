@@ -141,6 +141,6 @@ One transient initial worker failure was observed during staging deployment. Sub
 
 ## Release decision
 
-The workbench is ready as a **final synthetic portfolio/staging project**, with explicit reliability/retrieval limits and a traceable evidence inventory. It is not a production-cutover approval or an enterprise safety/availability guarantee.
+The engineering gates passed for the synthetic portfolio/staging environment, with the reliability and retrieval limits above. These results do not verify the GitHub default branch or authorize a production cutover.
 
 Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. Production migration/cutover is a separate controlled release decision. No production Vercel, Render, Neon, Firebase, DNS or `main` change was made. GitHub Actions remains unverified remotely because official authenticated access was unavailable.

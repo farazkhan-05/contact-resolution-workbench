@@ -1,4 +1,4 @@
-# Identity resolution benchmark (C1, C2 and C3)
+# Identity resolution benchmark (C1-C4)
 
 Run from `backend/`:
 
@@ -53,6 +53,10 @@ absence of labels from candidate features. Query IDs are removed before ordering
 and from the evaluator's relevant set, including when queries share a corpus.
 
 ## Fixed retrieval baseline
+
+Recorded results: [train](../backend/benchmarks/identity_resolution/results/train.json),
+[validation](../backend/benchmarks/identity_resolution/results/validation.json),
+[test](../backend/benchmarks/identity_resolution/results/test.json).
 
 `normalized-blocks-existing-score-v1` unions exact normalized email/phone blocks,
 parsed first+last name blocks, and surname+employer or surname+location blocks.
@@ -109,6 +113,10 @@ an evaluation asset, not improved production accuracy. C1 implements no embeddin
 or learned models.
 
 ## C2 semantic experiment
+
+Recorded results: [MiniLM test](../backend/benchmarks/identity_resolution/results/c2/local-test.json),
+[hybrid test](../backend/benchmarks/identity_resolution/results/c2/local-hybrid-test.json),
+[runtime](../backend/benchmarks/identity_resolution/results/c2/local-runtime.json).
 
 C2 keeps the C1 generator, configuration, corpus, partitions, truth, and metric
 definitions unchanged. The runner checks the complete manifest and recomputes C1
@@ -258,6 +266,11 @@ code, matching/routing policy, database schema, deployment, and infrastructure a
 
 ## C3 learned candidate ranking
 
+Recorded results: [Logistic test](../backend/benchmarks/identity_resolution/results/c3/logistic-test.json),
+[XGBoost test](../backend/benchmarks/identity_resolution/results/c3/xgboost-test.json),
+[feature investigation](../backend/benchmarks/identity_resolution/results/c3/feature-investigation.json),
+[selection veto](../backend/benchmarks/identity_resolution/results/c3/selection.json).
+
 C3 trains pair classifiers on exactly C1's deterministic top-20 candidate sets.
 Each query/candidate receives one model score, then sorts by descending score and
 opaque record ID. Truth supplies the binary label only. Identity groups and all
@@ -364,8 +377,8 @@ recall there is 61.35%, versus Logistic 76.49% and XGBoost 66.93%. Those scores 
 different scales; equal numeric probes are not equivalent operating points. A
 zero count on this synthetic sample does not establish a production-safe threshold.
 All three test no-match queries have Logistic top score 0.49527 and XGBoost 0.51515.
-XGBoost would therefore classify no-match pairs positive at 0.5. C4 threshold work
-has not been performed.
+XGBoost would therefore classify no-match pairs positive at 0.5. The later C4
+evaluation below retains deterministic ranking and thresholds 75/45.
 
 Both learned models show eight held-out top-1 wins and two losses versus C1. Primary
 scenario recall rises for malformed fields (0% to 100%, n=3), ambiguity (33.33% to
@@ -453,10 +466,14 @@ Ruff, format checks, mypy for the app and new experiment modules, and frontend
 lint/typecheck/build passed. The ordinary dependency set also passed 115 tests with
 the ML module and service-dependent integration test skipped. The existing real
 service CI job remains in place. C3 commit `7379ce02335337a05761103359e50ae7d910bf51`
-was pushed to `origin/productization/v1`; remote CI inspection was unavailable from
-the Codex environment. Remote C3 CI remains unconfirmed.
+was pushed to `origin/productization/v1`; authenticated remote CI inspection was
+unavailable. Remote C3 CI remains unconfirmed.
 
 ## C4 contradiction-aware routing and threshold evaluation
+
+Recorded results: [held-out routing](../backend/benchmarks/identity_resolution/results/c4/test.json),
+[gate analysis](../backend/benchmarks/identity_resolution/results/c4/analysis.json),
+[threshold selection](../backend/benchmarks/identity_resolution/results/c4/selection.json).
 
 **Decision C: retain production thresholds and require future real-data calibration.**
 Production remains at 75 for `LIKELY_MATCH` and 45 for `NEEDS_REVIEW`.

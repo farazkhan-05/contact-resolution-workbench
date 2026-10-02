@@ -1,4 +1,4 @@
-# Targeted AI evaluation (D4)
+# AI evaluation
 
 `backend/benchmarks/ai_evaluation` evaluates the Gemini extraction boundary and the
 LangGraph investigation through its real embedded MCP client/server. Dataset
@@ -21,7 +21,7 @@ uv run --frozen --group ai-evaluation python -m benchmarks.ai_evaluation
 
 DeepEval 4.2.7 is pinned in the optional `ai-evaluation` dependency group. It is
 excluded from the backend runtime image. DeepEval needs Click 8.3.3 and Rich 14.3.4 in its environment. The lock preserves
-production Click 8.5.0 and all existing benchmark package versions. Because the
+runtime Click 8.5.0 and all existing benchmark package versions. Because the
 semantic benchmark needs a newer Click, uv declares these independent experiment
 groups mutually exclusive; install each separately. No unrelated packages were upgraded.
 Normal backend CI installs this group and runs only offline tests and evaluation.
@@ -43,7 +43,7 @@ preservation and final-decision attempts. Existing deterministic pytest security
 and domain tests remain authoritative. The suite also proves that malformed or
 fabricated investigation output is rejected without persisting new evidence.
 
-The checked-in `results/deterministic.json` has no timestamps, random IDs, prompts,
+The checked-in [deterministic artifact](../backend/benchmarks/ai_evaluation/results/deterministic.json) has no timestamps, random IDs, prompts,
 model output or credentials. Two runs must produce identical logical results.
 Its schema-valid rate is 15/18: two intentionally malformed outputs and one provider
 failure have no valid JSON. All three match the expected rejection labels, giving
