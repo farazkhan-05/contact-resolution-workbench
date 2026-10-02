@@ -38,7 +38,17 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export interface Source { id: string; workspace_id: string; name: string; source_type: 'REFERENCE' | 'INCOMING'; status: 'ACTIVE' | 'DISABLED'; key_prefix: string; last_ingested_at: string | null; }
+export interface SourceIngestion { id: string; source_id: string; created_at: string; job: Job; }
+export interface SourceCredential extends Source { api_key: string; }
+export const sourceIngestionUrl = `${BASE_URL}/api/v1/source-ingestions`;
+
 export const api = {
+  async listSources(): Promise<Source[]> { return handleResponse(await request('/api/v1/sources', { method: 'GET' })); },
+  async createSource(name: string, source_type: Source['source_type']): Promise<SourceCredential> { return handleResponse(await request('/api/v1/sources', { method: 'POST', body: JSON.stringify({ name, source_type }) })); },
+  async rotateSource(id: string): Promise<SourceCredential> { return handleResponse(await request(`/api/v1/sources/${id}/rotate`, { method: 'POST' })); },
+  async sourceStatus(id: string, status: Source['status']): Promise<Source> { return handleResponse(await request(`/api/v1/sources/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })); },
+  async sourceHistory(id: string): Promise<SourceIngestion[]> { return handleResponse(await request(`/api/v1/sources/${id}/ingestions`, { method: 'GET' })); },
   async startInvestigation(caseId: string): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/cases/${caseId}/investigations`, { method: 'POST' })); },
   async listInvestigations(caseId: string): Promise<InvestigationRun[]> { return handleResponse(await request(`/api/v1/cases/${caseId}/investigations`, { method: 'GET' })); },
   async getInvestigation(id: string): Promise<InvestigationRun> { return handleResponse(await request(`/api/v1/investigations/${id}`, { method: 'GET' })); },

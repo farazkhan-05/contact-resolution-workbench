@@ -88,6 +88,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
         <span>Back to case queue</span>
       </button>
 
+      {caseDetail.ingestion_id && <div className="rounded border border-border bg-surface p-3 text-xs"><p>Source: {caseDetail.source_identifier}</p><p>Ingestion: API ? {caseDetail.ingestion_id}</p><p>External record: {caseDetail.external_record_id}</p><p>Received: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}</p></div>}
       {/* Case Header Card */}
       <div className="rounded border border-border bg-surface p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -101,7 +102,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
               </h2>
             </div>
             <p className="text-xs text-muted">
-              Created: {new Date(caseDetail.created_at).toLocaleString()}
+              Created: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}
             </p>
           </div>
 

@@ -15,6 +15,7 @@ from app.core.constants import (
 from app.core.observability import annotate, traced
 from app.models.audit import AuditLog
 from app.models.case import CandidateRecord, Case, Contradiction, MatchEvidence
+from app.models.source import SourceIngestion
 from app.schemas.api import (
     AuditLogResponse,
     CandidateDetailResponse,
@@ -226,7 +227,9 @@ def ingest_csv(
 ) -> CsvIngestResponse:
     """Validate, resolve, and persist records from uploaded CSV."""
     records = parse_and_validate_csv(file_content, db, workspace_id)
-    resolver = resolution_service or ResolutionService()
+    from app.services.source_service import workspace_resolver
+
+    resolver = resolution_service or workspace_resolver(db, workspace_id)
     case_ids: list[str] = []
 
     try:
@@ -419,10 +422,16 @@ def get_case_detail(db: Session, workspace_id: str, case_id: str) -> CaseDetailR
         )
     ]
 
+    ingestion = db.get(SourceIngestion, case.ingestion_id) if case.ingestion_id else None
     return CaseDetailResponse(
         id=case.id,
         case_number=case.case_number,
         source_identifier=case.source_identifier,
+        received_at=ingestion.created_at if ingestion else case.created_at,
+        ingestion_mechanism="source_api" if case.ingestion_id else "manual",
+        source_id=case.source_id,
+        ingestion_id=case.ingestion_id,
+        external_record_id=case.external_record_id,
         raw_name=case.raw_name,
         normalized_name=case.normalized_name,
         name_prefix=case.name_prefix,

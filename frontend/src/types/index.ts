@@ -75,6 +75,11 @@ export interface AuditEvent {
 }
 
 export interface CaseDetail {
+  received_at?: string | null;
+  ingestion_mechanism?: string;
+  source_id?: string | null;
+  ingestion_id?: string | null;
+  external_record_id?: string | null;
   id: string;
   case_number: string;
   source_identifier: string | null;

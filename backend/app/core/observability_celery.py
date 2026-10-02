@@ -15,6 +15,7 @@ from app.core.observability import (
 )
 
 TASK_TYPES = {
+    "app.tasks.ingest_source_job": "SOURCE_INGEST",
     "app.tasks.ingest_csv_job": "CSV_INGEST",
     "app.tasks.ingest_unstructured_job": "UNSTRUCTURED_INGEST",
     "app.tasks.investigate_evidence": "INVESTIGATION",

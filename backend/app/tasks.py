@@ -200,3 +200,61 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
         return
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=5)  # type: ignore[untyped-decorator]
+def ingest_source_job(self: Task, job_id: str, workspace_id: str) -> None:
+    from app.models.source import Source, SourceIngestion
+    from app.schemas.source import SourceBatch
+    from app.services.source_service import process_batch
+
+    with SessionLocal() as db:
+        try:
+            claimed = db.execute(
+                update(Job)
+                .where(
+                    Job.id == job_id,
+                    Job.workspace_id == workspace_id,
+                    Job.job_type == "SOURCE_INGEST",
+                    Job.status == "PENDING",
+                )
+                .values(status="RUNNING", started_at=utcnow())
+            ).rowcount  # type: ignore[attr-defined]
+            db.commit()
+            if not claimed:
+                return
+            job = db.get(Job, job_id)
+            assert job is not None
+            run = db.scalar(select(SourceIngestion).where(SourceIngestion.job_id == job.id))
+            assert run is not None
+            source = db.scalar(
+                select(Source).where(
+                    Source.id == run.source_id, Source.workspace_id == workspace_id
+                )
+            )
+            assert source is not None
+            annotate(
+                **{
+                    "ingestion.mechanism": "source_api",
+                    "ingestion.source_type": source.source_type,
+                    "ingestion.record_count": job.total_rows or 0,
+                }
+            )
+            process_batch(db, source, run, SourceBatch.model_validate_json(job.payload))
+            job.status = "SUCCEEDED"
+            job.processed_rows = job.total_rows or 0
+            job.successful_rows = job.processed_rows
+            job.completed_at = utcnow()
+            db.commit()
+            annotate(**{"operation.status": "SUCCEEDED"})
+        except (ConnectionError, TimeoutError) as exc:
+            _retry_if_transient(self, db, job_id, workspace_id, exc)
+        except Retry:
+            raise
+        except Exception:
+            db.rollback()
+            job = db.scalar(select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id))
+            if job:
+                job.rejected_rows = job.total_rows or 0
+                job.processed_rows = job.rejected_rows
+                fail_job(db, job, "WORKER_ERROR", "The source batch could not be processed.")

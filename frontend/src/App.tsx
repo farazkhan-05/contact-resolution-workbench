@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api/client';
+import { Sources } from './components/Sources';
 import { AuthScreen } from './auth/AuthScreen';
 import { useAuth } from './auth/AuthProvider';
 import { recordUsageEvent } from './api/telemetry';
@@ -16,6 +17,7 @@ import type {
 
 export function App() {
   const { status, workspace, signOutUser } = useAuth();
+  const [page, setPage] = useState<'cases' | 'sources'>('cases');
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseDetailType | null>(null);
@@ -277,6 +279,8 @@ export function App() {
   return (
     <>
       <AppShell
+        onNavigate={() => setPage(page === 'cases' ? 'sources' : 'cases')}
+        navigationLabel={page === 'cases' ? 'Sources' : 'Cases'}
         onLoadSample={handleLoadSample}
         onUploadCsv={handleUploadCsv}
         onExportCsv={handleExportCsv}
@@ -290,6 +294,7 @@ export function App() {
         onSignOut={signOutUser}
       >
         <div className="flex h-full w-full overflow-hidden">
+          {page === 'sources' ? <Sources key={workspace?.id} owner={workspace?.role === 'OWNER'} onReview={() => { setPage('cases'); void fetchCases(); }} /> : <>
           {/* Case Queue Column */}
           <div
             className={`h-full shrink-0 sm:flex ${
@@ -329,6 +334,7 @@ export function App() {
               isSubmittingDecision={isSubmittingDecision}
             />
           </div>
+          </>}
         </div>
       </AppShell>
 

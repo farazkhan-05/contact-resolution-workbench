@@ -128,6 +128,11 @@ class AuditLogResponse(BaseModel):
 
 
 class CaseDetailResponse(BaseModel):
+    received_at: datetime | None = None
+    ingestion_mechanism: str = "manual"
+    source_id: str | None = None
+    ingestion_id: str | None = None
+    external_record_id: str | None = None
     id: str
     case_number: str
     source_identifier: str | None = None

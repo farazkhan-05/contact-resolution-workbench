@@ -1,18 +1,18 @@
 import os
 import subprocess
 import sys
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, inspect, select
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.models.case import Case
 from app.models.workspace import Workspace
 from app.schemas.resolution import CaseQuery
-from app.services.case_service import persist_case_resolution
-from app.services.resolution_service import ResolutionService
 
 
 @pytest.mark.parametrize("database", ["sqlite", "postgres"])
@@ -48,11 +48,22 @@ def test_application_migration_preserves_existing_case_and_downgrades(
         db.add(workspace)
         db.flush()
         query = CaseQuery(name="Existing Synthetic Case")
-        case = persist_case_resolution(
-            db, workspace.id, "LEGACY-D1", None, query, ResolutionService().resolve(query)
+        case_id = str(uuid.uuid4())
+        db.execute(
+            text(
+                "INSERT INTO cases (id, workspace_id, case_number, raw_name, "
+                "normalized_name, routing_status, review_decision, created_at) "
+                "VALUES (:id, :workspace, 'LEGACY-D1', :name, :name, "
+                "'INSUFFICIENT_EVIDENCE', 'PENDING', :created)"
+            ),
+            {
+                "id": case_id,
+                "workspace": workspace.id,
+                "name": query.name,
+                "created": datetime.now(UTC),
+            },
         )
         db.commit()
-        case_id = case.id
     migrate("head")
     assert "investigation_runs" in inspect(engine).get_table_names()
     with Session(engine) as db:

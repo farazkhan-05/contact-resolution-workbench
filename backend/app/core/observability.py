@@ -40,6 +40,8 @@ SPAN_NAMES = AI_SPANS | {
     "api.job.enqueue",
 }
 ENUMS: dict[str, set[str]] = {
+    "ingestion.mechanism": {"source_api"},
+    "ingestion.source_type": {"REFERENCE", "INCOMING"},
     "gen_ai.provider.name": {"google"},
     "gen_ai.operation.name": {"extract", "evidence_gap"},
     "langfuse.observation.type": {"generation", "agent", "tool", "span"},
@@ -52,7 +54,7 @@ ENUMS: dict[str, set[str]] = {
         "request_human_review",
         "unavailable",
     },
-    "job.type": {"CSV_INGEST", "UNSTRUCTURED_INGEST", "INVESTIGATION"},
+    "job.type": {"CSV_INGEST", "UNSTRUCTURED_INGEST", "INVESTIGATION", "SOURCE_INGEST"},
     "operation.status": {
         "SUCCEEDED",
         "FAILED",
@@ -75,6 +77,7 @@ ENUMS: dict[str, set[str]] = {
 }
 NUMBERS = {
     "duration.ms",
+    "ingestion.record_count",
     "gen_ai.usage.input_tokens",
     "gen_ai.usage.output_tokens",
     "job.retries",

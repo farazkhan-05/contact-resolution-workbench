@@ -30,6 +30,10 @@ class Case(Base):
     case_number: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
     source_identifier: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    source_id: Mapped[str | None] = mapped_column(ForeignKey("sources.id"))
+    ingestion_id: Mapped[str | None] = mapped_column(ForeignKey("source_ingestions.id"))
+    external_record_id: Mapped[str | None] = mapped_column(String(100))
+
     # Ingested raw attributes
     raw_name: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
