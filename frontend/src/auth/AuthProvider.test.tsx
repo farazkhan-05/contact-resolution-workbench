@@ -301,3 +301,38 @@ describe('password reset', () => {
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
   });
 });
+
+describe('authentication input controls', () => {
+  it('uses the email placeholder and provides a keyboard-accessible password visibility toggle', () => {
+    mount();
+    const emailInput = screen.getByLabelText('Email') as HTMLInputElement;
+    const passwordInput = screen.getByLabelText('Password') as HTMLInputElement;
+    expect(emailInput.placeholder).toBe('Enter your email');
+    expect(passwordInput.placeholder).toBe('Enter your password');
+    expect(passwordInput.type).toBe('password');
+
+    const showButton = screen.getByRole('button', { name: 'Show password' }) as HTMLButtonElement;
+    expect(showButton.tagName).toBe('BUTTON');
+    expect(showButton.type).toBe('button');
+    expect(showButton.tabIndex).toBe(0);
+    fireEvent.click(showButton);
+    expect(passwordInput.type).toBe('text');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(passwordInput.type).toBe('password');
+  });
+
+  it('keeps the password toggle in Create Account and omits it from Forgot Password', () => {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+    expect((screen.getByLabelText('Email') as HTMLInputElement).placeholder).toBe('Enter your email');
+    expect((screen.getByLabelText('Password') as HTMLInputElement).type).toBe('password');
+    expect(screen.getByRole('button', { name: 'Show password' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use an existing account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
+    expect((screen.getByLabelText('Email') as HTMLInputElement).placeholder).toBe('Enter your email');
+    expect(screen.queryByLabelText('Password')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Show password' })).toBeNull();
+  });
+});

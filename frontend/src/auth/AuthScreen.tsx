@@ -1,4 +1,5 @@
 ﻿import { useState, type FormEvent, type ReactNode } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 
 export function AuthScreen(): ReactNode {
@@ -6,6 +7,7 @@ export function AuthScreen(): ReactNode {
   const [mode, setMode] = useState<'sign_in' | 'sign_up' | 'reset_password'>('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const pending = operation !== null;
@@ -43,19 +45,19 @@ export function AuthScreen(): ReactNode {
             <p role="status" className="mt-5 text-sm text-foreground">If an account exists for that email, a password reset link has been sent.</p>
             <button type="button" onClick={backToSignIn} className="mt-5 w-full text-sm text-accent">Back to sign in</button>
           </> : <>
-            <label className="mt-5 block text-sm text-foreground">Email<input required disabled={pending} type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2" /></label>
+            <label className="mt-5 block text-sm text-foreground">Email<input required disabled={pending} type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 placeholder:text-muted" /></label>
             {resetError && <p role="alert" className="mt-3 text-sm text-red-600">{resetError}</p>}
             <button disabled={pending} className="mt-5 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{pending ? 'Sending reset link…' : 'Send reset link'}</button>
             <button type="button" disabled={pending} onClick={backToSignIn} className="mt-3 w-full text-sm text-accent">Back to sign in</button>
           </>}
         </> : <>
         <p className="mt-2 text-sm text-muted">Sign in to use an isolated workspace.</p>
-        <label className="mt-5 block text-sm text-foreground">Email<input required disabled={pending} type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2" /></label>
-        <label className="mt-3 block text-sm text-foreground">Password<input required disabled={pending} minLength={6} type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2" /></label>
+        <label className="mt-5 block text-sm text-foreground">Email<input required disabled={pending} type="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 placeholder:text-muted" /></label>
+        <label className="mt-3 block text-sm text-foreground">Password<div className="relative mt-1"><input required disabled={pending} minLength={6} type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded border border-border bg-background py-2 pl-3 pr-10 placeholder:text-muted" /><button type="button" disabled={pending} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">{showPassword ? <EyeOff aria-hidden="true" size={16} /> : <Eye aria-hidden="true" size={16} />}</button></div></label>
         {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
         <button disabled={pending} className="mt-5 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{operation === 'sign_up' ? 'Creating account…' : operation === 'sign_in' ? 'Signing in…' : mode === 'sign_in' ? 'Sign in' : 'Create account'}</button>
         {mode === 'sign_in' && <button type="button" disabled={pending} onClick={() => { setMode('reset_password'); setResetSent(false); setResetError(null); }} className="mt-3 w-full text-sm text-accent">Forgot password?</button>}
-        <button type="button" disabled={pending} onClick={() => setMode(mode === 'sign_in' ? 'sign_up' : 'sign_in')} className="mt-3 w-full text-sm text-accent">{mode === 'sign_in' ? 'Create an account' : 'Use an existing account'}</button>
+        <button type="button" disabled={pending} onClick={() => { setMode(mode === 'sign_in' ? 'sign_up' : 'sign_in'); setShowPassword(false); }} className="mt-3 w-full text-sm text-accent">{mode === 'sign_in' ? 'Create an account' : 'Use an existing account'}</button>
         <div className="my-4 border-t border-border" />
         <button type="button" onClick={() => void continueAsDemo()} disabled={pending} className="w-full rounded border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50">{operation === 'demo' ? 'Signing in…' : 'Continue with anonymous demo'}</button>
         </>}
