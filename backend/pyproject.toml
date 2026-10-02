@@ -6,24 +6,64 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.14.0",
+    "celery>=5.5,<6",
     "fastapi>=0.115.0",
+    "firebase-admin>=6.6.0",
     "google-genai>=2.25.0",
+    "langfuse==4.16.0",
+    "langgraph==1.2.12",
+    "langgraph-checkpoint-postgres==3.1.2",
+    "mcp==2.2.0",
+    "opentelemetry-exporter-otlp-proto-http==1.45.0",
+    "opentelemetry-sdk==1.45.0",
     "psycopg[binary]>=3.2.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
     "python-multipart>=0.0.20",
     "rapidfuzz>=3.11.0",
+    "redis>=5.2,<7",
     "sqlalchemy>=2.0.36",
     "uvicorn[standard]>=0.34.0",
 ]
 
 [dependency-groups]
+ai-evaluation = [
+    "deepeval==4.2.7",
+]
 dev = [
     "httpx>=0.28.0",
     "mypy>=1.14.0",
+    "numpy>=2.4,<3",
     "pytest>=8.3.0",
     "ruff>=0.9.0",
 ]
+ranking-benchmark = [
+    "scikit-learn==1.9.1",
+    "xgboost-cpu==3.4.1; sys_platform == 'linux' or sys_platform == 'win32'",
+    "xgboost==3.4.1; sys_platform != 'linux' and sys_platform != 'win32'",
+]
+semantic-benchmark = [
+    "sentence-transformers==6.1.0",
+    "torch>=2.2",
+]
+
+# Manual experiments use released CPU wheels, never the default Linux CUDA stack.
+[tool.uv]
+# DeepEval needs Click <8.4; existing semantic tooling needs Click >=8.4.2.
+# Install these independent experiment groups separately, preserving both lock selections.
+conflicts = [
+    [{ group = "ai-evaluation" }, { group = "semantic-benchmark" }],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.ruff]
 line-length = 100
@@ -40,5 +80,6 @@ disallow_incomplete_defs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+addopts = "-p no:deepeval"
 testpaths = ["tests"]
 pythonpath = ["."]

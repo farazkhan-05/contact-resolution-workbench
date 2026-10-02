@@ -9,6 +9,15 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     GEMINI_TIMEOUT_SECONDS: float = 10.0
+    FIREBASE_SERVICE_ACCOUNT_JSON: str | None = None
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    OBSERVABILITY_ENABLED: bool = False
+    OTEL_SERVICE_NAME: str = "contact-resolution-workbench"
+    OBSERVABILITY_ENVIRONMENT: str = "local"
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: str | None = None
+    LANGFUSE_PUBLIC_KEY: str | None = None
+    LANGFUSE_SECRET_KEY: str | None = None
+    LANGFUSE_BASE_URL: str | None = None
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

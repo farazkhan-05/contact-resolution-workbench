@@ -1,0 +1,8 @@
+{
+  "audited_dependency_count": 159,
+  "scope": "frozen production + dev + ai-evaluation export, Windows/Python 3.13",
+  "skipped": [],
+  "tool": "pip-audit",
+  "vulnerabilities": [],
+  "vulnerability_count": 0
+}

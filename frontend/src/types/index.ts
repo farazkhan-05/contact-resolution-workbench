@@ -75,6 +75,11 @@ export interface AuditEvent {
 }
 
 export interface CaseDetail {
+  received_at?: string | null;
+  ingestion_mechanism?: string;
+  source_id?: string | null;
+  ingestion_id?: string | null;
+  external_record_id?: string | null;
   id: string;
   case_number: string;
   source_identifier: string | null;
@@ -111,10 +116,21 @@ export interface SampleIngestResponse {
   case_ids: string[];
 }
 
-export interface CsvIngestResponse {
-  ingested_count: number;
-  created_count: number;
-  case_ids: string[];
+export interface Job {
+  id: string;
+  workspace_id: string;
+  job_type: string;
+  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+  total_rows: number | null;
+  processed_rows: number;
+  successful_rows: number;
+  rejected_rows: number;
+  source_label: string | null;
+  failure_code: string | null;
+  failure_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 export interface DecisionPayload {
@@ -145,5 +161,15 @@ export interface UnstructuredIngestResponse {
   routing_status: RoutingStatus;
   top_score: number;
   candidate_count: number;
+}
+
+export interface InvestigationRun {
+  id: string;
+  case_id: string;
+  status: 'PENDING' | 'RUNNING' | 'WAITING_FOR_HUMAN' | 'SUCCEEDED' | 'FAILED';
+  outcome: string | null;
+  current_step: string | null;
+  last_error_message: string | null;
+  interrupt: { reason: string; evidence_gap: string; allowed_actions: string[] } | null;
 }
 

@@ -1,202 +1,150 @@
-# Contact Resolution Workbench
+# Identity Resolution Workbench
 
-A narrow, privacy-safe proof-of-concept (POC) for internal operations teams to review and resolve ambiguous contact/profile records against synthetic candidate sources using transparent, explainable deterministic evidence.
+A multi-tenant workbench that compares incoming contact records with reference identities and queues uncertain matches for human review. Suffix and full-middle-name conflicts block automatic likely-match routing even when contact details agree.
 
-## Privacy & Safety Boundary
+## Live staging
 
-- **Synthetic Data Only**: Operates strictly on synthetic demo records and mock approved-provider fixtures.
-- **No Live Scraping or OSINT**: Zero automated scraping or querying of live social networks (LinkedIn, Facebook, Instagram, Naukri, etc.).
-- **Human Authoritative**: Automated scoring (0–100) and confidence routing are strictly advisory; human reviewers explicitly confirm, reject, or request more evidence.
+[Open the public staging workbench](https://contact-resolution-workbench-productization-v1.vercel.app). Choose the anonymous demo or sign in. Use synthetic data only.
 
-## Quickstart
+The portfolio staging deployment uses React/Vercel, Firebase, FastAPI on Northflank,
+Neon/PostgreSQL and Redis/Celery. See the [engineering evidence](docs/project-evidence.md)
+for tests, synthetic benchmarks and deployment checks. Automatic routing recommends
+an outcome; it does not silently merge records or submit a reviewer decision.
 
-### 1. Backend Setup & Run
+## Why this exists
 
-From the `backend` directory:
+Businesses accumulate outdated contact details and duplicate identities across systems. Exact matching misses legitimate changes; loose fuzzy matching can incorrectly join different people, including family members with similar names.
 
-```bash
-cd backend
-uv sync
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8000
+Optional Gemini extraction turns unstructured notes into schema-validated fields. LangGraph/MCP investigations check extracted values against approved evidence and rerun deterministic analysis. AI cannot set scores, choose a workspace, override contradiction gates or submit the reviewer's Accept/Reject decision. Investigation retrieval currently uses synthetic notes; it has local test evidence but has not run in public staging.
+
+## Data ingestion
+
+### Initial onboarding / ad-hoc
+
+Upload a CSV of incoming identities to create resolution Cases. Inspect candidates, field evidence and contradictions, then record a human decision. CSV export preserves those decisions. The current CSV importer creates Cases; persisted master/reference records are loaded through a REFERENCE Source.
+
+### Ongoing operation
+
+Create a REFERENCE Source for master records and an INCOMING Source for identities requiring resolution. External applications submit ongoing machine-to-machine batches using a Source-specific API key and an Idempotency-Key. Owners can rotate keys or disable ingestion; members can inspect processing history. Both incoming paths use the same deterministic scoring, contradiction checks and review workflow.
+
+See the [Source API contract](docs/sources.md) for the schema and retry behavior.
+
+## Runtime architecture
+
+```mermaid
+flowchart LR
+    External[External systems] --> Source[Authenticated Source API]
+    CSV[CSV incoming import] --> Jobs[Durable PostgreSQL ingestion / Jobs]
+    Source --> Jobs
+    Jobs --> Queue[Redis / Celery]
+    Queue --> Reference[REFERENCE upsert]
+    Queue --> Resolve[INCOMING candidate generation and scoring]
+    Reference --> Resolve
+    Resolve --> Gates[Contradiction-aware routing]
+    Gates --> Outcome[Automatic routing outcome]
+    Gates --> Review[Human review queue]
 ```
 
-- Health Check: `http://127.0.0.1:8000/api/health`
-- OpenAPI Swagger Docs: `http://127.0.0.1:8000/docs`
+```text
+React / Vercel Preview -> Firebase staging -> FastAPI / Northflank -> Neon staging
+                                                  |
+                                            private Redis -> Celery
 
-### 2. Frontend Setup & Run
+Explicit investigation -> LangGraph -> governed MCP -> approved evidence
+                                    -> deterministic re-analysis -> human interrupt
+```
 
-From the `frontend` directory:
+Automatic routing recommends an outcome; it does not silently merge records or submit a reviewer decision. LangGraph/MCP is implemented and locally tested, but has not been executed in public staging.
 
-```bash
+## Capabilities
+
+- Verified Firebase authentication and workspace membership checks.
+- Durable asynchronous CSV and Source ingestion, credential lifecycle, HTTP/task idempotency and provenance.
+- Deterministic candidate scoring with 75/45 thresholds; suffix and full-middle-name contradictions block likely-match routing.
+- Human review, evidence inspection, audit history and spreadsheet-safe export.
+- Governed LangGraph/MCP investigations and optional privacy-safe OTel/Langfuse tracing.
+
+## Evaluation evidence
+
+| Experiment | Held-out synthetic evidence | Decision |
+| --- | --- | --- |
+| Deterministic retrieval | Recall@1 92.91%; Recall@5 and Recall@10 100% | Retained deterministic approach |
+| Routing at 75/45 | 99 automatic matches; **0 unsafe automatic decisions observed in the held-out synthetic benchmark**; review/abstention 23.85%; true-match rejection 6/127 | Thresholds retained |
+| MiniLM retrieval | Underperformed deterministic top-1 | Rejected from runtime |
+| Logistic Regression / XGBoost ranking | Improved synthetic top-1; feature investigation exposed a missing-field dataset artifact | Both rejected from runtime |
+
+These measurements describe the versioned benchmark, not production accuracy or the database provider's 100-candidate cap. Gemini embedding performance is unassessed. Offline DeepEval checks validate scripted contracts and tool governance; their 1.0 results are not live model accuracy. [Methods and artifacts](docs/identity-resolution-benchmark.md).
+
+## Deployment
+
+The verified portfolio environment is **staging**: Vercel Preview, Firebase staging, Northflank API/worker, private Redis and an isolated Neon branch/database. API, worker and migration workload share the backend image. Kubernetes is validated with kind; it is not the public hosting platform. Optional telemetry exporters are disabled in public staging.
+
+The existing Vercel/Render demo and its production Neon/Firebase configuration remain separate. A production cutover would require a separate controlled release decision. Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state.
+
+## Local development
+
+Requires Python 3.13+, uv, Node.js 22+ and Docker for the shared database/broker.
+
+```sh
+# Repository root: local PostgreSQL, Redis, API and worker
+docker compose build api
+docker compose up -d postgres redis
+docker compose run --rm api alembic upgrade head
+docker compose run --rm api python -m app.services.investigation_service
+docker compose up -d worker
+docker compose run --rm --service-ports -e FIREBASE_SERVICE_ACCOUNT_JSON api
+
+# Separate terminal
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-- Web UI: `http://localhost:5173`
+Supply Firebase Admin JSON in the terminal environment before starting the API; Compose forwards it with `-e` without embedding it in an image. Configure the public browser SDK fields in `frontend/.env.local`; use the example files as references. Keep credentials outside Git and container images. Local SQLite is useful for unit tests; separate API/worker processes should share PostgreSQL. Gemini and exporter credentials are optional for deterministic ingestion and need separate worker environment injection when enabled.
 
-## Deterministic Scoring & Routing
+## Testing
 
-Evidence scores are deterministic matching scores, not identity probabilities.
-
-### Score Breakdown
-
-| Field | Max Points | Match Criteria |
-| :--- | :--- | :--- |
-| **Name** | 30 | Exact match (30), Suffix/Middle initial match or RapidFuzz `token_sort_ratio` >= 90 (20), >= 70 (10) |
-| **Email** | 25 | Exact normalized match (25) |
-| **Phone** | 25 | Exact normalized digits (25) |
-| **Employer** | 10 | Exact normalized match (10), RapidFuzz `token_set_ratio` >= 85 (6) |
-| **Geography** | 10 | Exact City + State (10), Same State (5) |
-| **Total** | **100** | Capped at 100 max points |
-
-### Routing Policy
-
-- **Score >= 75** and no SERIOUS contradiction -> `LIKELY_MATCH`
-- **Score >= 75** with SERIOUS contradiction -> `NEEDS_REVIEW`
-- **Score 45–74** -> `NEEDS_REVIEW`
-- **Score < 45** or 0 candidates -> `NO_RELIABLE_MATCH`
-
-### Contradictions
-
-- **SERIOUS (blocks Likely Match)**: Incompatible name suffix (`Jr.` vs `Sr.`), conflicting explicit full middle name (`Alexander` vs `Anthony`).
-- **MODERATE (advisory warning)**: Differing employer, differing geography.
-
-## API Endpoints
-
-### 1. Ingest
-- `POST /api/v1/ingest/sample`: Idempotently loads the 8 benchmark synthetic scenarios.
-- `POST /api/v1/ingest/csv`: Multipart upload of synthetic CSV profile batches (UTF-8 / UTF-8 BOM).
-
-#### Documented CSV Schema
-- **Required Columns**: `case_number`, `full_name`
-- **Optional Columns**: `source_identifier`, `old_email`, `old_phone`, `employer`, `location`
-
-Example:
-```csv
-case_number,full_name,old_email,old_phone,employer,location
-CASE-CSV-01,Alice Springs,alice@springs.demo,+1 202-555-0101,Springs Co,Seattle WA
-CASE-CSV-02,Bob Vance,bob@vance.demo,+1 202-555-0102,Vance Refrig,Austin TX
-```
-
-### 2. Cases Workspace
-- `GET /api/v1/cases`: List case queue summaries (supports query params: `routing_status`, `review_decision`, `search`).
-- `GET /api/v1/cases/{case_id}`: Full case investigation detail including original raw/normalized records, candidate matches with field-by-field evidence, contradictions, and append-only activity history.
-- `POST /api/v1/cases/{case_id}/decision`: Submit reviewer verdict (`ACCEPTED` with `selected_candidate_id`, `REJECTED`, or `NEED_MORE_EVIDENCE` with optional plain-text `notes`).
-
-### 3. Export
-- `GET /api/v1/export/csv`: Export all reviewed non-pending cases as downloadable spreadsheet-safe CSV.
-
-## Quality & Tests
-
-Run tests and linters:
-
-```bash
-# Backend
+```sh
 cd backend
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy app
+uv sync --frozen --group ai-evaluation
+uv run --frozen --group ai-evaluation pytest
+uv run --frozen --group ai-evaluation ruff check .
+uv run --frozen --group ai-evaluation ruff format --check .
+uv run --frozen --group ai-evaluation mypy app
+uv run --frozen --group ai-evaluation python -m benchmarks.ai_evaluation
 
-# Frontend
-cd frontend
+cd ../frontend
+npm ci
 npm run lint
 npx tsc --noEmit
 npm run build
 npm audit
 ```
 
-## Deployment
+Real broker/worker and PostgreSQL checkpoint tests run separately against disposable services, as in [CI](.github/workflows/ci.yml). See the [final audit](docs/final-audit.md) for results, dependency audits and reproduction details. No paid live judge is required.
 
-Target architecture: **Browser -> Vercel (React/Vite) -> Render Web Service (FastAPI) -> Neon (PostgreSQL)**.
+## Security/privacy
 
-### 1. Database (Neon PostgreSQL)
-1. Create a serverless PostgreSQL database on [Neon](https://neon.tech).
-2. Copy the direct connection string (`postgresql://...` or `postgres://...` with `sslmode=require`). The backend automatically normalizes the URL to `postgresql+psycopg://` at runtime.
+User APIs authorize the verified user's workspace membership. Machine ingestion derives its workspace and purpose from its Source credential. Source tokens contain 256 bits of secret randomness; only a safe lookup prefix and SHA-256 digest are stored. Keys appear only in create/rotate responses and transient UI state.
 
-### 2. Backend (Render Web Service)
-1. Create a new **Web Service** on [Render](https://render.com) linked to the repository.
-2. Configure service settings:
-   - **Root Directory**: `backend`
-   - **Runtime**: `Python 3` (Python 3.13 is pinned via `backend/.python-version`)
-   - **Build Command**: `uv sync --frozen`
-   - **Start Command**: `uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-   - **Health Check Path**: `/api/health`
-3. Environment Variables:
-   - `DATABASE_URL`: `postgresql://<user>:<password>@<ep-id>.neon.tech/<dbname>?sslmode=require` (or direct `postgres://` URI provided by Neon)
-   - `CORS_ORIGINS`: `https://<your-app>.vercel.app,http://localhost:5173`
+OTel/Langfuse export allowlisted operation metadata, excluding identities, source rows, prompts, responses and credentials; exporter failures do not change domain outcomes. First-party demo usage events retain bounded identifiers; do not place personal data in case numbers or referral codes. The public environment is for synthetic data.
 
-> [!NOTE]
-> Render Free tier web services spin down after inactivity and may cold-start on the first request. For low-latency demo evaluation, ensure the service is warmed or running on an active tier.
+## Known limitations
 
-### 3. Frontend (Vercel)
-1. Import the repository into [Vercel](https://vercel.com).
-2. Configure project settings:
-   - **Root Directory**: `frontend`
-   - **Framework Preset**: `Vite`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-3. Environment Variables:
-   - `VITE_API_BASE_URL`: `https://<your-render-service>.onrender.com`
+- Synthetic benchmarks establish no real-world false-merge guarantee; Gemini embeddings and a live DeepEval judge were not evaluated.
+- Workspace reference retrieval takes at most 100 blocked records, ordered by internal ID. Larger blocks can omit the true candidate; benchmark recall does not validate this database cap.
+- Hard worker termination can strand PENDING/RUNNING Jobs. Recovery is operator-controlled; see the [crash analysis and runbook](docs/final-audit.md#worker-crash-analysis-and-manual-recovery).
+- LangGraph/MCP has local integration evidence, not public-staging execution evidence. Approved additional retrieval is currently synthetic.
+- Public staging uses Northflank Sandbox resources, with no availability/scale SLA; kind validation does not establish production Kubernetes readiness.
+- One transient initial worker failure was observed during staging deployment. Subsequent complete end-to-end flows passed; root cause was not established.
 
-## Anonymous Demo Usage Telemetry
+## Documentation links
 
-A lightweight, first-party telemetry mechanism records basic interaction milestones without collecting personal data or using third-party trackers.
-
-### Privacy Guarantees
-
-- **Zero Third-Party SDKs**: No Google Analytics, Mixpanel, PostHog, or tracking pixels.
-- **Zero PII & Data Leakage**: No IP addresses, user agents, visitor identities, uploaded CSV contents, candidate details, or reviewer notes are stored.
-- **Session-Scoped Storage**: Ephemeral anonymous session ID stored in `sessionStorage` (regenerated per browser session).
-- **Strict Allowlist**: Only predefined event types (`APP_OPENED`, `SAMPLE_CASES_LOADED`, `CASE_VIEWED`, `DECISION_SUBMITTED`, `CSV_UPLOADED`, `CSV_EXPORTED`) with bounded safe identifiers are accepted.
-
-### Optional Referral Link
-
-Shareable demo links can include an optional alphanumeric `ref` query parameter to distinguish traffic sources:
-
-```text
-https://your-app.example/?ref=interview-demo
-```
-
-### Inspecting Demo Usage (Neon SQL)
-
-The application owner can inspect demo usage directly using SQL in the Neon Console:
-
-#### 1. Recent Telemetry Events
-```sql
-SELECT event_name, ref_code, case_number, created_at
-FROM usage_events
-ORDER BY created_at DESC
-LIMIT 100;
-```
-
-#### 2. Event Summary Breakdown
-```sql
-SELECT event_name, COUNT(*) AS event_count
-FROM usage_events
-GROUP BY event_name
-ORDER BY event_count DESC;
-```
-
-#### 3. Unique Anonymous Sessions
-```sql
-SELECT COUNT(DISTINCT anonymous_session_id) AS total_sessions
-FROM usage_events;
-```
-
-#### 4. Usage by Referral Tag
-```sql
-SELECT COALESCE(ref_code, '(direct / none)') AS referral_source,
-       event_name,
-       COUNT(*) AS count
-FROM usage_events
-GROUP BY ref_code, event_name
-ORDER BY ref_code, count DESC;
-```
-
-> [!NOTE]
-> `APP_OPENED` indicates that the web application was loaded in a browser tab. `CASE_VIEWED`, `SAMPLE_CASES_LOADED`, and `DECISION_SUBMITTED` indicate active interactive evaluation of the workbench. Security crawlers, link unfurlers, or bot scanners may occasionally open URLs, so `APP_OPENED` alone should not be interpreted as definitive proof of human interaction.
-
-
+- [Architecture and component boundaries](docs/productization-architecture.md)
+- [Engineering claims, evidence and caveats](docs/project-evidence.md)
+- [Final engineering/security audit](docs/final-audit.md)
+- [Source API and ongoing ingestion](docs/sources.md)
+- [Identity benchmark](docs/identity-resolution-benchmark.md) / [AI evaluation](docs/ai-evaluation.md)
+- [Evidence investigations](docs/evidence-investigation.md)
+- [Source ingestion acceptance](docs/e4-verification.md) / [public staging](docs/staging-preview.md)
+- [Northflank runbook](infrastructure/northflank/README.md) / [Kubernetes/kind](infrastructure/k8s/README.md)

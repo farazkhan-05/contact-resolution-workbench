@@ -2,11 +2,16 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.core.auth import FirebaseIdentity, get_firebase_identity
 from app.core.constants import RoutingStatus
-from app.core.database import Base, engine, get_db
+from app.core.database import Base, get_db
 from app.main import app
+from app.models.case import Case
+from app.models.workspace import User, Workspace, WorkspaceMembership
 from app.schemas.resolution import CaseQuery, ExtractedCandidateProfile, RawCandidate
 from app.services.contradiction import evaluate_contradictions
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
@@ -21,16 +26,18 @@ from app.services.resolution_service import ProviderError, ResolutionService
 
 @pytest.fixture
 def db_session() -> Session:
-    Base.metadata.create_all(bind=engine)
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
+    test_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=test_engine)
+    session = Session(bind=test_engine)
     try:
         yield session
     finally:
         session.close()
-        transaction.rollback()
-        connection.close()
+        Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture
@@ -39,7 +46,19 @@ def client(db_session: Session) -> TestClient:
         return db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_firebase_identity] = lambda: FirebaseIdentity(
+        uid="gemini-test-user", email="gemini@example.demo", is_anonymous=False
+    )
+    user = User(firebase_uid="gemini-test-user", email="gemini@example.demo")
+    workspace = Workspace(name="Gemini test workspace")
+    db_session.add_all([user, workspace])
+    db_session.flush()
+    db_session.add(WorkspaceMembership(user_id=user.id, workspace_id=workspace.id, role="OWNER"))
+    db_session.commit()
     test_client = TestClient(app)
+    test_client.headers.update(
+        {"Authorization": "Bearer test-token", "X-Workspace-ID": workspace.id}
+    )
     yield test_client
     app.dependency_overrides.clear()
 
@@ -252,7 +271,7 @@ def test_extracted_candidate_scored_by_deterministic_matcher() -> None:
 # 6. Unstructured Ingestion API Endpoint Workflow
 # ==============================================================================
 def test_unstructured_ingest_api_endpoint(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     mock_client = MagicMock()
     mock_response = MagicMock()
@@ -277,16 +296,30 @@ def test_unstructured_ingest_api_endpoint(
         "source_identifier": "MEMO-2025-01",
     }
 
-    res = client.post("/api/v1/ingest/unstructured", json=payload)
-    assert res.status_code == 200
-    data = res.json()
-    assert data["extracted_profile"]["name"] == "David Mitchell"
-    assert data["extracted_profile"]["employer"] == "Crestview Logistics"
-    assert data["routing_status"] == "LIKELY_MATCH"
-    assert data["top_score"] == 75 or data["top_score"] > 50
+    import app.tasks as task_module
+    from app.models.job import Job
+    from app.tasks import ingest_unstructured_job
 
-    # Detail view verification
-    case_id = data["case_id"]
+    monkeypatch.setattr(
+        ingest_unstructured_job,
+        "delay",
+        lambda *args: type("Result", (), {"id": "test"})(),
+    )
+    monkeypatch.setattr(
+        task_module,
+        "SessionLocal",
+        sessionmaker(bind=db_session.get_bind(), expire_on_commit=False),
+    )
+    res = client.post("/api/v1/ingest/unstructured", json=payload)
+    assert res.status_code == 202
+    data = res.json()
+    assert data["status"] == "PENDING"
+    ingest_unstructured_job.run(data["id"], data["workspace_id"])
+    with sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)() as db:
+        job = db.get(Job, data["id"])
+        assert job is not None and job.status == "SUCCEEDED"
+        # Deterministic resolution populated the workspace case after extraction.
+        case_id = db.scalar(select(Case.id).where(Case.raw_name == "David Mitchell"))
     detail_res = client.get(f"/api/v1/cases/{case_id}")
     assert detail_res.status_code == 200
     case_data = detail_res.json()

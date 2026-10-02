@@ -14,6 +14,7 @@ import { ContradictionAlert } from './ContradictionAlert';
 import { EvidenceMatrix } from './EvidenceMatrix';
 import { OriginalRecord } from './OriginalRecord';
 import { ReviewConsole } from './ReviewConsole';
+import { InvestigationPanel } from './InvestigationPanel';
 
 interface CaseDetailProps {
   caseDetail: CaseDetailType | null;
@@ -21,6 +22,7 @@ interface CaseDetailProps {
   onBackMobile: () => void;
   onSubmitDecision: (decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmittingDecision: boolean;
+  onRefresh: () => void;
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({
@@ -29,6 +31,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
   onBackMobile,
   onSubmitDecision,
   isSubmittingDecision,
+  onRefresh,
 }) => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
 
@@ -85,6 +88,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
         <span>Back to case queue</span>
       </button>
 
+      {caseDetail.ingestion_id && <div className="rounded border border-border bg-surface p-3 text-xs"><p>Source: {caseDetail.source_identifier}</p><p>Ingestion: API ? {caseDetail.ingestion_id}</p><p>External record: {caseDetail.external_record_id}</p><p>Received: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}</p></div>}
       {/* Case Header Card */}
       <div className="rounded border border-border bg-surface p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -98,7 +102,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
               </h2>
             </div>
             <p className="text-xs text-muted">
-              Created: {new Date(caseDetail.created_at).toLocaleString()}
+              Created: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}
             </p>
           </div>
 
@@ -144,6 +148,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
 
       {/* 1. Original Record Panel */}
       <OriginalRecord caseDetail={caseDetail} />
+      <InvestigationPanel key={caseDetail.id} caseId={caseDetail.id}
+        eligible={isNeedsReview && ['PENDING', 'NEED_MORE_EVIDENCE'].includes(caseDetail.review_decision)}
+        onComplete={onRefresh} />
 
       {/* 2. Candidate Match Selector */}
       <CandidateList

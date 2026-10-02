@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 
 interface AppShellProps {
+  onNavigate: () => void;
+  navigationLabel: string;
   onLoadSample: () => Promise<void>;
   onUploadCsv: (file: File) => Promise<void>;
   onExportCsv: () => Promise<void>;
@@ -24,10 +26,13 @@ interface AppShellProps {
   isExportingCsv: boolean;
   feedback: { type: 'success' | 'error' | 'info'; message: string } | null;
   onClearFeedback: () => void;
+  onSignOut: () => Promise<void>;
   children: React.ReactNode;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
+  onNavigate,
+  navigationLabel,
   onLoadSample,
   onUploadCsv,
   onExportCsv,
@@ -38,6 +43,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   isExportingCsv,
   feedback,
   onClearFeedback,
+  onSignOut,
   children,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,8 +79,16 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
         </div>
 
+        <button className="rounded border border-border px-3 py-1.5 text-xs" onClick={onNavigate}>{navigationLabel}</button>
         {/* Global Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          <button
+            type="button"
+            onClick={() => void onSignOut()}
+            className="text-xs font-medium text-muted hover:text-foreground"
+          >
+            Sign out
+          </button>
           <button
             type="button"
             onClick={onOpenAiModal}

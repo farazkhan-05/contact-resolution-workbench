@@ -1,0 +1,62 @@
+{
+  "aggregate_score_feature": false,
+  "benchmark_version": "c1-synthetic-v1",
+  "class_balance": {
+    "test": {
+      "negative": 551,
+      "negative_per_positive": 2.195219123505976,
+      "pairs": 802,
+      "positive": 251
+    },
+    "train": {
+      "negative": 5725,
+      "negative_per_positive": 4.872340425531915,
+      "pairs": 6900,
+      "positive": 1175
+    },
+    "validation": {
+      "negative": 466,
+      "negative_per_positive": 1.841897233201581,
+      "pairs": 719,
+      "positive": 253
+    }
+  },
+  "dataset_sha256": "60b7ea16fb27eba3ced9a256e1ea13e63ac97b2f27580b9276d7a69961b2aaaa",
+  "feature_order": [
+    "name_component",
+    "email_exact",
+    "phone_exact",
+    "employer_component",
+    "geography_component",
+    "full_name_similarity",
+    "first_name_similarity",
+    "last_name_similarity",
+    "middle_initial_agreement",
+    "suffix_agreement",
+    "name_missing",
+    "email_missing",
+    "phone_missing",
+    "employer_missing",
+    "geography_missing",
+    "suffix_conflict",
+    "full_middle_conflict",
+    "employer_conflict",
+    "geography_conflict"
+  ],
+  "feature_schema": "c3-structured-components-v1",
+  "fit_split": "train",
+  "pair_threshold_scope": "Fixed diagnostic probes 0.5/0.9/0.99; model scores are uncalibrated, no production thresholds.",
+  "persistence": "Own fitted LR parameters/scaler in JSON; XGB importance/config plus reproducible retraining. No pickle or runtime loader.",
+  "seed": 20261001,
+  "selection_split": "validation",
+  "versions": {
+    "cloudpickle": "3.1.2",
+    "joblib": "1.6.0",
+    "narwhals": "2.26.0",
+    "numpy": "2.5.3",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "threadpoolctl": "3.7.0",
+    "xgboost-cpu": "3.4.1"
+  }
+}

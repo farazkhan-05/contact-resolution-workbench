@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api/client';
+import { Sources } from './components/Sources';
+import { AuthScreen } from './auth/AuthScreen';
+import { useAuth } from './auth/AuthProvider';
 import { recordUsageEvent } from './api/telemetry';
 import { AppShell } from './components/layout/AppShell';
 import { AiExtractionModal } from './components/cases/AiExtractionModal';
@@ -13,6 +16,8 @@ import type {
 } from './types';
 
 export function App() {
+  const { status, workspace, signOutUser } = useAuth();
+  const [page, setPage] = useState<'cases' | 'sources'>('cases');
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseDetailType | null>(null);
@@ -37,6 +42,22 @@ export function App() {
 
   const hasTrackedAppOpen = useRef(false);
   const lastViewedCaseRef = useRef<string | null>(null);
+  const jobPollTimers = useRef(new Set<number>());
+  const pollingSessionActive = useRef(status === 'ready');
+
+  const clearJobPollTimers = () => {
+    jobPollTimers.current.forEach((timer) => window.clearTimeout(timer));
+    jobPollTimers.current.clear();
+  };
+
+  useEffect(() => () => clearJobPollTimers(), []);
+
+  useEffect(() => {
+    pollingSessionActive.current = status === 'ready';
+    if (!pollingSessionActive.current) {
+      clearJobPollTimers();
+    }
+  }, [status]);
 
   // Track initial app open once per browser session load
   useEffect(() => {
@@ -104,14 +125,21 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    fetchCases();
-  }, [fetchCases]);
+    if (status === 'ready' && workspace) {
+      void fetchCases();
+    } else {
+      setCases([]);
+      setSelectedCaseId(null);
+      setSelectedCaseDetail(null);
+      setFeedback(null);
+    }
+  }, [fetchCases, status, workspace]);
 
   useEffect(() => {
-    if (selectedCaseId) {
-      fetchCaseDetail(selectedCaseId);
+    if (status === 'ready' && selectedCaseId) {
+      void fetchCaseDetail(selectedCaseId);
     }
-  }, [selectedCaseId, fetchCaseDetail]);
+  }, [selectedCaseId, fetchCaseDetail, status]);
 
   const handleSelectCase = (caseId: string) => {
     setSelectedCaseId(caseId);
@@ -144,11 +172,27 @@ export function App() {
     try {
       const res = await api.ingestCsv(file);
       recordUsageEvent('CSV_UPLOADED');
-      setFeedback({
-        type: 'success',
-        message: `Successfully ingested CSV batch: ${res.ingested_count} cases created.`,
-      });
-      await fetchCases(res.case_ids[0]);
+      setFeedback({ type: 'info', message: 'CSV ingestion queued.' });
+      const poll = async (): Promise<void> => {
+        try {
+          const job = await api.getJob(res.id);
+          if (!pollingSessionActive.current) return;
+          if (job.status === 'SUCCEEDED') {
+            setFeedback({ type: 'success', message: `CSV ingestion completed: ${job.successful_rows} cases created.` });
+            await fetchCases();
+          } else if (job.status === 'FAILED') {
+            setFeedback({ type: 'error', message: job.failure_message || 'CSV ingestion failed.' });
+          } else {
+            setFeedback({ type: 'info', message: `CSV ingestion ${job.status.toLowerCase()}: ${job.processed_rows}/${job.total_rows ?? '?'} rows.` });
+            const timer = window.setTimeout(() => {
+              jobPollTimers.current.delete(timer);
+              void poll();
+            }, 1500);
+            jobPollTimers.current.add(timer);
+          }
+        } catch { setFeedback({ type: 'error', message: 'Could not check CSV ingestion status.' }); }
+      };
+      void poll();
     } catch (err) {
       const msg = err instanceof ApiError ? err.detail : 'Failed to process uploaded CSV.';
       setFeedback({ type: 'error', message: msg });
@@ -211,19 +255,32 @@ export function App() {
   };
 
 
-  const handleCaseCreatedFromAi = async (caseId: string) => {
-    await fetchCases(caseId);
-    setSelectedCaseId(caseId);
-    setMobileView('detail');
+  const handleCaseCreatedFromAi = async (caseNumber: string) => {
+    const refreshed = await api.getCases();
+    setCases(refreshed);
+    const created = refreshed.find((item) => item.case_number === caseNumber);
+    if (created) {
+      setSelectedCaseId(created.id);
+      setMobileView('detail');
+    }
     setFeedback({
       type: 'success',
-      message: 'AI extraction completed and case loaded into resolution workbench.',
+      message: created
+        ? 'AI extraction completed and case loaded into resolution workbench.'
+        : 'AI extraction completed. The case queue was refreshed.',
     });
   };
+
+  if (status === 'loading' || status === 'bootstrapping') {
+    return <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted">Starting your workspace…</main>;
+  }
+  if (status !== 'ready') return <AuthScreen />;
 
   return (
     <>
       <AppShell
+        onNavigate={() => setPage(page === 'cases' ? 'sources' : 'cases')}
+        navigationLabel={page === 'cases' ? 'Sources' : 'Cases'}
         onLoadSample={handleLoadSample}
         onUploadCsv={handleUploadCsv}
         onExportCsv={handleExportCsv}
@@ -234,8 +291,10 @@ export function App() {
         isExportingCsv={isExportingCsv}
         feedback={feedback}
         onClearFeedback={() => setFeedback(null)}
+        onSignOut={signOutUser}
       >
         <div className="flex h-full w-full overflow-hidden">
+          {page === 'sources' ? <Sources key={workspace?.id} owner={workspace?.role === 'OWNER'} onReview={() => { setPage('cases'); void fetchCases(); }} /> : <>
           {/* Case Queue Column */}
           <div
             className={`h-full shrink-0 sm:flex ${
@@ -266,6 +325,8 @@ export function App() {
             }`}
           >
             <CaseDetail
+              key={workspace?.id}
+              onRefresh={() => { if (selectedCaseId) { void fetchCaseDetail(selectedCaseId); void fetchCases(selectedCaseId); } }}
               caseDetail={selectedCaseDetail}
               isLoading={isLoadingDetail}
               onBackMobile={() => setMobileView('queue')}
@@ -273,6 +334,7 @@ export function App() {
               isSubmittingDecision={isSubmittingDecision}
             />
           </div>
+          </>}
         </div>
       </AppShell>
 

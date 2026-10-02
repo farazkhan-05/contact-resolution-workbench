@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 180
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: migrate
+          image: contact-resolution-workbench-backend:kind
+          imagePullPolicy: Never
+          command: [python, -c]
+          args:
+            - >-
+              import subprocess;
+              subprocess.run(['alembic', 'upgrade', 'head'], check=True);
+              subprocess.run(['python', '-m', 'app.services.investigation_service'], check=True)
+          envFrom:
+            - configMapRef: {name: backend-config}
+            - secretRef: {name: backend-secrets}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 768Mi}

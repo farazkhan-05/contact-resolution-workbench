@@ -12,6 +12,7 @@ from app.main import app
 from app.models.audit import AuditLog
 from app.models.case import Case
 from app.models.usage import UsageEvent
+from app.models.workspace import Workspace
 from app.services.case_service import ingest_sample_cases
 
 
@@ -219,7 +220,10 @@ def test_usage_event_creation_does_not_mutate_case_or_audit_tables(
 ) -> None:
     client, TestingSession = test_setup
     with TestingSession() as session:
-        ingest_sample_cases(session)
+        workspace = Workspace(name="Usage test workspace")
+        session.add(workspace)
+        session.flush()
+        ingest_sample_cases(session, workspace.id)
         case_count_before = len(session.scalars(select(Case)).all())
         audit_count_before = len(session.scalars(select(AuditLog)).all())
 

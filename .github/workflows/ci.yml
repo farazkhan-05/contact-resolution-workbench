@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "productization/**"]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.9.18"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: uv sync --frozen --group ai-evaluation
+      - run: uv run --frozen --group ai-evaluation pytest
+      - run: uv run --frozen --group ai-evaluation python -m benchmarks.ai_evaluation
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app
+
+  ranking-benchmark:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.9.18"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: uv sync --frozen --group ranking-benchmark
+      - run: uv run --frozen --group ranking-benchmark pytest tests/test_learned_ranking.py
+      - run: >-
+          uv run --frozen --group ranking-benchmark mypy
+          benchmarks/identity_resolution/learned_ranking.py
+          benchmarks/identity_resolution/ranking_experiment.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  async-integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: workbench
+          POSTGRES_USER: workbench
+          POSTGRES_PASSWORD: workbench
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U workbench -d workbench" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "0.9.18" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: uv sync --frozen
+      - run: uv run alembic upgrade head
+        env: { DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench }
+      - run: uv run python -m app.services.investigation_service
+        env: { DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench }
+      - name: Verify application migration preservation and downgrade
+        env:
+          DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench
+          E4_MIGRATION_TEST_URL: postgresql+psycopg://workbench:workbench@localhost:5432/e4_migrations
+          D1_MIGRATION_TEST_URL: postgresql://workbench:workbench@localhost:5432/d1_migrations
+        run: |
+          uv run python -c "import psycopg; conn = psycopg.connect('postgresql://workbench:workbench@localhost:5432/workbench', autocommit=True); conn.execute('CREATE DATABASE d1_migrations'); conn.execute('CREATE DATABASE e4_migrations'); conn.close()"
+          uv run pytest tests/test_investigation_migration.py tests/test_source_migration.py -q
+      - name: Run real broker and worker integration
+        env:
+          DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench
+          CELERY_BROKER_URL: redis://localhost:6379/0
+          RUN_ASYNC_INTEGRATION: "1"
+        run: |
+          uv run celery -A app.celery_app:celery_app worker --include tests.mcp_worker --loglevel=warning > /tmp/celery-worker.log 2>&1 &
+          worker_pid=$!
+          cleanup() { kill "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if uv run celery -A app.celery_app:celery_app inspect ping --timeout=1 2>/dev/null | grep -q pong; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/celery-worker.log; exit 1; fi
+          uv run pytest tests/test_async_integration.py tests/test_investigation_integration.py -q

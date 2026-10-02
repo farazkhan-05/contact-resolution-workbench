@@ -1,0 +1,49 @@
+name: Kubernetes kind validation
+
+on:
+  pull_request:
+    branches: [main, "productization/**"]
+    paths: ["backend/**", "infrastructure/**", "docker-compose.yml", ".github/workflows/**"]
+  push:
+    branches: [main, "productization/**"]
+    paths: ["backend/**", "infrastructure/**", "docker-compose.yml", ".github/workflows/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: {version: "0.9.18", enable-cache: true}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - name: Frozen integration environment
+        run: uv sync --frozen --project backend
+      - name: Check infrastructure runner
+        run: |
+          uv run --frozen --project backend ruff check --config backend/pyproject.toml infrastructure
+          uv run --frozen --project backend ruff format --config backend/pyproject.toml --check infrastructure
+      - name: Verify official tools and validate fresh kind workloads
+        run: >-
+          uv run --frozen --project backend python infrastructure/kind_validate.py
+          --tools "$RUNNER_TEMP/kind-tools"
+          --diagnostics "$RUNNER_TEMP/kind-diagnostics"
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-diagnostics
+          path: ${{ runner.temp }}/kind-diagnostics
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Delete cluster even after cancellation
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/kind-tools/owns-cluster" ]; then
+            "$RUNNER_TEMP/kind-tools/kind" delete cluster --name crw-e1
+          fi

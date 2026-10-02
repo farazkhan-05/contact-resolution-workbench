@@ -29,6 +29,7 @@ class CsvValidationError(Exception):
 def parse_and_validate_csv(
     file_content: str,
     db: Session,
+    workspace_id: str,
 ) -> list[tuple[str, str | None, CaseQuery]]:
     """Validate and parse CSV content. Returns list of (case_number, source_identifier, CaseQuery).
 
@@ -92,7 +93,9 @@ def parse_and_validate_csv(
 
     # Check for existing case numbers in database
     existing_cases = db.scalars(
-        select(Case.case_number).where(Case.case_number.in_(seen_case_numbers))
+        select(Case.case_number).where(
+            Case.workspace_id == workspace_id, Case.case_number.in_(seen_case_numbers)
+        )
     ).all()
     if existing_cases:
         first_existing = existing_cases[0]

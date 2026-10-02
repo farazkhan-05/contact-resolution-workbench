@@ -1,0 +1,168 @@
+{
+  "deterministic": {
+    "test": {
+      "corpus_size": 254,
+      "machine": "AMD64",
+      "mean_ms": 0.6208495384615385,
+      "median_ms": 0.50225,
+      "p95_ms": 1.5108,
+      "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+      "python": "3.13.13",
+      "repeats": 5,
+      "scope": "Local warm retrieval calls, including normalization, blocking and ordering; excluding generation, index construction, truth evaluation and I/O",
+      "split": "test",
+      "system": "Windows",
+      "timed_calls": 650
+    },
+    "train": {
+      "corpus_size": 1204,
+      "machine": "AMD64",
+      "mean_ms": 0.8147913636363636,
+      "median_ms": 0.71845,
+      "p95_ms": 1.7101,
+      "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+      "python": "3.13.13",
+      "repeats": 5,
+      "scope": "Local warm retrieval calls, including normalization, blocking and ordering; excluding generation, index construction, truth evaluation and I/O",
+      "split": "train",
+      "system": "Windows",
+      "timed_calls": 3080
+    },
+    "validation": {
+      "corpus_size": 262,
+      "machine": "AMD64",
+      "mean_ms": 0.3614610447761194,
+      "median_ms": 0.27749999999999997,
+      "p95_ms": 0.7254,
+      "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+      "python": "3.13.13",
+      "repeats": 5,
+      "scope": "Local warm retrieval calls, including normalization, blocking and ordering; excluding generation, index construction, truth evaluation and I/O",
+      "split": "validation",
+      "system": "Windows",
+      "timed_calls": 670
+    }
+  },
+  "environment": {
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "python": "3.13.13",
+    "system": "Windows",
+    "threads": 1,
+    "versions": {
+      "cloudpickle": "3.1.2",
+      "joblib": "1.6.0",
+      "narwhals": "2.26.0",
+      "numpy": "2.5.3",
+      "scikit-learn": "1.9.1",
+      "scipy": "1.18.1",
+      "threadpoolctl": "3.7.0",
+      "xgboost-cpu": "3.4.1"
+    }
+  },
+  "logistic-test": {
+    "feature_extraction": {
+      "calls": 650,
+      "median_ms": 0.5138,
+      "p95_ms": 1.252
+    },
+    "model_scoring": {
+      "calls": 650,
+      "median_ms": 0.2966,
+      "p95_ms": 0.386
+    },
+    "ranking": {
+      "calls": 650,
+      "median_ms": 0.0129,
+      "p95_ms": 0.0194
+    }
+  },
+  "logistic-train": {
+    "feature_extraction": {
+      "calls": 3045,
+      "median_ms": 1.0384,
+      "p95_ms": 1.9634
+    },
+    "model_scoring": {
+      "calls": 3045,
+      "median_ms": 0.3274,
+      "p95_ms": 0.4859
+    },
+    "ranking": {
+      "calls": 3045,
+      "median_ms": 0.0165,
+      "p95_ms": 0.0269
+    }
+  },
+  "logistic-validation": {
+    "feature_extraction": {
+      "calls": 655,
+      "median_ms": 0.4237,
+      "p95_ms": 1.0261
+    },
+    "model_scoring": {
+      "calls": 655,
+      "median_ms": 0.2977,
+      "p95_ms": 0.4224
+    },
+    "ranking": {
+      "calls": 655,
+      "median_ms": 0.0124,
+      "p95_ms": 0.0202
+    }
+  },
+  "logistic_training_seconds": 0.01466190000064671,
+  "scope": "Local warm query batches, five passes after warmup; features/scoring/order separate, retrieval excluded. C1 timing includes normalization/blocking/order. Not production latency.",
+  "xgboost-test": {
+    "feature_extraction": {
+      "calls": 650,
+      "median_ms": 0.5490999999999999,
+      "p95_ms": 1.3149
+    },
+    "model_scoring": {
+      "calls": 650,
+      "median_ms": 0.3159,
+      "p95_ms": 0.4769
+    },
+    "ranking": {
+      "calls": 650,
+      "median_ms": 0.0144,
+      "p95_ms": 0.0233
+    }
+  },
+  "xgboost-train": {
+    "feature_extraction": {
+      "calls": 3045,
+      "median_ms": 1.0429,
+      "p95_ms": 1.958
+    },
+    "model_scoring": {
+      "calls": 3045,
+      "median_ms": 0.3166,
+      "p95_ms": 0.4729
+    },
+    "ranking": {
+      "calls": 3045,
+      "median_ms": 0.0166,
+      "p95_ms": 0.0271
+    }
+  },
+  "xgboost-validation": {
+    "feature_extraction": {
+      "calls": 655,
+      "median_ms": 0.422,
+      "p95_ms": 1.0624
+    },
+    "model_scoring": {
+      "calls": 655,
+      "median_ms": 0.3069,
+      "p95_ms": 0.4775
+    },
+    "ranking": {
+      "calls": 655,
+      "median_ms": 0.0138,
+      "p95_ms": 0.0218
+    }
+  },
+  "xgboost_training_seconds": 0.1275969999987865
+}

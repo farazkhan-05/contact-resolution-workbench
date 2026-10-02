@@ -1,0 +1,758 @@
+{
+  "benchmark_version": "c1-synthetic-v1",
+  "best_zero_observed_unsafe_validation": {
+    "likely": 70,
+    "review": 40
+  },
+  "current_production": {
+    "likely": 75,
+    "review": 45
+  },
+  "dataset_sha256": "60b7ea16fb27eba3ced9a256e1ea13e63ac97b2f27580b9276d7a69961b2aaaa",
+  "decision": "C: retain 75/45 and require future real-data calibration. Current validation already has zero observed unsafe automatic matches. The numeric 70/40 winner adds only one automatic transliteration match (zero name points), and four review cases, three in missing_fields. This small synthetic gain is insufficient for adoption. The auto gain is not the C3 asymmetric omission artifact; weak/missing-field review gains still cannot establish reliable identity. No production thresholds change.",
+  "frozen_policy": {
+    "likely": 75,
+    "review": 45
+  },
+  "held_out_not_used_for_selection": true,
+  "lexicographic_objective": [
+    "minimize validation unsafe_auto",
+    "maximize validation safe_auto",
+    "minimize false_no_match_corpus (review is acceptable, not labeled unnecessary)",
+    "minimize threshold distance from production",
+    "stable numeric threshold order"
+  ],
+  "numeric_validation_winner": {
+    "likely": 70,
+    "review": 40
+  },
+  "policy_version": "c4-score-thresholds-hard-gates-v1",
+  "primary_outcome": "C",
+  "production_changed": false,
+  "search": [
+    {
+      "policy": {
+        "likely": 65,
+        "review": 40
+      },
+      "train": {
+        "false_no_match_corpus": 14,
+        "false_no_match_retrieved": 7,
+        "queries": 616,
+        "review_correct_top": 83,
+        "review_wrong_top": 50,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 133,
+          "NO_RELIABLE_MATCH": 14
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 5,
+        "false_no_match_retrieved": 2,
+        "queries": 134,
+        "review_correct_top": 15,
+        "review_wrong_top": 13,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 28,
+          "NO_RELIABLE_MATCH": 5
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 65,
+        "review": 45
+      },
+      "train": {
+        "false_no_match_corpus": 35,
+        "false_no_match_retrieved": 28,
+        "queries": 616,
+        "review_correct_top": 71,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 112,
+          "NO_RELIABLE_MATCH": 35
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 9,
+        "false_no_match_retrieved": 6,
+        "queries": 134,
+        "review_correct_top": 13,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 24,
+          "NO_RELIABLE_MATCH": 9
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 65,
+        "review": 50
+      },
+      "train": {
+        "false_no_match_corpus": 65,
+        "false_no_match_retrieved": 58,
+        "queries": 616,
+        "review_correct_top": 41,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 82,
+          "NO_RELIABLE_MATCH": 65
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 15,
+        "false_no_match_retrieved": 12,
+        "queries": 134,
+        "review_correct_top": 7,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 18,
+          "NO_RELIABLE_MATCH": 15
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 65,
+        "review": 55
+      },
+      "train": {
+        "false_no_match_corpus": 107,
+        "false_no_match_retrieved": 100,
+        "queries": 616,
+        "review_correct_top": 22,
+        "review_wrong_top": 4,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 26,
+          "NO_RELIABLE_MATCH": 121
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 24,
+        "false_no_match_retrieved": 21,
+        "queries": 134,
+        "review_correct_top": 4,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 6,
+          "NO_RELIABLE_MATCH": 27
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 70,
+        "review": 40
+      },
+      "train": {
+        "false_no_match_corpus": 14,
+        "false_no_match_retrieved": 7,
+        "queries": 616,
+        "review_correct_top": 83,
+        "review_wrong_top": 50,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 133,
+          "NO_RELIABLE_MATCH": 14
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 5,
+        "false_no_match_retrieved": 2,
+        "queries": 134,
+        "review_correct_top": 15,
+        "review_wrong_top": 13,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 28,
+          "NO_RELIABLE_MATCH": 5
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 70,
+        "review": 45
+      },
+      "train": {
+        "false_no_match_corpus": 35,
+        "false_no_match_retrieved": 28,
+        "queries": 616,
+        "review_correct_top": 71,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 112,
+          "NO_RELIABLE_MATCH": 35
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 9,
+        "false_no_match_retrieved": 6,
+        "queries": 134,
+        "review_correct_top": 13,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 24,
+          "NO_RELIABLE_MATCH": 9
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 70,
+        "review": 50
+      },
+      "train": {
+        "false_no_match_corpus": 65,
+        "false_no_match_retrieved": 58,
+        "queries": 616,
+        "review_correct_top": 41,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 82,
+          "NO_RELIABLE_MATCH": 65
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 15,
+        "false_no_match_retrieved": 12,
+        "queries": 134,
+        "review_correct_top": 7,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 18,
+          "NO_RELIABLE_MATCH": 15
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 70,
+        "review": 55
+      },
+      "train": {
+        "false_no_match_corpus": 107,
+        "false_no_match_retrieved": 100,
+        "queries": 616,
+        "review_correct_top": 22,
+        "review_wrong_top": 4,
+        "routes": {
+          "LIKELY_MATCH": 469,
+          "NEEDS_REVIEW": 26,
+          "NO_RELIABLE_MATCH": 121
+        },
+        "safe_auto": 469,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 24,
+        "false_no_match_retrieved": 21,
+        "queries": 134,
+        "review_correct_top": 4,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 101,
+          "NEEDS_REVIEW": 6,
+          "NO_RELIABLE_MATCH": 27
+        },
+        "safe_auto": 101,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 75,
+        "review": 40
+      },
+      "train": {
+        "false_no_match_corpus": 14,
+        "false_no_match_retrieved": 7,
+        "queries": 616,
+        "review_correct_top": 87,
+        "review_wrong_top": 50,
+        "routes": {
+          "LIKELY_MATCH": 465,
+          "NEEDS_REVIEW": 137,
+          "NO_RELIABLE_MATCH": 14
+        },
+        "safe_auto": 465,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 5,
+        "false_no_match_retrieved": 2,
+        "queries": 134,
+        "review_correct_top": 16,
+        "review_wrong_top": 13,
+        "routes": {
+          "LIKELY_MATCH": 100,
+          "NEEDS_REVIEW": 29,
+          "NO_RELIABLE_MATCH": 5
+        },
+        "safe_auto": 100,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 75,
+        "review": 45
+      },
+      "train": {
+        "false_no_match_corpus": 35,
+        "false_no_match_retrieved": 28,
+        "queries": 616,
+        "review_correct_top": 75,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 465,
+          "NEEDS_REVIEW": 116,
+          "NO_RELIABLE_MATCH": 35
+        },
+        "safe_auto": 465,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 9,
+        "false_no_match_retrieved": 6,
+        "queries": 134,
+        "review_correct_top": 14,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 100,
+          "NEEDS_REVIEW": 25,
+          "NO_RELIABLE_MATCH": 9
+        },
+        "safe_auto": 100,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 75,
+        "review": 50
+      },
+      "train": {
+        "false_no_match_corpus": 65,
+        "false_no_match_retrieved": 58,
+        "queries": 616,
+        "review_correct_top": 45,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 465,
+          "NEEDS_REVIEW": 86,
+          "NO_RELIABLE_MATCH": 65
+        },
+        "safe_auto": 465,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 15,
+        "false_no_match_retrieved": 12,
+        "queries": 134,
+        "review_correct_top": 8,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 100,
+          "NEEDS_REVIEW": 19,
+          "NO_RELIABLE_MATCH": 15
+        },
+        "safe_auto": 100,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 75,
+        "review": 55
+      },
+      "train": {
+        "false_no_match_corpus": 107,
+        "false_no_match_retrieved": 100,
+        "queries": 616,
+        "review_correct_top": 26,
+        "review_wrong_top": 4,
+        "routes": {
+          "LIKELY_MATCH": 465,
+          "NEEDS_REVIEW": 30,
+          "NO_RELIABLE_MATCH": 121
+        },
+        "safe_auto": 465,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 24,
+        "false_no_match_retrieved": 21,
+        "queries": 134,
+        "review_correct_top": 5,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 100,
+          "NEEDS_REVIEW": 7,
+          "NO_RELIABLE_MATCH": 27
+        },
+        "safe_auto": 100,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 80,
+        "review": 40
+      },
+      "train": {
+        "false_no_match_corpus": 14,
+        "false_no_match_retrieved": 7,
+        "queries": 616,
+        "review_correct_top": 129,
+        "review_wrong_top": 50,
+        "routes": {
+          "LIKELY_MATCH": 423,
+          "NEEDS_REVIEW": 179,
+          "NO_RELIABLE_MATCH": 14
+        },
+        "safe_auto": 423,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 5,
+        "false_no_match_retrieved": 2,
+        "queries": 134,
+        "review_correct_top": 25,
+        "review_wrong_top": 13,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 38,
+          "NO_RELIABLE_MATCH": 5
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 80,
+        "review": 45
+      },
+      "train": {
+        "false_no_match_corpus": 35,
+        "false_no_match_retrieved": 28,
+        "queries": 616,
+        "review_correct_top": 117,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 423,
+          "NEEDS_REVIEW": 158,
+          "NO_RELIABLE_MATCH": 35
+        },
+        "safe_auto": 423,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 9,
+        "false_no_match_retrieved": 6,
+        "queries": 134,
+        "review_correct_top": 23,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 34,
+          "NO_RELIABLE_MATCH": 9
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 80,
+        "review": 50
+      },
+      "train": {
+        "false_no_match_corpus": 65,
+        "false_no_match_retrieved": 58,
+        "queries": 616,
+        "review_correct_top": 87,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 423,
+          "NEEDS_REVIEW": 128,
+          "NO_RELIABLE_MATCH": 65
+        },
+        "safe_auto": 423,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 15,
+        "false_no_match_retrieved": 12,
+        "queries": 134,
+        "review_correct_top": 17,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 28,
+          "NO_RELIABLE_MATCH": 15
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 80,
+        "review": 55
+      },
+      "train": {
+        "false_no_match_corpus": 107,
+        "false_no_match_retrieved": 100,
+        "queries": 616,
+        "review_correct_top": 68,
+        "review_wrong_top": 4,
+        "routes": {
+          "LIKELY_MATCH": 423,
+          "NEEDS_REVIEW": 72,
+          "NO_RELIABLE_MATCH": 121
+        },
+        "safe_auto": 423,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 24,
+        "false_no_match_retrieved": 21,
+        "queries": 134,
+        "review_correct_top": 14,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 16,
+          "NO_RELIABLE_MATCH": 27
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 85,
+        "review": 40
+      },
+      "train": {
+        "false_no_match_corpus": 14,
+        "false_no_match_retrieved": 7,
+        "queries": 616,
+        "review_correct_top": 132,
+        "review_wrong_top": 50,
+        "routes": {
+          "LIKELY_MATCH": 420,
+          "NEEDS_REVIEW": 182,
+          "NO_RELIABLE_MATCH": 14
+        },
+        "safe_auto": 420,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 5,
+        "false_no_match_retrieved": 2,
+        "queries": 134,
+        "review_correct_top": 25,
+        "review_wrong_top": 13,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 38,
+          "NO_RELIABLE_MATCH": 5
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 85,
+        "review": 45
+      },
+      "train": {
+        "false_no_match_corpus": 35,
+        "false_no_match_retrieved": 28,
+        "queries": 616,
+        "review_correct_top": 120,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 420,
+          "NEEDS_REVIEW": 161,
+          "NO_RELIABLE_MATCH": 35
+        },
+        "safe_auto": 420,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 9,
+        "false_no_match_retrieved": 6,
+        "queries": 134,
+        "review_correct_top": 23,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 34,
+          "NO_RELIABLE_MATCH": 9
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 85,
+        "review": 50
+      },
+      "train": {
+        "false_no_match_corpus": 65,
+        "false_no_match_retrieved": 58,
+        "queries": 616,
+        "review_correct_top": 90,
+        "review_wrong_top": 41,
+        "routes": {
+          "LIKELY_MATCH": 420,
+          "NEEDS_REVIEW": 131,
+          "NO_RELIABLE_MATCH": 65
+        },
+        "safe_auto": 420,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 15,
+        "false_no_match_retrieved": 12,
+        "queries": 134,
+        "review_correct_top": 17,
+        "review_wrong_top": 11,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 28,
+          "NO_RELIABLE_MATCH": 15
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    },
+    {
+      "policy": {
+        "likely": 85,
+        "review": 55
+      },
+      "train": {
+        "false_no_match_corpus": 107,
+        "false_no_match_retrieved": 100,
+        "queries": 616,
+        "review_correct_top": 71,
+        "review_wrong_top": 4,
+        "routes": {
+          "LIKELY_MATCH": 420,
+          "NEEDS_REVIEW": 75,
+          "NO_RELIABLE_MATCH": 121
+        },
+        "safe_auto": 420,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      },
+      "validation": {
+        "false_no_match_corpus": 24,
+        "false_no_match_retrieved": 21,
+        "queries": 134,
+        "review_correct_top": 14,
+        "review_wrong_top": 2,
+        "routes": {
+          "LIKELY_MATCH": 91,
+          "NEEDS_REVIEW": 16,
+          "NO_RELIABLE_MATCH": 27
+        },
+        "safe_auto": 91,
+        "unsafe_auto": 0,
+        "wrong_auto": 0
+      }
+    }
+  ],
+  "selection_splits": [
+    "train",
+    "validation"
+  ]
+}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.auth import WorkspaceContext, get_workspace_context
 from app.core.constants import ReviewDecision, RoutingStatus
 from app.core.database import get_db
 from app.schemas.api import CaseDetailResponse, CaseSummaryResponse, DecisionRequest
@@ -14,11 +15,13 @@ def get_cases(
     routing_status: RoutingStatus | None = None,
     review_decision: ReviewDecision | None = None,
     search: str | None = None,
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
 ) -> list[CaseSummaryResponse]:
     """Retrieve case queue with optional filters and keyword search."""
     return list_cases(
         db=db,
+        workspace_id=context.workspace.id,
         routing_status=routing_status,
         review_decision=review_decision,
         search=search,
@@ -28,10 +31,11 @@ def get_cases(
 @router.get("/{case_id}", response_model=CaseDetailResponse)
 def get_case(
     case_id: str,
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
 ) -> CaseDetailResponse:
     """Retrieve full detail for a single investigation case."""
-    detail = get_case_detail(db, case_id)
+    detail = get_case_detail(db, context.workspace.id, case_id)
     if not detail:
         raise HTTPException(status_code=404, detail="Case not found.")
     return detail
@@ -41,11 +45,14 @@ def get_case(
 def submit_decision(
     case_id: str,
     request: DecisionRequest,
+    context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_db),
 ) -> CaseDetailResponse:
     """Submit human reviewer decision and update case resolution state."""
     try:
-        return record_decision(db, case_id, request)
+        return record_decision(
+            db, context.workspace.id, case_id, request, actor=f"user:{context.user.id}"
+        )
     except ValueError as e:
         msg = str(e)
         if "not found" in msg.lower():

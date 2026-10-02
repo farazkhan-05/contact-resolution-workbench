@@ -1,0 +1,17 @@
+{
+  "model": {
+    "dimension": 384,
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "serialization_version": "labeled-fields-v1",
+    "task_format": "encode-query-document-v1"
+  },
+  "model_loading_seconds": 6.50462460000017,
+  "scope": "Includes model acquisition/load, embeddings, evaluation, timing and I/O",
+  "splits": [
+    "train",
+    "validation",
+    "test"
+  ],
+  "total_benchmark_seconds": 56.622054799998295
+}

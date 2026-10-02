@@ -1,0 +1,16 @@
+# This module is supplied at runtime from tests/kind_api.py, never in the image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          command: [python, -m, uvicorn, "kind_api:app", --app-dir, /test-support, --host, "0.0.0.0", --port, "8000"]
+          volumeMounts:
+            - {name: test-auth, mountPath: /test-support, readOnly: true}
+      volumes:
+        - name: test-auth
+          configMap: {name: kind-test-auth}

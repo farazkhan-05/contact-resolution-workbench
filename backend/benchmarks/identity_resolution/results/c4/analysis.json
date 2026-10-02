@@ -1,0 +1,775 @@
+{
+  "adversarial_gates": [
+    {
+      "actual_route": "NEEDS_REVIEW",
+      "actual_score": 90,
+      "candidate": "Arthur James Pendelton Sr.",
+      "hard_types": [
+        "INCOMPATIBLE_NAME_SUFFIX"
+      ],
+      "injected_route": "NEEDS_REVIEW",
+      "injected_score": 100,
+      "source": "Arthur James Pendelton Jr."
+    },
+    {
+      "actual_route": "NEEDS_REVIEW",
+      "actual_score": 90,
+      "candidate": "Arthur James Pendelton III",
+      "hard_types": [
+        "INCOMPATIBLE_NAME_SUFFIX"
+      ],
+      "injected_route": "NEEDS_REVIEW",
+      "injected_score": 100,
+      "source": "Arthur James Pendelton II"
+    },
+    {
+      "actual_route": "NEEDS_REVIEW",
+      "actual_score": 80,
+      "candidate": "Arthur Anthony Pendelton",
+      "hard_types": [
+        "CONFLICTING_FULL_MIDDLE_NAME"
+      ],
+      "injected_route": "NEEDS_REVIEW",
+      "injected_score": 100,
+      "source": "Arthur Alexander Pendelton"
+    }
+  ],
+  "distributions": {
+    "train": {
+      "false_pairs": {
+        "0": 10,
+        "100": 90,
+        "25": 10,
+        "50": 16,
+        "75": 20,
+        "95": 50,
+        "count": 5725
+      },
+      "hard_contradiction_pairs": {
+        "0": 10,
+        "100": 90,
+        "25": 20,
+        "50": 70,
+        "75": 80,
+        "95": 90,
+        "count": 197
+      },
+      "top_ambiguous": {
+        "0": 50,
+        "100": 50,
+        "25": 50,
+        "50": 50,
+        "75": 50,
+        "95": 50,
+        "count": 14
+      },
+      "top_hard_contradiction": {
+        "0": null,
+        "100": null,
+        "25": null,
+        "50": null,
+        "75": null,
+        "95": null,
+        "count": 0
+      },
+      "top_missing_fields": {
+        "0": 40,
+        "100": 40,
+        "25": 40,
+        "50": 40,
+        "75": 40,
+        "95": 40,
+        "count": 10
+      },
+      "top_no_match": {
+        "0": 50,
+        "100": 50,
+        "25": 50,
+        "50": 50,
+        "75": 50,
+        "95": 50,
+        "count": 14
+      },
+      "top_true": {
+        "0": 20,
+        "100": 100,
+        "25": 90,
+        "50": 100,
+        "75": 100,
+        "95": 100,
+        "count": 555
+      },
+      "top_wrong": {
+        "0": 20,
+        "100": 55,
+        "25": 50,
+        "50": 50,
+        "75": 50,
+        "95": 55,
+        "count": 54
+      },
+      "true_pairs": {
+        "0": 10,
+        "100": 100,
+        "25": 55,
+        "50": 90,
+        "75": 100,
+        "95": 100,
+        "count": 1175
+      }
+    },
+    "validation": {
+      "false_pairs": {
+        "0": 10,
+        "100": 90,
+        "25": 16,
+        "50": 20,
+        "75": 50,
+        "95": 80,
+        "count": 466
+      },
+      "hard_contradiction_pairs": {
+        "0": 10,
+        "100": 90,
+        "25": 55,
+        "50": 80,
+        "75": 90,
+        "95": 90,
+        "count": 42
+      },
+      "top_ambiguous": {
+        "0": 50,
+        "100": 50,
+        "25": 50,
+        "50": 50,
+        "75": 50,
+        "95": 50,
+        "count": 3
+      },
+      "top_hard_contradiction": {
+        "0": null,
+        "100": null,
+        "25": null,
+        "50": null,
+        "75": null,
+        "95": null,
+        "count": 0
+      },
+      "top_missing_fields": {
+        "0": 40,
+        "100": 40,
+        "25": 40,
+        "50": 40,
+        "75": 40,
+        "95": 40,
+        "count": 3
+      },
+      "top_no_match": {
+        "0": 50,
+        "100": 50,
+        "25": 50,
+        "50": 50,
+        "75": 50,
+        "95": 50,
+        "count": 3
+      },
+      "top_true": {
+        "0": 20,
+        "100": 100,
+        "25": 90,
+        "50": 100,
+        "75": 100,
+        "95": 100,
+        "count": 117
+      },
+      "top_wrong": {
+        "0": 20,
+        "100": 55,
+        "25": 50,
+        "50": 50,
+        "75": 50,
+        "95": 55,
+        "count": 14
+      },
+      "true_pairs": {
+        "0": 10,
+        "100": 100,
+        "25": 55,
+        "50": 90,
+        "75": 100,
+        "95": 100,
+        "count": 253
+      }
+    }
+  },
+  "margin": {
+    "train": {
+      "ambiguous": {
+        "queries_with_second": 14,
+        "zero_margin": 14,
+        "zero_margin_both_true": 0
+      },
+      "automatic": {
+        "queries_with_second": 465,
+        "zero_margin": 14,
+        "zero_margin_both_true": 14
+      },
+      "wrong_top": {
+        "queries_with_second": 54,
+        "zero_margin": 40,
+        "zero_margin_both_true": 0
+      }
+    },
+    "validation": {
+      "ambiguous": {
+        "queries_with_second": 3,
+        "zero_margin": 3,
+        "zero_margin_both_true": 0
+      },
+      "automatic": {
+        "queries_with_second": 100,
+        "zero_margin": 3,
+        "zero_margin_both_true": 3
+      },
+      "wrong_top": {
+        "queries_with_second": 14,
+        "zero_margin": 11,
+        "zero_margin_both_true": 0
+      }
+    }
+  },
+  "margin_decision": "Do not add margin: baseline unsafe_auto is already zero; a raw top-two margin confounds repeated observations of the same identity with ambiguity.",
+  "missingness_limit": "C3 asymmetric observation omissions remain frozen. No ranking or missingness feature is tuned. One auto gain has no missing fields; three of four extra reviews are explicitly missing_fields. These are insufficient adoption evidence.",
+  "neighborhood": {
+    "current": [
+      {
+        "policy": {
+          "likely": 74,
+          "review": 45
+        },
+        "train": {
+          "false_no_match_corpus": 35,
+          "false_no_match_retrieved": 28,
+          "queries": 616,
+          "review_correct_top": 75,
+          "review_wrong_top": 41,
+          "routes": {
+            "LIKELY_MATCH": 465,
+            "NEEDS_REVIEW": 116,
+            "NO_RELIABLE_MATCH": 35
+          },
+          "safe_auto": 465,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 9,
+          "false_no_match_retrieved": 6,
+          "queries": 134,
+          "review_correct_top": 14,
+          "review_wrong_top": 11,
+          "routes": {
+            "LIKELY_MATCH": 100,
+            "NEEDS_REVIEW": 25,
+            "NO_RELIABLE_MATCH": 9
+          },
+          "safe_auto": 100,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 75,
+          "review": 45
+        },
+        "train": {
+          "false_no_match_corpus": 35,
+          "false_no_match_retrieved": 28,
+          "queries": 616,
+          "review_correct_top": 75,
+          "review_wrong_top": 41,
+          "routes": {
+            "LIKELY_MATCH": 465,
+            "NEEDS_REVIEW": 116,
+            "NO_RELIABLE_MATCH": 35
+          },
+          "safe_auto": 465,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 9,
+          "false_no_match_retrieved": 6,
+          "queries": 134,
+          "review_correct_top": 14,
+          "review_wrong_top": 11,
+          "routes": {
+            "LIKELY_MATCH": 100,
+            "NEEDS_REVIEW": 25,
+            "NO_RELIABLE_MATCH": 9
+          },
+          "safe_auto": 100,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 76,
+          "review": 45
+        },
+        "train": {
+          "false_no_match_corpus": 35,
+          "false_no_match_retrieved": 28,
+          "queries": 616,
+          "review_correct_top": 117,
+          "review_wrong_top": 41,
+          "routes": {
+            "LIKELY_MATCH": 423,
+            "NEEDS_REVIEW": 158,
+            "NO_RELIABLE_MATCH": 35
+          },
+          "safe_auto": 423,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 9,
+          "false_no_match_retrieved": 6,
+          "queries": 134,
+          "review_correct_top": 23,
+          "review_wrong_top": 11,
+          "routes": {
+            "LIKELY_MATCH": 91,
+            "NEEDS_REVIEW": 34,
+            "NO_RELIABLE_MATCH": 9
+          },
+          "safe_auto": 91,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 75,
+          "review": 44
+        },
+        "train": {
+          "false_no_match_corpus": 35,
+          "false_no_match_retrieved": 28,
+          "queries": 616,
+          "review_correct_top": 75,
+          "review_wrong_top": 41,
+          "routes": {
+            "LIKELY_MATCH": 465,
+            "NEEDS_REVIEW": 116,
+            "NO_RELIABLE_MATCH": 35
+          },
+          "safe_auto": 465,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 9,
+          "false_no_match_retrieved": 6,
+          "queries": 134,
+          "review_correct_top": 14,
+          "review_wrong_top": 11,
+          "routes": {
+            "LIKELY_MATCH": 100,
+            "NEEDS_REVIEW": 25,
+            "NO_RELIABLE_MATCH": 9
+          },
+          "safe_auto": 100,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 75,
+          "review": 46
+        },
+        "train": {
+          "false_no_match_corpus": 65,
+          "false_no_match_retrieved": 58,
+          "queries": 616,
+          "review_correct_top": 45,
+          "review_wrong_top": 41,
+          "routes": {
+            "LIKELY_MATCH": 465,
+            "NEEDS_REVIEW": 86,
+            "NO_RELIABLE_MATCH": 65
+          },
+          "safe_auto": 465,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 15,
+          "false_no_match_retrieved": 12,
+          "queries": 134,
+          "review_correct_top": 8,
+          "review_wrong_top": 11,
+          "routes": {
+            "LIKELY_MATCH": 100,
+            "NEEDS_REVIEW": 19,
+            "NO_RELIABLE_MATCH": 15
+          },
+          "safe_auto": 100,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      }
+    ],
+    "numeric_winner": [
+      {
+        "policy": {
+          "likely": 69,
+          "review": 40
+        },
+        "train": {
+          "false_no_match_corpus": 14,
+          "false_no_match_retrieved": 7,
+          "queries": 616,
+          "review_correct_top": 83,
+          "review_wrong_top": 50,
+          "routes": {
+            "LIKELY_MATCH": 469,
+            "NEEDS_REVIEW": 133,
+            "NO_RELIABLE_MATCH": 14
+          },
+          "safe_auto": 469,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 5,
+          "false_no_match_retrieved": 2,
+          "queries": 134,
+          "review_correct_top": 15,
+          "review_wrong_top": 13,
+          "routes": {
+            "LIKELY_MATCH": 101,
+            "NEEDS_REVIEW": 28,
+            "NO_RELIABLE_MATCH": 5
+          },
+          "safe_auto": 101,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 70,
+          "review": 40
+        },
+        "train": {
+          "false_no_match_corpus": 14,
+          "false_no_match_retrieved": 7,
+          "queries": 616,
+          "review_correct_top": 83,
+          "review_wrong_top": 50,
+          "routes": {
+            "LIKELY_MATCH": 469,
+            "NEEDS_REVIEW": 133,
+            "NO_RELIABLE_MATCH": 14
+          },
+          "safe_auto": 469,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 5,
+          "false_no_match_retrieved": 2,
+          "queries": 134,
+          "review_correct_top": 15,
+          "review_wrong_top": 13,
+          "routes": {
+            "LIKELY_MATCH": 101,
+            "NEEDS_REVIEW": 28,
+            "NO_RELIABLE_MATCH": 5
+          },
+          "safe_auto": 101,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 71,
+          "review": 40
+        },
+        "train": {
+          "false_no_match_corpus": 14,
+          "false_no_match_retrieved": 7,
+          "queries": 616,
+          "review_correct_top": 87,
+          "review_wrong_top": 50,
+          "routes": {
+            "LIKELY_MATCH": 465,
+            "NEEDS_REVIEW": 137,
+            "NO_RELIABLE_MATCH": 14
+          },
+          "safe_auto": 465,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 5,
+          "false_no_match_retrieved": 2,
+          "queries": 134,
+          "review_correct_top": 16,
+          "review_wrong_top": 13,
+          "routes": {
+            "LIKELY_MATCH": 100,
+            "NEEDS_REVIEW": 29,
+            "NO_RELIABLE_MATCH": 5
+          },
+          "safe_auto": 100,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 70,
+          "review": 39
+        },
+        "train": {
+          "false_no_match_corpus": 14,
+          "false_no_match_retrieved": 7,
+          "queries": 616,
+          "review_correct_top": 83,
+          "review_wrong_top": 50,
+          "routes": {
+            "LIKELY_MATCH": 469,
+            "NEEDS_REVIEW": 133,
+            "NO_RELIABLE_MATCH": 14
+          },
+          "safe_auto": 469,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 5,
+          "false_no_match_retrieved": 2,
+          "queries": 134,
+          "review_correct_top": 15,
+          "review_wrong_top": 13,
+          "routes": {
+            "LIKELY_MATCH": 101,
+            "NEEDS_REVIEW": 28,
+            "NO_RELIABLE_MATCH": 5
+          },
+          "safe_auto": 101,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      },
+      {
+        "policy": {
+          "likely": 70,
+          "review": 41
+        },
+        "train": {
+          "false_no_match_corpus": 35,
+          "false_no_match_retrieved": 28,
+          "queries": 616,
+          "review_correct_top": 71,
+          "review_wrong_top": 41,
+          "routes": {
+            "LIKELY_MATCH": 469,
+            "NEEDS_REVIEW": 112,
+            "NO_RELIABLE_MATCH": 35
+          },
+          "safe_auto": 469,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        },
+        "validation": {
+          "false_no_match_corpus": 9,
+          "false_no_match_retrieved": 6,
+          "queries": 134,
+          "review_correct_top": 13,
+          "review_wrong_top": 11,
+          "routes": {
+            "LIKELY_MATCH": 101,
+            "NEEDS_REVIEW": 24,
+            "NO_RELIABLE_MATCH": 9
+          },
+          "safe_auto": 101,
+          "unsafe_auto": 0,
+          "wrong_auto": 0
+        }
+      }
+    ]
+  },
+  "production_demo": [
+    {
+      "case": "CASE-1001",
+      "route": "LIKELY_MATCH",
+      "score": 100
+    },
+    {
+      "case": "CASE-1002",
+      "route": "LIKELY_MATCH",
+      "score": 75
+    },
+    {
+      "case": "CASE-1003",
+      "route": "LIKELY_MATCH",
+      "score": 75
+    },
+    {
+      "case": "CASE-1004",
+      "route": "NEEDS_REVIEW",
+      "score": 55
+    },
+    {
+      "case": "CASE-1005",
+      "route": "NEEDS_REVIEW",
+      "score": 90
+    },
+    {
+      "case": "CASE-1006",
+      "route": "NEEDS_REVIEW",
+      "score": 55
+    },
+    {
+      "case": "CASE-1007",
+      "route": "NEEDS_REVIEW",
+      "score": 65
+    },
+    {
+      "case": "CASE-1008",
+      "route": "NO_RELIABLE_MATCH",
+      "score": 10
+    }
+  ],
+  "validation_changed_cases_numeric_winner": [
+    {
+      "after": "NEEDS_REVIEW",
+      "before": "NO_RELIABLE_MATCH",
+      "components": {
+        "email": 0,
+        "employer": 10,
+        "location": 0,
+        "name": 30,
+        "phone": 0
+      },
+      "correct_top": false,
+      "pair_missing_fields": [
+        "phone",
+        "location"
+      ],
+      "query_id": "r00382",
+      "query_missing_fields": [],
+      "scenarios": [
+        "malformed"
+      ],
+      "score": 40
+    },
+    {
+      "after": "NEEDS_REVIEW",
+      "before": "NO_RELIABLE_MATCH",
+      "components": {
+        "email": 0,
+        "employer": 0,
+        "location": 10,
+        "name": 30,
+        "phone": 0
+      },
+      "correct_top": false,
+      "pair_missing_fields": [
+        "email",
+        "phone",
+        "employer"
+      ],
+      "query_id": "r01340",
+      "query_missing_fields": [
+        "email",
+        "phone",
+        "employer"
+      ],
+      "scenarios": [
+        "missing_fields"
+      ],
+      "score": 40
+    },
+    {
+      "after": "NEEDS_REVIEW",
+      "before": "NO_RELIABLE_MATCH",
+      "components": {
+        "email": 0,
+        "employer": 0,
+        "location": 10,
+        "name": 30,
+        "phone": 0
+      },
+      "correct_top": true,
+      "pair_missing_fields": [
+        "email",
+        "phone",
+        "employer"
+      ],
+      "query_id": "r01445",
+      "query_missing_fields": [
+        "email",
+        "phone",
+        "employer"
+      ],
+      "scenarios": [
+        "missing_fields"
+      ],
+      "score": 40
+    },
+    {
+      "after": "LIKELY_MATCH",
+      "before": "NEEDS_REVIEW",
+      "components": {
+        "email": 25,
+        "employer": 10,
+        "location": 10,
+        "name": 0,
+        "phone": 25
+      },
+      "correct_top": true,
+      "pair_missing_fields": [],
+      "query_id": "r01787",
+      "query_missing_fields": [],
+      "scenarios": [
+        "transliteration"
+      ],
+      "score": 70
+    },
+    {
+      "after": "NEEDS_REVIEW",
+      "before": "NO_RELIABLE_MATCH",
+      "components": {
+        "email": 0,
+        "employer": 0,
+        "location": 10,
+        "name": 30,
+        "phone": 0
+      },
+      "correct_top": true,
+      "pair_missing_fields": [
+        "email",
+        "phone",
+        "employer"
+      ],
+      "query_id": "r02443",
+      "query_missing_fields": [
+        "email",
+        "phone",
+        "employer"
+      ],
+      "scenarios": [
+        "missing_fields"
+      ],
+      "score": 40
+    }
+  ]
+}

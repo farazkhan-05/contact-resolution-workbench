@@ -1,0 +1,14 @@
+# Only the frontend is needed by the existing Vercel project's root directory.
+backend/
+infrastructure/
+docs/
+.github/
+.system_generated/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env*
+frontend/.env*
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo

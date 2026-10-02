@@ -1,0 +1,1156 @@
+{
+  "logistic": {
+    "ablations": {
+      "name_contacts_contradictions": {
+        "masked_features": [
+          "employer_component",
+          "geography_component",
+          "name_missing",
+          "email_missing",
+          "phone_missing",
+          "employer_missing",
+          "geography_missing",
+          "employer_conflict",
+          "geography_conflict"
+        ],
+        "validation": {
+          "balance": {
+            "negative": 466,
+            "negative_per_positive": 1.841897233201581,
+            "pairs": 719,
+            "positive": 253
+          },
+          "contradiction_aware": {
+            "average_precision": 0.9251914594121091,
+            "no_match_top_scores": {
+              "count": 3,
+              "max": 0.1349194554351272,
+              "median": 0.1349194554351272,
+              "min": 0.1349194554351272,
+              "p95": 0.1349194554351272
+            },
+            "pair_metrics": {
+              "0.5": {
+                "blocked_false_matches": 0,
+                "f1": 0.8699360341151386,
+                "fn": 49,
+                "fp": 12,
+                "precision": 0.9444444444444444,
+                "recall": 0.8063241106719368,
+                "tn": 454,
+                "tp": 204
+              },
+              "0.9": {
+                "blocked_false_matches": 0,
+                "f1": 0.7980997624703088,
+                "fn": 85,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6640316205533597,
+                "tn": 466,
+                "tp": 168
+              },
+              "0.99": {
+                "blocked_false_matches": 0,
+                "f1": 0.774818401937046,
+                "fn": 93,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6324110671936759,
+                "tn": 466,
+                "tp": 160
+              }
+            },
+            "ranking": {
+              "available_candidate_queries": 128,
+              "candidate_generation_misses": 3,
+              "candidate_set_size": {
+                "mean": 5.365671641791045,
+                "median": 4.0,
+                "p95": 11
+              },
+              "conditional_mrr": 0.95703125,
+              "conditional_recall": {
+                "at_1": 0.9140625,
+                "at_10": 1.0,
+                "at_5": 1.0
+              },
+              "eligible_query_count": 131,
+              "miss_count": 3,
+              "miss_rate": 0.022900763358778626,
+              "mrr": 0.9351145038167938,
+              "no_correct_candidate": {
+                "mean_candidate_set_size": 2,
+                "query_count": 3,
+                "with_candidates": 3
+              },
+              "query_count": 134,
+              "ranking_failures_at_1": 11,
+              "recall": {
+                "at_1": 0.8931297709923665,
+                "at_10": 0.9770992366412213,
+                "at_5": 0.9770992366412213
+              }
+            },
+            "safety": {
+              "all_candidates_blocked_queries": 0,
+              "blocked_wrong_top1": 0,
+              "no_match_unblocked_top_queries": 3,
+              "unblocked_wrong_top1": 11,
+              "wrong_identity_top1": 11
+            }
+          },
+          "paired_top1_vs_c1": {
+            "abbreviation": {
+              "losses": 0,
+              "wins": 0
+            },
+            "adversarial_notes": {
+              "losses": 0,
+              "wins": 0
+            },
+            "all": {
+              "losses": 2,
+              "wins": 2
+            },
+            "ambiguous": {
+              "losses": 0,
+              "wins": 1
+            },
+            "conflicting_full_middle_name": {
+              "losses": 0,
+              "wins": 0
+            },
+            "contradictory_evidence": {
+              "losses": 0,
+              "wins": 0
+            },
+            "duplicated_provider_records": {
+              "losses": 0,
+              "wins": 0
+            },
+            "employer_change": {
+              "losses": 0,
+              "wins": 0
+            },
+            "exact_duplicate": {
+              "losses": 1,
+              "wins": 0
+            },
+            "geography_change": {
+              "losses": 0,
+              "wins": 0
+            },
+            "ii_iii": {
+              "losses": 0,
+              "wins": 0
+            },
+            "jr_sr": {
+              "losses": 0,
+              "wins": 0
+            },
+            "linked_hard_negative": {
+              "losses": 1,
+              "wins": 0
+            },
+            "malformed": {
+              "losses": 0,
+              "wins": 0
+            },
+            "marriage_name_change": {
+              "losses": 0,
+              "wins": 0
+            },
+            "middle_initial": {
+              "losses": 0,
+              "wins": 0
+            },
+            "missing_fields": {
+              "losses": 1,
+              "wins": 0
+            },
+            "namesake": {
+              "losses": 1,
+              "wins": 1
+            },
+            "nickname": {
+              "losses": 0,
+              "wins": 0
+            },
+            "shared_household_phone": {
+              "losses": 0,
+              "wins": 0
+            },
+            "stale_email": {
+              "losses": 0,
+              "wins": 0
+            },
+            "stale_phone": {
+              "losses": 0,
+              "wins": 0
+            },
+            "suffix_conflict": {
+              "losses": 0,
+              "wins": 0
+            },
+            "transliteration": {
+              "losses": 0,
+              "wins": 1
+            }
+          },
+          "raw": {
+            "average_precision": 0.9251914594121091,
+            "no_match_top_scores": {
+              "count": 3,
+              "max": 0.1349194554351272,
+              "median": 0.1349194554351272,
+              "min": 0.1349194554351272,
+              "p95": 0.1349194554351272
+            },
+            "pair_metrics": {
+              "0.5": {
+                "blocked_false_matches": 0,
+                "f1": 0.8699360341151386,
+                "fn": 49,
+                "fp": 12,
+                "precision": 0.9444444444444444,
+                "recall": 0.8063241106719368,
+                "tn": 454,
+                "tp": 204
+              },
+              "0.9": {
+                "blocked_false_matches": 0,
+                "f1": 0.7980997624703088,
+                "fn": 85,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6640316205533597,
+                "tn": 466,
+                "tp": 168
+              },
+              "0.99": {
+                "blocked_false_matches": 0,
+                "f1": 0.774818401937046,
+                "fn": 93,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6324110671936759,
+                "tn": 466,
+                "tp": 160
+              }
+            },
+            "ranking": {
+              "available_candidate_queries": 128,
+              "candidate_generation_misses": 3,
+              "candidate_set_size": {
+                "mean": 5.365671641791045,
+                "median": 4.0,
+                "p95": 11
+              },
+              "conditional_mrr": 0.95703125,
+              "conditional_recall": {
+                "at_1": 0.9140625,
+                "at_10": 1.0,
+                "at_5": 1.0
+              },
+              "eligible_query_count": 131,
+              "miss_count": 3,
+              "miss_rate": 0.022900763358778626,
+              "mrr": 0.9351145038167938,
+              "no_correct_candidate": {
+                "mean_candidate_set_size": 2,
+                "query_count": 3,
+                "with_candidates": 3
+              },
+              "query_count": 134,
+              "ranking_failures_at_1": 11,
+              "recall": {
+                "at_1": 0.8931297709923665,
+                "at_10": 0.9770992366412213,
+                "at_5": 0.9770992366412213
+              }
+            },
+            "safety": {
+              "all_candidates_blocked_queries": 0,
+              "blocked_wrong_top1": 0,
+              "no_match_unblocked_top_queries": 3,
+              "unblocked_wrong_top1": 11,
+              "wrong_identity_top1": 11
+            }
+          }
+        }
+      },
+      "without_geography": {
+        "masked_features": [
+          "geography_component",
+          "geography_missing",
+          "geography_conflict"
+        ],
+        "validation": {
+          "balance": {
+            "negative": 466,
+            "negative_per_positive": 1.841897233201581,
+            "pairs": 719,
+            "positive": 253
+          },
+          "contradiction_aware": {
+            "average_precision": 0.9709814745149172,
+            "no_match_top_scores": {
+              "count": 3,
+              "max": 0.44189284354379227,
+              "median": 0.44189284354379227,
+              "min": 0.44189284354379227,
+              "p95": 0.44189284354379227
+            },
+            "pair_metrics": {
+              "0.5": {
+                "blocked_false_matches": 0,
+                "f1": 0.8993839835728953,
+                "fn": 34,
+                "fp": 15,
+                "precision": 0.9358974358974359,
+                "recall": 0.8656126482213439,
+                "tn": 451,
+                "tp": 219
+              },
+              "0.9": {
+                "blocked_false_matches": 0,
+                "f1": 0.8647450110864745,
+                "fn": 58,
+                "fp": 3,
+                "precision": 0.9848484848484849,
+                "recall": 0.7707509881422925,
+                "tn": 463,
+                "tp": 195
+              },
+              "0.99": {
+                "blocked_false_matches": 0,
+                "f1": 0.7807228915662651,
+                "fn": 91,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6403162055335968,
+                "tn": 466,
+                "tp": 162
+              }
+            },
+            "ranking": {
+              "available_candidate_queries": 128,
+              "candidate_generation_misses": 3,
+              "candidate_set_size": {
+                "mean": 5.365671641791045,
+                "median": 4.0,
+                "p95": 11
+              },
+              "conditional_mrr": 0.9791666666666666,
+              "conditional_recall": {
+                "at_1": 0.9609375,
+                "at_10": 1.0,
+                "at_5": 1.0
+              },
+              "eligible_query_count": 131,
+              "miss_count": 3,
+              "miss_rate": 0.022900763358778626,
+              "mrr": 0.9567430025445293,
+              "no_correct_candidate": {
+                "mean_candidate_set_size": 2,
+                "query_count": 3,
+                "with_candidates": 3
+              },
+              "query_count": 134,
+              "ranking_failures_at_1": 5,
+              "recall": {
+                "at_1": 0.9389312977099237,
+                "at_10": 0.9770992366412213,
+                "at_5": 0.9770992366412213
+              }
+            },
+            "safety": {
+              "all_candidates_blocked_queries": 0,
+              "blocked_wrong_top1": 0,
+              "no_match_unblocked_top_queries": 3,
+              "unblocked_wrong_top1": 5,
+              "wrong_identity_top1": 5
+            }
+          },
+          "paired_top1_vs_c1": {
+            "abbreviation": {
+              "losses": 0,
+              "wins": 0
+            },
+            "adversarial_notes": {
+              "losses": 0,
+              "wins": 0
+            },
+            "all": {
+              "losses": 3,
+              "wins": 9
+            },
+            "ambiguous": {
+              "losses": 0,
+              "wins": 2
+            },
+            "conflicting_full_middle_name": {
+              "losses": 0,
+              "wins": 0
+            },
+            "contradictory_evidence": {
+              "losses": 0,
+              "wins": 2
+            },
+            "duplicated_provider_records": {
+              "losses": 0,
+              "wins": 0
+            },
+            "employer_change": {
+              "losses": 0,
+              "wins": 2
+            },
+            "exact_duplicate": {
+              "losses": 2,
+              "wins": 0
+            },
+            "geography_change": {
+              "losses": 0,
+              "wins": 2
+            },
+            "ii_iii": {
+              "losses": 0,
+              "wins": 0
+            },
+            "jr_sr": {
+              "losses": 0,
+              "wins": 0
+            },
+            "linked_hard_negative": {
+              "losses": 2,
+              "wins": 0
+            },
+            "malformed": {
+              "losses": 0,
+              "wins": 1
+            },
+            "marriage_name_change": {
+              "losses": 0,
+              "wins": 0
+            },
+            "middle_initial": {
+              "losses": 0,
+              "wins": 0
+            },
+            "missing_fields": {
+              "losses": 1,
+              "wins": 0
+            },
+            "namesake": {
+              "losses": 2,
+              "wins": 5
+            },
+            "nickname": {
+              "losses": 0,
+              "wins": 0
+            },
+            "shared_household_phone": {
+              "losses": 0,
+              "wins": 0
+            },
+            "stale_email": {
+              "losses": 0,
+              "wins": 0
+            },
+            "stale_phone": {
+              "losses": 0,
+              "wins": 5
+            },
+            "suffix_conflict": {
+              "losses": 0,
+              "wins": 0
+            },
+            "transliteration": {
+              "losses": 0,
+              "wins": 1
+            }
+          },
+          "raw": {
+            "average_precision": 0.9709814745149172,
+            "no_match_top_scores": {
+              "count": 3,
+              "max": 0.44189284354379227,
+              "median": 0.44189284354379227,
+              "min": 0.44189284354379227,
+              "p95": 0.44189284354379227
+            },
+            "pair_metrics": {
+              "0.5": {
+                "blocked_false_matches": 0,
+                "f1": 0.8993839835728953,
+                "fn": 34,
+                "fp": 15,
+                "precision": 0.9358974358974359,
+                "recall": 0.8656126482213439,
+                "tn": 451,
+                "tp": 219
+              },
+              "0.9": {
+                "blocked_false_matches": 0,
+                "f1": 0.8647450110864745,
+                "fn": 58,
+                "fp": 3,
+                "precision": 0.9848484848484849,
+                "recall": 0.7707509881422925,
+                "tn": 463,
+                "tp": 195
+              },
+              "0.99": {
+                "blocked_false_matches": 0,
+                "f1": 0.7807228915662651,
+                "fn": 91,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6403162055335968,
+                "tn": 466,
+                "tp": 162
+              }
+            },
+            "ranking": {
+              "available_candidate_queries": 128,
+              "candidate_generation_misses": 3,
+              "candidate_set_size": {
+                "mean": 5.365671641791045,
+                "median": 4.0,
+                "p95": 11
+              },
+              "conditional_mrr": 0.9791666666666666,
+              "conditional_recall": {
+                "at_1": 0.9609375,
+                "at_10": 1.0,
+                "at_5": 1.0
+              },
+              "eligible_query_count": 131,
+              "miss_count": 3,
+              "miss_rate": 0.022900763358778626,
+              "mrr": 0.9567430025445293,
+              "no_correct_candidate": {
+                "mean_candidate_set_size": 2,
+                "query_count": 3,
+                "with_candidates": 3
+              },
+              "query_count": 134,
+              "ranking_failures_at_1": 5,
+              "recall": {
+                "at_1": 0.9389312977099237,
+                "at_10": 0.9770992366412213,
+                "at_5": 0.9770992366412213
+              }
+            },
+            "safety": {
+              "all_candidates_blocked_queries": 0,
+              "blocked_wrong_top1": 0,
+              "no_match_unblocked_top_queries": 3,
+              "unblocked_wrong_top1": 5,
+              "wrong_identity_top1": 5
+            }
+          }
+        }
+      },
+      "without_missing_indicators": {
+        "masked_features": [
+          "name_missing",
+          "email_missing",
+          "phone_missing",
+          "employer_missing",
+          "geography_missing"
+        ],
+        "validation": {
+          "balance": {
+            "negative": 466,
+            "negative_per_positive": 1.841897233201581,
+            "pairs": 719,
+            "positive": 253
+          },
+          "contradiction_aware": {
+            "average_precision": 0.9454026028176982,
+            "no_match_top_scores": {
+              "count": 3,
+              "max": 0.10207889754460638,
+              "median": 0.10207889754460638,
+              "min": 0.10207889754460638,
+              "p95": 0.10207889754460638
+            },
+            "pair_metrics": {
+              "0.5": {
+                "blocked_false_matches": 0,
+                "f1": 0.8763557483731019,
+                "fn": 51,
+                "fp": 6,
+                "precision": 0.9711538461538461,
+                "recall": 0.7984189723320159,
+                "tn": 460,
+                "tp": 202
+              },
+              "0.9": {
+                "blocked_false_matches": 0,
+                "f1": 0.8571428571428571,
+                "fn": 61,
+                "fp": 3,
+                "precision": 0.9846153846153847,
+                "recall": 0.758893280632411,
+                "tn": 463,
+                "tp": 192
+              },
+              "0.99": {
+                "blocked_false_matches": 0,
+                "f1": 0.7658536585365854,
+                "fn": 96,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6205533596837944,
+                "tn": 466,
+                "tp": 157
+              }
+            },
+            "ranking": {
+              "available_candidate_queries": 128,
+              "candidate_generation_misses": 3,
+              "candidate_set_size": {
+                "mean": 5.365671641791045,
+                "median": 4.0,
+                "p95": 11
+              },
+              "conditional_mrr": 0.9830729166666666,
+              "conditional_recall": {
+                "at_1": 0.96875,
+                "at_10": 1.0,
+                "at_5": 1.0
+              },
+              "eligible_query_count": 131,
+              "miss_count": 3,
+              "miss_rate": 0.022900763358778626,
+              "mrr": 0.960559796437659,
+              "no_correct_candidate": {
+                "mean_candidate_set_size": 2,
+                "query_count": 3,
+                "with_candidates": 3
+              },
+              "query_count": 134,
+              "ranking_failures_at_1": 4,
+              "recall": {
+                "at_1": 0.9465648854961832,
+                "at_10": 0.9770992366412213,
+                "at_5": 0.9770992366412213
+              }
+            },
+            "safety": {
+              "all_candidates_blocked_queries": 0,
+              "blocked_wrong_top1": 0,
+              "no_match_unblocked_top_queries": 3,
+              "unblocked_wrong_top1": 4,
+              "wrong_identity_top1": 4
+            }
+          },
+          "paired_top1_vs_c1": {
+            "abbreviation": {
+              "losses": 0,
+              "wins": 0
+            },
+            "adversarial_notes": {
+              "losses": 0,
+              "wins": 0
+            },
+            "all": {
+              "losses": 2,
+              "wins": 9
+            },
+            "ambiguous": {
+              "losses": 0,
+              "wins": 2
+            },
+            "conflicting_full_middle_name": {
+              "losses": 0,
+              "wins": 0
+            },
+            "contradictory_evidence": {
+              "losses": 0,
+              "wins": 2
+            },
+            "duplicated_provider_records": {
+              "losses": 0,
+              "wins": 0
+            },
+            "employer_change": {
+              "losses": 0,
+              "wins": 2
+            },
+            "exact_duplicate": {
+              "losses": 2,
+              "wins": 0
+            },
+            "geography_change": {
+              "losses": 0,
+              "wins": 2
+            },
+            "ii_iii": {
+              "losses": 0,
+              "wins": 0
+            },
+            "jr_sr": {
+              "losses": 0,
+              "wins": 0
+            },
+            "linked_hard_negative": {
+              "losses": 2,
+              "wins": 0
+            },
+            "malformed": {
+              "losses": 0,
+              "wins": 1
+            },
+            "marriage_name_change": {
+              "losses": 0,
+              "wins": 0
+            },
+            "middle_initial": {
+              "losses": 0,
+              "wins": 0
+            },
+            "missing_fields": {
+              "losses": 0,
+              "wins": 0
+            },
+            "namesake": {
+              "losses": 2,
+              "wins": 5
+            },
+            "nickname": {
+              "losses": 0,
+              "wins": 0
+            },
+            "shared_household_phone": {
+              "losses": 0,
+              "wins": 0
+            },
+            "stale_email": {
+              "losses": 0,
+              "wins": 0
+            },
+            "stale_phone": {
+              "losses": 0,
+              "wins": 5
+            },
+            "suffix_conflict": {
+              "losses": 0,
+              "wins": 0
+            },
+            "transliteration": {
+              "losses": 0,
+              "wins": 1
+            }
+          },
+          "raw": {
+            "average_precision": 0.9454026028176982,
+            "no_match_top_scores": {
+              "count": 3,
+              "max": 0.10207889754460638,
+              "median": 0.10207889754460638,
+              "min": 0.10207889754460638,
+              "p95": 0.10207889754460638
+            },
+            "pair_metrics": {
+              "0.5": {
+                "blocked_false_matches": 0,
+                "f1": 0.8763557483731019,
+                "fn": 51,
+                "fp": 6,
+                "precision": 0.9711538461538461,
+                "recall": 0.7984189723320159,
+                "tn": 460,
+                "tp": 202
+              },
+              "0.9": {
+                "blocked_false_matches": 0,
+                "f1": 0.8571428571428571,
+                "fn": 61,
+                "fp": 3,
+                "precision": 0.9846153846153847,
+                "recall": 0.758893280632411,
+                "tn": 463,
+                "tp": 192
+              },
+              "0.99": {
+                "blocked_false_matches": 0,
+                "f1": 0.7658536585365854,
+                "fn": 96,
+                "fp": 0,
+                "precision": 1.0,
+                "recall": 0.6205533596837944,
+                "tn": 466,
+                "tp": 157
+              }
+            },
+            "ranking": {
+              "available_candidate_queries": 128,
+              "candidate_generation_misses": 3,
+              "candidate_set_size": {
+                "mean": 5.365671641791045,
+                "median": 4.0,
+                "p95": 11
+              },
+              "conditional_mrr": 0.9830729166666666,
+              "conditional_recall": {
+                "at_1": 0.96875,
+                "at_10": 1.0,
+                "at_5": 1.0
+              },
+              "eligible_query_count": 131,
+              "miss_count": 3,
+              "miss_rate": 0.022900763358778626,
+              "mrr": 0.960559796437659,
+              "no_correct_candidate": {
+                "mean_candidate_set_size": 2,
+                "query_count": 3,
+                "with_candidates": 3
+              },
+              "query_count": 134,
+              "ranking_failures_at_1": 4,
+              "recall": {
+                "at_1": 0.9465648854961832,
+                "at_10": 0.9770992366412213,
+                "at_5": 0.9770992366412213
+              }
+            },
+            "safety": {
+              "all_candidates_blocked_queries": 0,
+              "blocked_wrong_top1": 0,
+              "no_match_unblocked_top_queries": 3,
+              "unblocked_wrong_top1": 4,
+              "wrong_identity_top1": 4
+            }
+          }
+        }
+      }
+    },
+    "missing_field_only_win_count": 9,
+    "recovered_count": 9,
+    "recovered_validation_queries": [
+      {
+        "feature_differences": [
+          "employer_conflict",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00014"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00382"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00564"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00587"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00796"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r01210"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r01300"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r01391"
+      },
+      {
+        "feature_differences": [
+          "employer_conflict",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r02146"
+      }
+    ],
+    "scope": "Train-only fits, validation-only diagnostics; no test scoring or retuning.",
+    "train_feature_class_means": {
+      "email_exact": {
+        "negative": 0.03528384279475982,
+        "positive": 0.7982978723404255
+      },
+      "email_missing": {
+        "negative": 0.18777292576419213,
+        "positive": 0.1472340425531915
+      },
+      "employer_component": {
+        "negative": 0.60317903930131,
+        "positive": 0.7480851063829788
+      },
+      "employer_conflict": {
+        "negative": 0.03615720524017467,
+        "positive": 0.023829787234042554
+      },
+      "employer_missing": {
+        "negative": 0.2609606986899563,
+        "positive": 0.22808510638297871
+      },
+      "first_name_similarity": {
+        "negative": 0.4079777841787386,
+        "positive": 0.9617932516655919
+      },
+      "full_middle_conflict": {
+        "negative": 0.01240174672489083,
+        "positive": 0.0
+      },
+      "full_name_similarity": {
+        "negative": 0.6063618649759911,
+        "positive": 0.9650070768390148
+      },
+      "geography_component": {
+        "negative": 0.8195633187772926,
+        "positive": 0.6714893617021277
+      },
+      "geography_conflict": {
+        "negative": 0.023406113537117905,
+        "positive": 0.04765957446808511
+      },
+      "geography_missing": {
+        "negative": 0.1514410480349345,
+        "positive": 0.2621276595744681
+      },
+      "last_name_similarity": {
+        "negative": 1.0,
+        "positive": 0.9953647416413375
+      },
+      "middle_initial_agreement": {
+        "negative": 0.04471615720524017,
+        "positive": 0.16680851063829788
+      },
+      "name_component": {
+        "negative": 0.19703056768558952,
+        "positive": 0.9182978723404255
+      },
+      "name_missing": {
+        "negative": 0.0,
+        "positive": 0.0
+      },
+      "phone_exact": {
+        "negative": 0.026375545851528383,
+        "positive": 0.6731914893617021
+      },
+      "phone_missing": {
+        "negative": 0.371528384279476,
+        "positive": 0.29106382978723405
+      },
+      "suffix_agreement": {
+        "negative": 0.0010480349344978166,
+        "positive": 0.09531914893617022
+      },
+      "suffix_conflict": {
+        "negative": 0.022008733624454147,
+        "positive": 0.0
+      }
+    }
+  },
+  "xgboost": {
+    "ablations": {},
+    "missing_field_only_win_count": 9,
+    "recovered_count": 9,
+    "recovered_validation_queries": [
+      {
+        "feature_differences": [
+          "employer_conflict",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00014"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00382"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00564"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00587"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r00796"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r01210"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r01300"
+      },
+      {
+        "feature_differences": [
+          "employer_component",
+          "employer_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r01391"
+      },
+      {
+        "feature_differences": [
+          "employer_conflict",
+          "employer_missing",
+          "phone_missing"
+        ],
+        "only_missing_field_effects": true,
+        "query_id": "r02146"
+      }
+    ],
+    "scope": "Train-only fits, validation-only diagnostics; no test scoring or retuning.",
+    "train_feature_class_means": {
+      "email_exact": {
+        "negative": 0.03528384279475982,
+        "positive": 0.7982978723404255
+      },
+      "email_missing": {
+        "negative": 0.18777292576419213,
+        "positive": 0.1472340425531915
+      },
+      "employer_component": {
+        "negative": 0.60317903930131,
+        "positive": 0.7480851063829788
+      },
+      "employer_conflict": {
+        "negative": 0.03615720524017467,
+        "positive": 0.023829787234042554
+      },
+      "employer_missing": {
+        "negative": 0.2609606986899563,
+        "positive": 0.22808510638297871
+      },
+      "first_name_similarity": {
+        "negative": 0.4079777841787386,
+        "positive": 0.9617932516655919
+      },
+      "full_middle_conflict": {
+        "negative": 0.01240174672489083,
+        "positive": 0.0
+      },
+      "full_name_similarity": {
+        "negative": 0.6063618649759911,
+        "positive": 0.9650070768390148
+      },
+      "geography_component": {
+        "negative": 0.8195633187772926,
+        "positive": 0.6714893617021277
+      },
+      "geography_conflict": {
+        "negative": 0.023406113537117905,
+        "positive": 0.04765957446808511
+      },
+      "geography_missing": {
+        "negative": 0.1514410480349345,
+        "positive": 0.2621276595744681
+      },
+      "last_name_similarity": {
+        "negative": 1.0,
+        "positive": 0.9953647416413375
+      },
+      "middle_initial_agreement": {
+        "negative": 0.04471615720524017,
+        "positive": 0.16680851063829788
+      },
+      "name_component": {
+        "negative": 0.19703056768558952,
+        "positive": 0.9182978723404255
+      },
+      "name_missing": {
+        "negative": 0.0,
+        "positive": 0.0
+      },
+      "phone_exact": {
+        "negative": 0.026375545851528383,
+        "positive": 0.6731914893617021
+      },
+      "phone_missing": {
+        "negative": 0.371528384279476,
+        "positive": 0.29106382978723405
+      },
+      "suffix_agreement": {
+        "negative": 0.0010480349344978166,
+        "positive": 0.09531914893617022
+      },
+      "suffix_conflict": {
+        "negative": 0.022008733624454147,
+        "positive": 0.0
+      }
+    }
+  }
+}

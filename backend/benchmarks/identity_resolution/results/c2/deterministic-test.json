@@ -1,0 +1,547 @@
+{
+  "baseline": "deterministic",
+  "benchmark_version": "c1-synthetic-v1",
+  "candidate_limit": 20,
+  "configuration": {
+    "groups_per_scenario": 20,
+    "seed": 20261001
+  },
+  "corpus_size": 254,
+  "dataset_sha256": "60b7ea16fb27eba3ced9a256e1ea13e63ac97b2f27580b9276d7a69961b2aaaa",
+  "metrics": {
+    "candidate_set_size": {
+      "mean": 6.1692307692307695,
+      "median": 6.0,
+      "p95": 13
+    },
+    "eligible_query_count": 127,
+    "miss_count": 0,
+    "miss_rate": 0.0,
+    "no_correct_candidate": {
+      "mean_candidate_set_size": 4.666666666666667,
+      "query_count": 3,
+      "with_candidates": 3
+    },
+    "query_count": 130,
+    "recall": {
+      "at_1": 0.9291338582677166,
+      "at_10": 1.0,
+      "at_5": 1.0
+    }
+  },
+  "model": null,
+  "retrieval_method": "deterministic",
+  "safety_diagnostics": {
+    "scope": "Eligible queries only. Retrieval diagnostics, not merge decisions.",
+    "wrong_identity_top1": 9,
+    "wrong_identity_top1_with_serious_contradiction": 0
+  },
+  "scenario_metrics": {
+    "abbreviation": {
+      "candidate_set_size": {
+        "mean": 9,
+        "median": 8,
+        "p95": 15
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "adversarial_notes": {
+      "candidate_set_size": {
+        "mean": 6.333333333333333,
+        "median": 7,
+        "p95": 8
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "ambiguous": {
+      "candidate_set_size": {
+        "mean": 7.666666666666667,
+        "median": 4,
+        "p95": 15
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 0.3333333333333333,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "conflicting_full_middle_name": {
+      "candidate_set_size": {
+        "mean": 6.333333333333333,
+        "median": 7,
+        "p95": 8
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "contradictory_evidence": {
+      "candidate_set_size": {
+        "mean": 6.5,
+        "median": 7.0,
+        "p95": 12
+      },
+      "eligible_query_count": 12,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 12,
+      "recall": {
+        "at_1": 0.8333333333333334,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "duplicated_provider_records": {
+      "candidate_set_size": {
+        "mean": 5.333333333333333,
+        "median": 4,
+        "p95": 8
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "employer_change": {
+      "candidate_set_size": {
+        "mean": 6,
+        "median": 5.5,
+        "p95": 10
+      },
+      "eligible_query_count": 6,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 6,
+      "recall": {
+        "at_1": 0.6666666666666666,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "exact_duplicate": {
+      "candidate_set_size": {
+        "mean": 6.455882352941177,
+        "median": 6.0,
+        "p95": 15
+      },
+      "eligible_query_count": 68,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 68,
+      "recall": {
+        "at_1": 0.9852941176470589,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "geography_change": {
+      "candidate_set_size": {
+        "mean": 5.833333333333333,
+        "median": 6.5,
+        "p95": 7
+      },
+      "eligible_query_count": 6,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 6,
+      "recall": {
+        "at_1": 0.6666666666666666,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "ii_iii": {
+      "candidate_set_size": {
+        "mean": 8.666666666666666,
+        "median": 7,
+        "p95": 12
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "jr_sr": {
+      "candidate_set_size": {
+        "mean": 5,
+        "median": 4,
+        "p95": 7
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "linked_hard_negative": {
+      "candidate_set_size": {
+        "mean": 6.4,
+        "median": 6,
+        "p95": 13
+      },
+      "eligible_query_count": 65,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 65,
+      "recall": {
+        "at_1": 0.9846153846153847,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "malformed": {
+      "candidate_set_size": {
+        "mean": 4,
+        "median": 4,
+        "p95": 4
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 0.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "marriage_name_change": {
+      "candidate_set_size": {
+        "mean": 1,
+        "median": 1,
+        "p95": 1
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "middle_initial": {
+      "candidate_set_size": {
+        "mean": 5.333333333333333,
+        "median": 4,
+        "p95": 8
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "missing_fields": {
+      "candidate_set_size": {
+        "mean": 7,
+        "median": 7.0,
+        "p95": 7
+      },
+      "eligible_query_count": 2,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 2,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "namesake": {
+      "candidate_set_size": {
+        "mean": 6.625,
+        "median": 6.0,
+        "p95": 15
+      },
+      "eligible_query_count": 53,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 4.666666666666667,
+        "query_count": 3,
+        "with_candidates": 3
+      },
+      "query_count": 56,
+      "recall": {
+        "at_1": 0.9433962264150944,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "nickname": {
+      "candidate_set_size": {
+        "mean": 6,
+        "median": 7,
+        "p95": 7
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "no_correct_candidate": {
+      "candidate_set_size": {
+        "mean": 4.666666666666667,
+        "median": 6,
+        "p95": 6
+      },
+      "eligible_query_count": 0,
+      "miss_count": 0,
+      "miss_rate": null,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 4.666666666666667,
+        "query_count": 3,
+        "with_candidates": 3
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": null,
+        "at_10": null,
+        "at_5": null
+      }
+    },
+    "shared_household_phone": {
+      "candidate_set_size": {
+        "mean": 5.333333333333333,
+        "median": 4,
+        "p95": 8
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "stale_email": {
+      "candidate_set_size": {
+        "mean": 3.6666666666666665,
+        "median": 2.5,
+        "p95": 8
+      },
+      "eligible_query_count": 6,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 6,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "stale_phone": {
+      "candidate_set_size": {
+        "mean": 6.222222222222222,
+        "median": 6,
+        "p95": 12
+      },
+      "eligible_query_count": 9,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 9,
+      "recall": {
+        "at_1": 0.7777777777777778,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "suffix_conflict": {
+      "candidate_set_size": {
+        "mean": 6.833333333333333,
+        "median": 7.0,
+        "p95": 12
+      },
+      "eligible_query_count": 6,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 6,
+      "recall": {
+        "at_1": 1.0,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    },
+    "transliteration": {
+      "candidate_set_size": {
+        "mean": 5,
+        "median": 4,
+        "p95": 7
+      },
+      "eligible_query_count": 3,
+      "miss_count": 0,
+      "miss_rate": 0.0,
+      "no_correct_candidate": {
+        "mean_candidate_set_size": 0,
+        "query_count": 0,
+        "with_candidates": 0
+      },
+      "query_count": 3,
+      "recall": {
+        "at_1": 0.6666666666666666,
+        "at_10": 1.0,
+        "at_5": 1.0
+      }
+    }
+  },
+  "serialization_version": "labeled-fields-v1",
+  "split": "test"
+}
