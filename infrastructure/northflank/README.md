@@ -11,6 +11,16 @@ Neon organization reports `free`. The isolated branch `productization-staging` a
 Firebase Admin configuration for `contact-resolution-staging` was supplied through Northflank's secret configuration. API `/api/health` returned HTTP 200. Missing and invalid Firebase tokens returned 401; two legitimate Anonymous Firebase identities bootstrapped into separate workspaces. A synthetic CSV Job reached `SUCCEEDED`, with its workspace-scoped Case persisted in staging Neon. A cross-workspace object request returned 404, and a request with mismatched workspace membership returned 403. Worker and private Redis pings passed. The initial duplicate-replay attempt was interrupted by command-exec exit code 9; subsequent duplicate-delivery idempotency was verified in the completed E2 handoff. LangGraph/MCP was skipped because no deterministic synthetic provider/MCP setup is configured, and adding a provider or auth bypass would be unsafe.
 
 E3 started from clean local and remote `productization/v1` at `27a28cc94cd27cda9ea84f6628695410bee637e0`, including E2 corrective changes. Render remains the stable production deployment. Production Vercel, production Neon, DNS and `main` were not changed; no production cutover occurred. E3 overrides only the staging API service's `CORS_ORIGINS` with `["https://contact-resolution-workbench-productization-v1.vercel.app"]`; the read-back confirmed every other runtime value remained unchanged.
+
+The E2 provisioning history is retained. Current deployment and completed
+Source/duplicate-delivery acceptance are recorded in
+[E4 verification](../../docs/e4-verification.md); the
+[final audit](../../docs/final-audit.md) adds a fresh health/authenticated smoke.
+The checked-in provisioning template still pins the original E1 build and is
+not a declaration of the current E4 deployed image. Do not reapply it unchanged
+to an existing environment; an intentional release must select the verified
+application SHA consistently across API, worker and migration.
+
 ## Architecture and allocation
 
 ```text
@@ -25,9 +35,10 @@ Same backend image -> one-off Alembic migration Job -> staging Neon only
 `staging.template.json` is the native Northflank Template IaC source. There is
 no Terraform or PostgreSQL addon. The API is a combined build/deploy service,
 the worker a deployment service; both use `backend/Dockerfile`'s same build.
-The migration Job uses that build too. The source SHA is pinned to pushed E1
-in the Build node and both internal image selectors. Update all three selectors
-together when intentionally changing the application version.
+The migration Job uses that build too. The provisioning template's source SHA
+is pinned to E1 in the Build node and both internal image selectors. The current
+deployed E4 implementation is `92165d6`, as verified in the E4 record. Update all
+three selectors together when intentionally releasing a new application version.
 
 The sequential workflow creates or reuses private Redis and a project-wide runtime secret
 group, creates the API at **zero replicas**, builds E1, runs the migration Job
@@ -125,7 +136,9 @@ deployment; browser tests require the explicit allowed origin above.
    run `celery -A app.celery_app:celery_app inspect ping --timeout=5` in the worker.
    Never print runtime environment or connection credentials.
 8. Run the synthetic smoke below. Retain only redacted pass/fail results and
-   synthetic Job/Case IDs. The cloud run passed API, worker, migration, async persistence and cross-tenant checks; duplicate replay remains unverified as recorded above.
+   synthetic Job/Case IDs. Completed E4 acceptance verified API, worker, migration,
+   Source persistence, cross-tenant checks and an observed completed duplicate
+   replay. Preserve the earlier interrupted attempt as historical evidence.
 
 ## Local template validation
 
@@ -202,7 +215,7 @@ injection into staging or claim this CSV smoke validates investigations.
 | Firebase Admin provisioning / synthetic ID tokens | Admin credential configured in Northflank secret group; real staging auth passed |
 | Authenticated template dry-run / deployed spec comparison | Recovery run succeeded; retained private Redis reused; two services, one job, one addon, one secret group |
 | Migration / API health / worker / private Redis | Staging migration head, API health, worker ping and private Redis ping passed |
-| Async persistence / duplicate delivery / cross-tenant smoke | CSV persistence and cross-workspace denial passed; duplicate replay result unavailable (command-exec exit 9) |
+| Async persistence / duplicate delivery / cross-tenant smoke | Initial duplicate attempt was interrupted (exit 9); completed E2 handoff and E4 observed replay subsequently verified idempotency, persistence and cross-workspace denial |
 | LangGraph to MCP investigation | Not run in staging |
 
 Render remains the stable deployment and rollback path. E2 changed no Render
@@ -210,5 +223,6 @@ resource, production Vercel API setting or production Neon database. No producti
 cutover occurred. If a future staging build/migration/smoke fails, record the
 failed node/step and sanitized logs, stop staging acceptance, and leave the demo
 unchanged. Resume only against the verified staging database; never remediate by
-migrating production. Terraform remains deferred to a later infrastructure step
-with a mature supported provider, likely Vercel.
+migrating production. Terraform was evaluated and intentionally not adopted
+because the currently managed infrastructure does not benefit from adding
+Terraform state. This is the final ownership decision, not unfinished setup.

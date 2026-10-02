@@ -7,8 +7,11 @@ records through the same candidate-provider interface. CSV incoming records and
 API incoming records both use that population and the existing deterministic
 matcher, contradiction gates, routing, and review workflow. Normalized name,
 email, and phone blocking selects up to 100 persisted candidates per incoming
-record, ordered by internal ID. This portfolio limit can omit candidates in a
-large population; it is not an enterprise-scale retrieval guarantee.
+record, ordered by internal ID before scoring. This portfolio limit can omit
+even an exact-contact candidate in a crowded block. It bounds returned/scored
+candidates, not database scan cost. The separate benchmark's scored top-20
+retriever does not validate recall under this database cap. See the
+[final candidate-limit analysis](final-audit.md#candidate-limit-conclusion).
 
 A **Reference Source** maintains authoritative/master records. Each external ID
 is unique within its workspace and Source. Sending that ID in a new batch updates
@@ -74,8 +77,11 @@ commit together. Accepted batches continue processing if their Source is later
 disabled; disabling prevents new submissions.
 
 The existing Job claim model does not reclaim a Job left RUNNING by a hard worker
-termination. Operators should inspect such Jobs before retrying with a new batch
-key. This milestone adds no scheduler or polling infrastructure.
+termination. Early acknowledgement or interrupted publication can also strand
+a PENDING Job. Stop and verify all consumers before operator-controlled recovery
+of the same durable Job; submitting a new batch key is not a generic safe recovery
+procedure. See the [failure windows and recovery runbook](final-audit.md#worker-crash-analysis-and-manual-recovery).
+There is no automatic lease/heartbeat/reconciliation service.
 
 Source management audit rows contain actor, event type, Source ID, and timestamp.
 Telemetry accepts only mechanism, source purpose, count, operation status, and

@@ -18,9 +18,7 @@ TEMPLATE = Path(__file__).with_name("staging.template.json")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--schema", type=Path, help="Previously downloaded official schema"
-    )
+    parser.add_argument("--schema", type=Path, help="Previously downloaded official schema")
     args = parser.parse_args()
     raw = (
         args.schema.read_bytes()
@@ -51,8 +49,7 @@ def main() -> None:
     resources = [
         n
         for n in steps
-        if n["kind"]
-        in {"CombinedService", "DeploymentService", "Job", "Addon", "SecretGroup"}
+        if n["kind"] in {"CombinedService", "DeploymentService", "Job", "Addon", "SecretGroup"}
         and n.get("updateMode") != "patch"
     ]
     for node in resources:
@@ -61,9 +58,7 @@ def main() -> None:
     assert redis["type"] == "redis" and not redis["externalAccessEnabled"]
     assert not redis["typeSpecificSettings"]["redisSentinelEnabled"]
     print(f"Official native schema PASS; SHA256 {hashlib.sha256(raw).hexdigest()}")
-    print(
-        "No resources applied. Account plans and authenticated server dry-run remain required."
-    )
+    print("No resources applied. Account plans and authenticated server dry-run remain required.")
 
 
 if __name__ == "__main__":

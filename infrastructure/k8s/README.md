@@ -2,7 +2,9 @@
 
 These manifests validate the existing FastAPI/Celery architecture in an ephemeral
 kind cluster. Kubernetes is not the production hosting platform. The live POC
-remains on Vercel, Render and external Neon PostgreSQL.
+remains on Vercel, Render and external Neon PostgreSQL. The separate productized
+[public staging](../../docs/staging-preview.md) uses Vercel Preview, Northflank,
+Firebase staging, private Redis and isolated Neon; it does not run Kubernetes.
 
 `base/` defines the API Deployment/Service, worker Deployment and non-secret
 ConfigMap. Both Deployments use one locally built backend image with different

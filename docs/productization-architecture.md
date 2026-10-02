@@ -1,63 +1,118 @@
-# Productization architecture
+# Identity Resolution Workbench architecture
 
-The current application is a React/Vite frontend and a FastAPI/SQLAlchemy backend. It supports deterministic normalization and matching, contradiction detection, routing, reviewer decisions, append-only audit history, synthetic providers and benchmarks, CSV ingestion/export, Gemini structured extraction, anonymous demo telemetry, Firebase email/password and anonymous sign-in, and workspace isolation. Durable business state is stored in PostgreSQL; SQLite remains supported for local development and tests.
+`productization/v1` contains the productized system. Its verified public deployment is staging. The earlier Vercel/Render demo on `main` and its production services remain separate; this document does not authorize a cutover.
 
-The deployed POC is: Browser -> Vercel frontend -> Render FastAPI -> Neon PostgreSQL. `main` remains the stable, currently deployed POC branch. `productization/v1` is the integration branch for this upgrade work.
+## Production runtime components
 
-The direction is an Identity Resolution Workbench that preserves the existing deterministic safety model. Gemini may extract or interpret ambiguous evidence, but it must not make the final identity decision, override contradictions, alter deterministic scores, or silently merge records. Deterministic contradiction detection and routing remain authoritative.
+These are implemented application/runtime components, deployed in a production-like staging environment. This heading describes their role, not a claim of production enterprise usage.
 
-Firebase ID tokens are verified by the backend. The bootstrap endpoint creates an internal user and first workspace, while workbench endpoints require an authorized `X-Workspace-ID`; cases are workspace-owned and case numbers are unique within a workspace. CSV imports create durable PostgreSQL Job records and are executed by Celery, with Redis used only as the broker. API and worker use the same backend image with different commands. Local Compose includes disposable PostgreSQL because the API and worker run in separate processes and need the same database; SQLite remains convenient for ordinary unit tests. CSV payloads are stored with the Job and limited to 256 KB; this is not a Dataset implementation. D1 adds LangGraph only for explicit evidence investigation on unresolved review cases. Production ML remains future work.
+| Component | Responsibility | Public staging |
+| --- | --- | --- |
+| React / Vite | Authenticated workspace, Sources, ingestion history, Cases and human review | Vercel Preview |
+| Firebase | Email/password or anonymous identity; backend verifies ID tokens | Separate staging project |
+| FastAPI / SQLAlchemy | Membership enforcement, Source contract, Case/Job/investigation APIs | Northflank API |
+| PostgreSQL | Workspace-owned domain state, durable Jobs, reference records, provenance, investigation metadata/checkpoints | Isolated Neon branch/database |
+| Redis / Celery | Queue internal identifiers; process durable ingestion and explicit investigations | Project-private Redis and existing worker |
+| Deterministic resolver | Normalize, retrieve candidates, score, detect contradictions and route at 75/45 | Active for CSV/Source ingestion |
+| Gemini structured extraction | Parse/ground evidence within validated schemas | Optional capability; no staging AI execution claim |
+| LangGraph / MCP v2 | Governed evidence investigation, deterministic re-analysis, typed human interrupt/resume | Implemented and locally integrated; not exercised publicly |
+| OTel / Langfuse | Optional allowlisted operational metadata, fail-open export | Disabled in public staging |
 
-The public portfolio deployment is limited to synthetic, anonymized, non-sensitive demonstration data.
+```mermaid
+flowchart TD
+    Browser[React / Vercel Preview] --> Firebase[Firebase staging]
+    Browser --> API[FastAPI / Northflank]
+    Firebase --> Verify[Verified identity + workspace membership]
+    Verify --> API
+    External[External applications] --> Source[Source API credential]
+    Source --> API
+    API --> DB[(Neon staging PostgreSQL)]
+    API --> Redis[(Private Redis)]
+    Redis --> Worker[Celery / same backend image]
+    Worker --> DB
+    Worker --> Resolver[Deterministic resolver]
+    Resolver --> Routing[75/45 routing + contradiction gates]
+    Routing --> Cases[Cases / human review]
+    Cases --> DB
+```
 
-C1 adds an offline synthetic identity benchmark under `backend/benchmarks/identity_resolution`. It generates 880 identities and 2,600 records with explicit truth kept outside retrieval features. Identity groups, linked negatives, and identical feature profiles stay within one train/validation/test partition. A bounded deterministic candidate-generation baseline reuses application normalization, scores, and contradiction checks; retrieval metrics and separate local latency measurements are recorded in JSON. Production matching and routing are unchanged. See [benchmark usage and measured results](identity-resolution-benchmark.md). Production embedding retrieval and ML ranking remain future work.
+### Authentication and ownership
 
-C2 measures a pinned local MiniLM embedding model and one deterministic/semantic union on the unchanged C1 benchmark. Neither adds candidate coverage over C1, so they are rejected from production retrieval and do not justify pgvector. A manual Gemini Embedding 2 runner exists, but its live evaluation was not executed because no API key was configured; its performance is unassessed. Optional benchmark dependencies and fake-vector tests stay outside runtime application code. See the benchmark note for measurements and limitations. No production semantic retrieval, learned ranking, or infrastructure change is implemented.
+Firebase Admin verifies bearer signatures, issuer/audience and expiry using the configured project. Bootstrap derives internal identity from that token and creates the first workspace. `X-Workspace-ID` selects only a workspace for which the verified user has a persisted membership. Cases, Jobs and investigations are filtered by that authorized workspace. Candidate/evidence reads and decisions are rooted in an authorized Case.
 
-C3 evaluates Logistic Regression and one CPU XGBoost challenger on the frozen deterministic candidate sets using 19 structured matching features. Both improve synthetic top-1 metrics, but a validation feature audit ties all recovered queries to C1's asymmetric partial-observation pattern. Both are rejected; deterministic ranking remains authoritative. The offline runner, compact JSON parameters/results and optional ML test job introduce no API model loading, routing thresholds, database changes or production infrastructure. See the benchmark note for measured gains, safety diagnostics and the rejection rationale.
+Owners manage Sources and credentials; members read safe Source state/history. Machine ingestion uses a distinct credential dependency. The authenticated Source supplies workspace and REFERENCE/INCOMING purpose; caller authority fields are forbidden. Parent-authorized Source history and internal Job/ingestion foreign-key lookups are not independent unscoped user reads. MCP revalidates the durable run's workspace/case relationship and requested resources.
 
-C4 evaluates the existing deterministic router on the frozen C1 candidate sets. Production keeps inclusive thresholds of 75 for likely match and 45 for review, with suffix and full-middle-name conflicts blocking automatic matches. The held-out benchmark has 99 automatic matches, 25 reviews and 6 rejections across 130 queries, with zero observed unsafe automatic matches. A validation-selected 70/40 alternative offers too little independent evidence for adoption; future real-data calibration is required. The experiment changes no production scoring, retrieval, routing or infrastructure. See the benchmark note for denominators, no-match limitations, gate checks and missingness analysis.
+### Dual ingestion contract
 
-D1 uses LangGraph 1.2.12 and the official PostgreSQL checkpointer 3.1.2. An application-owned InvestigationRun authorizes each internal thread through its workspace and case. The existing Celery worker executes the graph and persists checkpoints in PostgreSQL. Reviewers start investigations explicitly, receive a typed human interrupt when direction is needed, and resume the same thread through an authenticated API. Only inspection of existing evidence, retrieval of an approved local synthetic note, and human input are available. Extracted facts must pass the existing Gemini schema and source-grounding checks before persistence; Evidence and AuditLog retain the candidate relationship and provenance. The graph observes deterministic scores and contradictions, leaves case routing and review decisions unchanged, and never submits Accept or Reject. See [investigation workflow and operation](evidence-investigation.md).
+```text
+CSV incoming import ----------------------+
+External applications -> Source API ------+-> durable Job + payload in PostgreSQL
+                                            -> Redis (internal identifiers only)
+                                            -> Celery atomic PENDING -> RUNNING claim
+                                              | REFERENCE: source-scoped master upsert
+                                              | INCOMING: candidates -> deterministic score
+                                              |           -> contradiction gates -> routing
+                                              +-> Job completion + domain transaction
+                                                  -> history / Case review
+```
 
-D2 uses the official Python MCP SDK 2.2.0. MCP v2 tools are embedded and invoked through the official in-process MCP protocol client. LangGraph maps its approved operation enum to `get_case_evidence`, `retrieve_synthetic_notes`, or `request_human_review`; planning uses `get_resolution_case`, and `retrieve_candidate` provides a scoped candidate read. Each `Client(MCPServer)` discovers tools and calls them with validated arguments and structured results. Server-owned workspace/run/case scope comes from the already-authorized InvestigationRun, with ownership checked again for every requested case, candidate and evidence ID. Tokens, user identities and thread IDs are absent from tool arguments. There is no arbitrary SQL or tool execution. Synthetic retrieval includes grounded extraction and idempotent evidence persistence; safe tool provenance uses existing AuditLog records. Evidence is data and cannot override score weights, thresholds, contradiction rules or human decisions. MCP is not publicly hosted: D2 adds no HTTP endpoint, OAuth, service/container or production infrastructure change.
+CSV currently creates incoming Cases; there is no separate CSV master/reference importer. REFERENCE batches populate the persistent workspace candidate provider. Incoming CSV and Source batches both use `workspace_resolver`, the existing matcher/router and `persist_case_resolution`. Built-in comparison providers remain synthetic demo fixtures, not live CRM integrations. The unstructured extraction task uses the existing resolver and has a separate persistence/completion window described in the audit.
 
-D3 uses one shared OpenTelemetry provider for general application and workflow traces. Optional OTLP/HTTP export is backend-neutral; Langfuse v4 receives only AI and agent observations. Exported metadata excludes sensitive identity content, prompts, model responses, evidence, credentials and reviewer notes. Both exporters are optional and fail open: telemetry failures do not affect identity resolution or review decisions. Local verification uses fake and in-memory exporters; no live Langfuse deployment is required or claimed.
+REFERENCE uniqueness is `(workspace_id, source_id, external_record_id)`. Updates replace canonical attributes and point to the latest ingestion; historical ingestion receipts remain. Different Sources cannot overwrite each other's external IDs. Disable prevents new submissions while retaining records/history; already accepted batches continue.
 
-D4 adds [targeted AI evaluation](ai-evaluation.md) outside production request handling.
-DeepEval checks tool permissions, expected calls and raw extraction schema offline.
-Normal CI uses scripted synthetic model responses and has no live AI dependency.
-Domain and security rules remain in deterministic pytest. Gemini G-Eval is an explicit
-local opt-in; its scores support review and cannot override deterministic policy.
+HTTP identity is `(source_id, digest(Idempotency-Key), digest(canonical payload))`: matching retries reuse the original ingestion/Job in any state; changed bodies return 409. A database unique constraint protects concurrent receipts. Source namespace makes an identical key on another Source independent. A 202 means durable receipt; Job state reports completion or failure.
 
-E1 adds [Kubernetes deployment validation](../infrastructure/k8s/README.md) for
-the API and Celery worker using the same backend image with different commands.
-A dedicated CI workflow uses ephemeral kind clusters, a deliberate migration
-Job, and the existing deterministic async integration tests. PostgreSQL and
-Redis in kind are disposable test infrastructure. Kubernetes is not the
-production hosting platform; Vercel, Render and external Neon remain unchanged.
-E2 deployed [Northflank Developer Sandbox staging](../infrastructure/northflank/README.md)
-using native Northflank Templates as its IaC source: two services (FastAPI and
-Celery sharing the backend image), a migration Job, private managed Redis and
-a runtime secret group. A separate staging Neon branch/database is required;
-the addon slot is reserved for Redis. Observability stays disabled and Firebase
-authentication is preserved. The deployed API and worker use Neon branch
-`productization-staging`, database `workbench_staging`, and Firebase project
-`contact-resolution-staging`. E2 acceptance verified asynchronous synthetic CSV
-ingestion, duplicate-delivery idempotency and workspace isolation.
+CSV and Source workers commit domain changes with terminal Job success. An atomic conditional claim makes ordinary duplicate task deliveries harmless. There is no lease/heartbeat or automatic stranded-Job reconciler. Ingestion uses Celery's early-ack default; broker redelivery does not reclaim RUNNING state. See [failure windows and manual recovery](final-audit.md#worker-crash-analysis-and-manual-recovery).
 
-E3 adds the [public staging Preview and release validation](staging-preview.md)
-on the existing Vercel Hobby project. Only `productization/v1` Preview variables
-target Northflank and Firebase staging. A stable staging-only alias is public;
-production aliases and protection are preserved. The browser smoke uses real
-Firebase anonymous authentication, durable Jobs and the existing Celery worker;
-it checks case evidence, review persistence and the public security boundary.
-Queue loading now waits for Firebase session restoration and workspace bootstrap.
-Render remains the stable public backend. Production Vercel, Render, Neon and
-`main` are unchanged; this is a synthetic portfolio/staging environment, with
-no production cutover, Kubernetes hosting claim or availability/scale SLA.
+Workspace reference retrieval uses up to eight normalized name tokens plus exact email/phone blocking, then takes 100 records ordered by internal ID. This bounds returned candidates and scoring/persistence work, not database scan cost. It can affect correctness in large or crowded blocks. The separate C1 benchmark scores its complete blocked pool before taking 20 candidates; its recall cannot validate the runtime database cap.
 
-Terraform evaluated and intentionally not adopted because no current infrastructure resource benefits from introducing Terraform state.
-Importing the established Vercel project solely to manage Preview variables
-would introduce state and drift risk without useful ownership. Northflank uses
-its supported native template; no unofficial Neon/Northflank provider is added.
+### Identity and AI boundary
+
+Suffix conflicts such as Arthur Jr./Sr. and conflicting explicit full middle names block likely-match routing even at a high score. The model cannot set authoritative scores, choose a workspace, override those gates or submit Accept/Reject. `LIKELY_MATCH` is a routing result; persisted reviewer decisions remain human-owned.
+
+```text
+Reviewer explicitly starts an unresolved Case investigation
+  -> authorized InvestigationRun / server-owned workspace, run, case
+  -> LangGraph approved Operation enum
+  -> explicit enum-to-MCP-tool mapping
+  -> official in-process MCP Client(server) discovery/call
+  -> approved synthetic evidence / grounded extraction / idempotent persistence
+  -> deterministic re-analysis
+  -> evidence outcome or typed human interrupt on the same checkpoint thread
+```
+
+There is no arbitrary SQL, HTTP, filesystem or shell tool. Evidence cannot select tools or modify scope. `request_human_review` requests investigation input; it cannot decide identity. The embedded MCP server adds no public endpoint or separate cloud service.
+
+### Privacy and deployment
+
+Job payloads and business evidence belong in the database, not telemetry. OTel spans contain enum/count/timing metadata only; Langfuse receives filtered AI spans through the same sanitized provider. Raw exception events, prompts, responses, rows and credentials are excluded. Both exporters are optional and fail open. First-party usage events accept bounded demo identifiers; callers must keep personal data out of case numbers/referral codes.
+
+The backend image runs as UID/GID 999. API, worker and migration workload share it with different commands; the image includes application and migration files, not local credential files or test fixtures. Northflank exposes the HTTPS API only; Redis and worker remain private. Public staging Redis has no TLS and is project-private, with no HA claim. Neon and Firebase are isolated staging configurations. CORS permits the exact staging frontend origin, and that hostname is a staging Firebase Authorized Domain.
+
+Runtime bases use `python:3.13-slim` and version-pinned uv; builds resolve image digests but the Python base tag can move. Kubernetes validation images/node are explicitly pinned. No broader immutable-image guarantee is claimed.
+
+## Experiments evaluated and rejected
+
+| Experiment | Finding | Runtime decision |
+| --- | --- | --- |
+| MiniLM semantic retrieval / deterministic-semantic union | Underperformed deterministic top-1 and added no useful candidate coverage | Rejected; no embedding/vector database runtime |
+| Logistic Regression | Synthetic ranking gains depended on asymmetric missing fields | Rejected; no model loading in APIs/workers |
+| CPU XGBoost | Same missing-field artifact undermined apparent gains | Rejected |
+| Alternative routing thresholds | Insufficient independent validation evidence | Existing 75/45 retained |
+
+Gemini embedding runner exists but was not executed; its performance is unassessed. [Versioned results and methodology](identity-resolution-benchmark.md) preserve both measured gains and rejection reasons.
+
+## Development/validation infrastructure
+
+- Docker packages the runtime; Compose supplies disposable shared PostgreSQL/Redis for local development.
+- Kubernetes manifests validate API/worker security contexts and a deliberate migration Job. kind CI uses ephemeral resources, test-only authentication and disposable databases; none of that test injection is deployed publicly.
+- Pytest covers authorization, tenant isolation, source contracts, idempotency, rollback, contradiction gates and review ownership. Separate real-service suites cover Redis/Celery delivery and PostgreSQL LangGraph checkpoints.
+- Deterministic DeepEval tests scripted JSON and tool contracts with no live judge, login or upload. Optional live judging remains explicit opt-in and was not run.
+- Synthetic retrieval/ranking/routing benchmarks and checked-in JSON artifacts support bounded claims; they are not operational accuracy measurements.
+- Public browser acceptance and the final authenticated API smoke use legitimate staging Firebase identities and synthetic data.
+
+## Infrastructure ownership and release boundary
+
+Northflank uses its native template and secret configuration; Vercel uses branch-specific Preview settings. E4 read-back evidence records two services, one migration job, one Redis addon and one secret group, with available usage at USD 0. This is historical verification, not a future cost guarantee. Final audit changed no runtime deployment or cloud allocation.
+
+Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. No unofficial provider or Terraform state was introduced. A production cutover is a separate controlled release decision; production Vercel, Render, Neon, Firebase, DNS and `main` remain outside this release.
