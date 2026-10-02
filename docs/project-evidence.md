@@ -1,14 +1,14 @@
 # Project evidence
 
-Audited on 2026-10-02, starting at `b12905c` on `productization/v1`. The verified public environment is [staging](https://contact-resolution-workbench-productization-v1.vercel.app). [Final audit and verification](final-audit.md) records the checks and operational constraints.
+Audited on 2026-10-02, starting at `b12905c` on `productization/v1`. The finished product is now [live](https://contact-resolution.vercel.app) on `main`. [Production cutover](production-cutover.md) records fresh production browser/API acceptance; [final audit and verification](final-audit.md) preserves the engineering gates and constraints.
 
-Statuses describe the evidence available: **IMPLEMENTED** means code exists; **TESTED** means exercised by tests/acceptance; **BENCHMARKED** means measured on the documented dataset; **DEPLOYED** means present in the staging deployment. Deployment alone does not prove execution of an optional capability.
+Statuses describe the evidence available: **IMPLEMENTED** means code exists; **TESTED** means exercised by tests/acceptance; **BENCHMARKED** means measured on the documented dataset; **DEPLOYED** means present in the live portfolio deployment. Deployment alone does not prove execution of an optional capability.
 
 ## Claim inventory
 
 | Claim | Status | Evidence | Caveat |
 | --- | --- | --- | --- |
-| Firebase authentication | IMPLEMENTED, TESTED, DEPLOYED | [Verification/bootstrap](../backend/app/core/auth.py), [staging browser acceptance](staging-preview.md), [final smoke](final-audit.md#final-verification) | Separate staging project; no production cutover |
+| Firebase authentication | IMPLEMENTED, TESTED, DEPLOYED | [Verification/bootstrap](../backend/app/core/auth.py), [production browser acceptance](production-cutover.md), [final smoke](final-audit.md#final-verification) | Verified project retains its internal staging name |
 | Tenant isolation | IMPLEMENTED, TESTED, DEPLOYED | [Workspace tests](../backend/tests/test_workspace_isolation.py), [Source tests](../backend/tests/test_sources.py), [MCP scope tests](../backend/tests/test_investigation_mcp.py) | Membership must authorize the workspace header; not just an object ID |
 | Source API | IMPLEMENTED, TESTED, DEPLOYED | [API](../backend/app/api/sources.py), [canonical contract](sources.md), [E4 acceptance](e4-verification.md) | 100 records / 256 KB per batch; no vendor connectors |
 | Source credential lifecycle | IMPLEMENTED, TESTED, DEPLOYED | [Generation/digest](../backend/app/services/source_service.py), [rotation/disable tests](../backend/tests/test_sources.py), final authenticated smoke | One-time response/transient UI; accepted work continues after disable |
@@ -31,9 +31,9 @@ Statuses describe the evidence available: **IMPLEMENTED** means code exists; **T
 | Docker runtime | IMPLEMENTED, TESTED, DEPLOYED | [Dockerfile](../backend/Dockerfile), final build/health/worker ping/UID 999, E4 shared image | Python base is a version tag, not an immutable source digest |
 | Kubernetes / kind | IMPLEMENTED, TESTED | [Manifests and runner](../infrastructure/k8s/README.md), [kind CI workflow](../.github/workflows/kind.yml), final static render | Prior kind validation evidence retained; not production-hosted; no fresh kind run because runtime/manifests are unchanged |
 | Northflank / private Redis | DEPLOYED, TESTED | [Deployment record](../infrastructure/northflank/README.md), E4 read-back/resource inventory, final health/async smoke | Sandbox constraints; private non-TLS Redis; available historical usage USD 0 is not a future cost guarantee |
-| Vercel public Preview | DEPLOYED, TESTED | [Preview/isolation record](staging-preview.md), final public HTTP and staging bundle checks | Staging alias only; production aliases untouched |
-| Neon staging separation | DEPLOYED, TESTED | [E4 control-plane and guarded migration evidence](e4-verification.md), final durable processing | Existing isolated branch/database; final audit did not rerun cloud migrations |
-| Browser staging end-to-end acceptance | TESTED | E3 real Firebase/CSV/review flow and [E4 Sources/key/idempotency/isolation acceptance](e4-verification.md) | Prior browser evidence retained; final smoke was a lightweight authenticated HTTP check |
+| Vercel Production | DEPLOYED, TESTED | [Cutover deployment, bundle and browser evidence](production-cutover.md); [retained Preview record](staging-preview.md) | Production Branch is `main`; Preview remains available |
+| Neon environment reuse | DEPLOYED, TESTED | [E4 guarded migration evidence](e4-verification.md), [cutover endpoint mapping and preservation](production-cutover.md) | Verified branch/database retains internal staging names; old POC branch remains separate |
+| Production browser end-to-end acceptance | TESTED | [Cutover](production-cutover.md): real Firebase, CSV/review and Source/key/idempotency/isolation flows | Synthetic data only; optional AI/investigation execution is not claimed |
 
 ## Defensible evaluation claims
 
@@ -51,8 +51,8 @@ Salesforce, HubSpot, ERP systems, warehouses and internal applications could int
 
 ## Release boundaries and limitations
 
-Synthetic data provides no real-world false-merge guarantee. Gemini embeddings and live DeepEval judging were not run. LangGraph/MCP and live OTel/Langfuse export were not exercised in public staging. Kubernetes was validated with kind, not production hosting. Candidate retrieval is capped at 100 blocked database rows; hard worker crashes require manual recovery. Public staging has Northflank Sandbox constraints and no availability/scale SLA.
+Synthetic data provides no real-world false-merge guarantee. Gemini embeddings and live DeepEval judging were not run. LangGraph/MCP and live OTel/Langfuse export were not exercised in the public deployment. Kubernetes was validated with kind, not live hosting. Candidate retrieval is capped at 100 blocked database rows; hard worker crashes require manual recovery. The live portfolio has Northflank Sandbox constraints and no availability/scale SLA.
 
 One transient initial worker failure was observed during staging deployment. Subsequent complete end-to-end flows passed; root cause was not established. The final audit also records incomplete smoke observations before its successful run without assigning an unsupported cause.
 
-Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. The portfolio environment remains staging. Production cutover would be a separate controlled release decision; production Vercel, Render, Neon, Firebase, DNS and `main` were not changed.
+Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. The controlled production cutover reused the verified environment and retained Render for rollback. One pre-cutover Source Job failed before its durable claim; rollback-only processing succeeded and a fresh smoke passed after restarting the existing worker. The cause remains unestablished. No new cloud resource or paid plan was introduced.

@@ -1,10 +1,10 @@
-# Northflank staging
+# Northflank portfolio deployment
 
 Verified on 2026-10-02. The staging account contains two services, one migration
 job, one Redis addon and one secret group. Available usage entries reported USD 0;
 this is historical account evidence, not a future cost guarantee. The deployed
 application and Source acceptance are recorded in [E4 verification](../../docs/e4-verification.md).
-The [public frontend](../../docs/staging-preview.md) uses Vercel Preview.
+The [live frontend](https://contact-resolution.vercel.app) uses Vercel Production on `main`. The [cutover record](../../docs/production-cutover.md) verifies reuse of these resources. Names containing `staging` are internal names; the original provisioning and Preview evidence below is historical.
 
 Northflank project `crw-staging` is in `europe-west`. Its only addon is the retained private Redis 7.2.16 resource `staging-redis`, one replica, `nf-compute-10`, 4096 MB mandatory managed-addon storage, no public access and no TLS. The recovery template reused this addon; it created no second addon. API (`staging-api`) and worker (`staging-worker`) are running, the build succeeded, and migration Job (`staging-migrate`) completed.
 
@@ -14,8 +14,7 @@ Neon organization reports `free`. The isolated branch `productization-staging` a
 
 Firebase Admin configuration for `contact-resolution-staging` was supplied through Northflank's secret configuration. API `/api/health` returned HTTP 200. Missing and invalid Firebase tokens returned 401; two legitimate Anonymous Firebase identities bootstrapped into separate workspaces. A synthetic CSV Job reached `SUCCEEDED`, with its workspace-scoped Case persisted in staging Neon. A cross-workspace object request returned 404, and a request with mismatched workspace membership returned 403. Worker and private Redis pings passed. E4 observed a completed duplicate delivery without additional Case records. LangGraph/MCP was not exercised in staging; no deterministic staging provider path is configured.
 
-Production Vercel, Render, Neon, Firebase, DNS and `main` were not changed.
-The staging API permits only the public staging frontend's exact CORS origin.
+The original staging releases left production unchanged. The controlled cutover now serves the portfolio through this environment. The API permits exactly `https://contact-resolution.vercel.app` and the retained `https://contact-resolution-workbench-productization-v1.vercel.app` Preview origin. Firebase authorizes both hostnames. No wildcard CORS is used. Render remains unchanged and temporarily available for rollback.
 
 The E2 provisioning history is retained. Current deployment and completed
 Source/duplicate-delivery acceptance are recorded in
@@ -29,12 +28,12 @@ application SHA consistently across API, worker and migration.
 ## Architecture and allocation
 
 ```text
-Explicit staging/test origin -> Northflank HTTPS FastAPI
+Vercel live / retained Preview -> Northflank HTTPS FastAPI
                                       |          |
-                              staging Neon   private Redis
+                              Neon PostgreSQL private Redis
                                       |          |
                                       +--- Celery worker
-Same backend image -> one-off Alembic migration Job -> staging Neon only
+Same backend image -> one-off Alembic migration Job -> verified Neon branch
 ```
 
 `staging.template.json` is the native Northflank Template IaC source. There is
@@ -90,9 +89,7 @@ by editing tracked template arguments or storing CLI payloads in Git.
 
 No Langfuse or OTLP endpoints/credentials are set. The application already works
 with observability disabled. Firebase ID-token verification is unchanged; there
-are no kind test-auth overrides in this deployment. Production Vercel keeps its
-current Render API URL. A local HTTP client can test staging without a frontend
-deployment; browser tests require the explicit allowed origin above.
+are no kind test-auth overrides in this deployment. Production Vercel uses this Northflank API URL. Browser requests must originate from an exact allowed origin above. The provisioning inputs and staging smoke examples below preserve the original setup; these resources now serve the live portfolio, so any later migration or infrastructure apply requires an intentional release against the verified environment.
 
 ## Provision a staging environment
 
@@ -220,11 +217,8 @@ injection into staging or claim this CSV smoke validates investigations.
 | Async persistence / duplicate delivery / cross-tenant smoke | E4 observed completed replay verified idempotency, persistence and cross-workspace denial |
 | LangGraph to MCP investigation | Not run in staging |
 
-Render remains the stable deployment and rollback path. E2 changed no Render
-resource, production Vercel API setting or production Neon database. No production
-cutover occurred. If a future staging build/migration/smoke fails, record the
-failed node/step and sanitized logs, stop staging acceptance, and leave the demo
-unchanged. Resume only against the verified staging database; never remediate by
-migrating production. Terraform was evaluated and intentionally not adopted
+Render remains temporary rollback insurance; the live product uses Northflank. E2 changed no Render resource, production Vercel API setting or old production Neon database. The later controlled cutover reused this environment. If a future build/migration/smoke fails, record sanitized evidence and stop that release. Resume only against the verified portfolio database; never remediate by migrating the old POC database. See the cutover record for deployment-first rollback.
+
+The cutover retained two services, one migration job, one private Redis addon and one secret group with unchanged plans and replicas. Available hourly usage totaled USD 0; no finalized invoices were listed. The team token cannot independently read the organisation-only plan endpoint, so Sandbox entitlement is the previously dashboard-verified configuration, with no plan change made. This portfolio has no enterprise SLA. Terraform was evaluated and intentionally not adopted
 because the currently managed infrastructure does not benefit from adding
 Terraform state. This is the final ownership decision, not unfinished setup.

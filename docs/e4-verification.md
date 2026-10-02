@@ -1,5 +1,7 @@
 # E4 verification record
 
+This is the historical Source milestone acceptance record. The same verified backend now serves the [live portfolio](https://contact-resolution.vercel.app). [Production cutover](production-cutover.md) records fresh Source, CSV, credential and isolation acceptance on the production frontend, with no application-code change.
+
 Verified on 2026-10-02. Starting branch: `productization/v1`, commit
 `ee534c18644a3f6b9794cd4107797b49f7526df1`. Application implementation and
 staging image: `92165d63ea47f4c0ce83b7dee9e2f62623ed3269`
@@ -93,7 +95,6 @@ plan allocations were retained. Available hourly usage entries all report
 organisation-only team endpoint; the Developer Sandbox entitlement remains the
 previously verified account configuration, with no plan change in E4.
 
-Production Render, Vercel, Neon, Firebase, DNS, and `main` were not modified.
-Remote `main` remains `3bbda287bbe6525164f282a227c14926d6e20cb5`.
+At E4 completion, production Render, Vercel, Neon, Firebase, DNS, and `main` were not modified. The old `main` commit `3bbda287bbe6525164f282a227c14926d6e20cb5` is now preserved by annotated tag `v0-poc`; the subsequent production cutover promoted the finished product with a normal merge commit.
 The subsequent [engineering audit](final-audit.md) records the final gates and
 remaining reliability and retrieval limitations.

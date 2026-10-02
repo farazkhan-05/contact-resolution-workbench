@@ -1,32 +1,32 @@
 # Identity Resolution Workbench architecture
 
-`productization/v1` contains the productized system. Its verified public deployment is staging. The earlier Vercel/Render demo on `main` and its production services remain separate; this document does not authorize a cutover.
+`main` contains the productized system, live at [Identity Resolution Workbench](https://contact-resolution.vercel.app). The [controlled cutover](production-cutover.md) reused the verified Northflank, Neon and Firebase environment. The old POC is tagged `v0-poc`; Render remains temporary rollback insurance.
 
 ## Application runtime components
 
-The table distinguishes active staging components from optional capabilities with local test evidence.
+The table distinguishes live portfolio components from optional capabilities with local test evidence.
 
-| Component | Responsibility | Public staging |
+| Component | Responsibility | Live portfolio |
 | --- | --- | --- |
-| React / Vite | Authenticated workspace, Sources, ingestion history, Cases and human review | Vercel Preview |
-| Firebase | Email/password or anonymous identity; backend verifies ID tokens | Separate staging project |
+| React / Vite | Authenticated workspace, Sources, ingestion history, Cases and human review | Vercel Production, branch `main` |
+| Firebase | Email/password or anonymous identity; backend verifies ID tokens | Verified project `contact-resolution-staging` |
 | FastAPI / SQLAlchemy | Membership enforcement, Source contract, Case/Job/investigation APIs | Northflank API |
 | PostgreSQL | Workspace-owned domain state, durable Jobs, reference records, provenance, investigation metadata/checkpoints | Isolated Neon branch/database |
 | Redis / Celery | Queue internal identifiers; process durable ingestion and explicit investigations | Project-private Redis and existing worker |
 | Deterministic resolver | Normalize, retrieve candidates, score, detect contradictions and route at 75/45 | Active for CSV/Source ingestion |
-| Gemini structured extraction | Parse/ground evidence within validated schemas | Optional capability; no staging AI execution claim |
+| Gemini structured extraction | Parse/ground evidence within validated schemas | Optional capability; no public AI execution claim |
 | LangGraph / MCP v2 | Governed evidence investigation, deterministic re-analysis, typed human interrupt/resume | Implemented and locally integrated; not exercised publicly |
-| OTel / Langfuse | Optional allowlisted operational metadata, fail-open export | Disabled in public staging |
+| OTel / Langfuse | Optional allowlisted operational metadata, fail-open export | Disabled in the public deployment |
 
 ```mermaid
 flowchart TD
-    Browser[React / Vercel Preview] --> Firebase[Firebase staging]
+    Browser[React / Vercel Production] --> Firebase[Firebase authentication]
     Browser --> API[FastAPI / Northflank]
     Firebase --> Verify[Verified identity + workspace membership]
     Verify --> API
     External[External applications] --> Source[Source API credential]
     Source --> API
-    API --> DB[(Neon staging PostgreSQL)]
+    API --> DB[(Neon PostgreSQL)]
     API --> Redis[(Private Redis)]
     Redis --> Worker[Celery / same backend image]
     Worker --> DB
@@ -87,7 +87,7 @@ There is no arbitrary SQL, HTTP, filesystem or shell tool. Evidence cannot selec
 
 Job payloads and business evidence belong in the database, not telemetry. OTel spans contain enum/count/timing metadata only; Langfuse receives filtered AI spans through the same sanitized provider. Raw exception events, prompts, responses, rows and credentials are excluded. Both exporters are optional and fail open. First-party usage events accept bounded demo identifiers; callers must keep personal data out of case numbers/referral codes.
 
-The backend image runs as UID/GID 999. API, worker and migration workload share it with different commands; the image includes application and migration files, not local credential files or test fixtures. Northflank exposes the HTTPS API only; Redis and worker remain private. Public staging Redis has no TLS and is project-private, with no HA claim. Neon and Firebase are isolated staging configurations. CORS permits the exact staging frontend origin, and that hostname is a staging Firebase Authorized Domain.
+The backend image runs as UID/GID 999. API, worker and migration workload share it with different commands; the image includes application and migration files, not local credential files or test fixtures. Northflank exposes the HTTPS API only; Redis and worker remain private. Redis has no TLS and is project-private, with no HA claim. The verified Neon branch/database and Firebase project now serve the live portfolio, retaining their internal staging names. CORS permits only the exact production and retained Preview origins. Both hostnames are Firebase Authorized Domains.
 
 Runtime bases use `python:3.13-slim` and version-pinned uv; builds resolve image digests but the Python base tag can move. Kubernetes validation images/node are explicitly pinned. No broader immutable-image guarantee is claimed.
 
@@ -113,6 +113,6 @@ Gemini embedding runner exists but was not executed; its performance is unassess
 
 ## Infrastructure ownership and release boundary
 
-Northflank uses its native template and secret configuration; Vercel uses branch-specific Preview settings. E4 read-back evidence records two services, one migration job, one Redis addon and one secret group, with available usage at USD 0. This is historical verification, not a future cost guarantee. Final audit changed no runtime deployment or cloud allocation.
+Northflank uses its native template and secret configuration. Vercel Production has the five verified frontend variables; branch-specific Preview settings remain available. Cutover read-back confirms two services, one migration job, one private Redis addon and one secret group, with available usage at USD 0. This is account evidence, not a future cost guarantee. Vercel remains Hobby; no resources or plan upgrades were introduced. The portfolio has no enterprise availability or scale SLA.
 
-Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. No unofficial provider or Terraform state was introduced. A production cutover is a separate controlled release decision; production Vercel, Render, Neon, Firebase, DNS and `main` remain outside this release.
+Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. No unofficial provider or Terraform state was introduced. GitHub default and Vercel Production Branch remain `main`. Pushing `main` automatically releases the frontend; the backend remains deliberately pinned to its verified image. Render and the old POC database/auth environment remain available for rollback.

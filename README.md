@@ -2,11 +2,11 @@
 
 A multi-tenant workbench that compares incoming contact records with reference identities and queues uncertain matches for human review. Suffix and full-middle-name conflicts block automatic likely-match routing even when contact details agree.
 
-## Live staging
+## Live portfolio
 
-[Open the public staging workbench](https://contact-resolution-workbench-productization-v1.vercel.app). Choose the anonymous demo or sign in. Use synthetic data only.
+[Open Identity Resolution Workbench](https://contact-resolution.vercel.app). Choose the anonymous demo or sign in. Use synthetic data only.
 
-The portfolio staging deployment uses React/Vercel, Firebase, FastAPI on Northflank,
+The live portfolio deployment uses React/Vercel, Firebase, FastAPI on Northflank,
 Neon/PostgreSQL and Redis/Celery. See the [engineering evidence](docs/project-evidence.md)
 for tests, synthetic benchmarks and deployment checks. Automatic routing recommends
 an outcome; it does not silently merge records or submit a reviewer decision.
@@ -46,7 +46,7 @@ flowchart LR
 ```
 
 ```text
-React / Vercel Preview -> Firebase staging -> FastAPI / Northflank -> Neon staging
+React / Vercel Production -> Firebase -> FastAPI / Northflank -> Neon PostgreSQL
                                                   |
                                             private Redis -> Celery
 
@@ -77,9 +77,9 @@ These measurements describe the versioned benchmark, not production accuracy or 
 
 ## Deployment
 
-The verified portfolio environment is **staging**: Vercel Preview, Firebase staging, Northflank API/worker, private Redis and an isolated Neon branch/database. API, worker and migration workload share the backend image. Kubernetes is validated with kind; it is not the public hosting platform. Optional telemetry exporters are disabled in public staging.
+The live portfolio uses Vercel Production on `main`, Firebase authentication, Northflank API/worker, private Redis and Neon PostgreSQL. The already verified environment was reused; internal names such as `crw-staging`, `productization-staging`, `workbench_staging` and `contact-resolution-staging` remain. API, worker and migration workload share the backend image. Kubernetes is validated with kind; it is not the live orchestrator. Optional telemetry exporters remain disabled. This is a synthetic portfolio deployment with no enterprise SLA.
 
-The existing Vercel/Render demo and its production Neon/Firebase configuration remain separate. A production cutover would require a separate controlled release decision. Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state.
+The [controlled cutover](docs/production-cutover.md) passed production browser and API acceptance. The old POC is preserved by annotated tag `v0-poc`; its Render deployment remains temporarily available for rollback and is no longer the live product's backend. Future frontend releases follow commit to `main` → push → automatic Vercel production deployment. Northflank retains its verified pinned backend image; backend changes require a deliberate build/migration/release. Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state.
 
 ## Local development
 
@@ -134,9 +134,9 @@ OTel/Langfuse export allowlisted operation metadata, excluding identities, sourc
 - Synthetic benchmarks establish no real-world false-merge guarantee; Gemini embeddings and a live DeepEval judge were not evaluated.
 - Workspace reference retrieval takes at most 100 blocked records, ordered by internal ID. Larger blocks can omit the true candidate; benchmark recall does not validate this database cap.
 - Hard worker termination can strand PENDING/RUNNING Jobs. Recovery is operator-controlled; see the [crash analysis and runbook](docs/final-audit.md#worker-crash-analysis-and-manual-recovery).
-- LangGraph/MCP has local integration evidence, not public-staging execution evidence. Approved additional retrieval is currently synthetic.
-- Public staging uses Northflank Sandbox resources, with no availability/scale SLA; kind validation does not establish production Kubernetes readiness.
-- One transient initial worker failure was observed during staging deployment. Subsequent complete end-to-end flows passed; root cause was not established.
+- LangGraph/MCP has local integration evidence and has not been exercised in the public deployment. Approved additional retrieval is currently synthetic.
+- The live portfolio uses Northflank Sandbox resources, with no availability/scale SLA; kind validation does not establish production Kubernetes readiness.
+- Initial worker failures were observed during staging and pre-cutover smoke. Fresh flows passed after a worker restart during cutover; root cause was not established.
 
 ## Documentation links
 
@@ -147,4 +147,5 @@ OTel/Langfuse export allowlisted operation metadata, excluding identities, sourc
 - [Identity benchmark](docs/identity-resolution-benchmark.md) / [AI evaluation](docs/ai-evaluation.md)
 - [Evidence investigations](docs/evidence-investigation.md)
 - [Source ingestion acceptance](docs/e4-verification.md) / [public staging](docs/staging-preview.md)
+- [Production cutover and rollback record](docs/production-cutover.md)
 - [Northflank runbook](infrastructure/northflank/README.md) / [Kubernetes/kind](infrastructure/k8s/README.md)

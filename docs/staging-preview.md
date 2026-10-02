@@ -1,5 +1,7 @@
 # Public staging
 
+This is the historical Preview acceptance record. The finished product is now [live on Vercel Production](https://contact-resolution.vercel.app); see [production cutover](production-cutover.md). The Preview remains available, and its Northflank/Neon/Firebase resources now also serve the live portfolio. Internal staging names are retained.
+
 Release validation date: 2026-10-02. This portfolio/staging environment is for synthetic data.
 No availability, SLA or scale guarantee is claimed.
 
@@ -93,16 +95,9 @@ implementation/integration tests remain the evidence for that feature.
 
 ## Rollback and Terraform
 
-Production Vercel environment metadata, deployment ID, production branch and
-protection were compared before/after and remained unchanged. Production
-aliases continue to target the original production deployment. No commands
-modified Render, production Neon, production Firebase or `main`.
+During the original Preview release, Production metadata and aliases remained unchanged. The later controlled cutover promoted the finished product to `main` and Vercel Production. Render and the old POC Neon/Firebase environment remain separate rollback resources; annotated tag `v0-poc` preserves old `main`.
 
-To withdraw staging, remove its alias/public exception or delete its Preview
-deployment; branch-specific Preview variables can be removed separately.
-Northflank staging can remain isolated. The staging Neon branch can be retained
-or removed in a later intentional cleanup. Production Render remains the
-current stable public backend; no production rollback is needed.
+To withdraw the Preview later, remove only its alias/public exception and branch-specific Preview configuration. Its backend, database and Firebase project now serve the live portfolio and must not be deleted as Preview cleanup. Production rollback should first restore the prior Vercel deployment; Render remains temporary insurance and is no longer the active backend. Keep `productization/v1` until the user confirms the release from their browser.
 
 Terraform was evaluated and not adopted; no Terraform state is maintained.
 Importing the established Vercel project for branch Preview configuration

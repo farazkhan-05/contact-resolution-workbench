@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-02. Starting branch `productization/v1`, full commit `b12905c85bea4a086c99aacb1df63025d534e65c`. Starting worktree was clean. `git ls-remote` independently confirmed that the remote branch matched local HEAD and `origin/productization/v1`.
 
-This audit finalizes documentation and corrects three whitespace-only formatter failures in the Northflank schema validator. It introduces no runtime feature, dependency, migration, Kubernetes manifest or cloud allocation. No production deployment or `main` merge is part of this release.
+This historical audit finalized documentation and corrected three whitespace-only formatter failures in the Northflank schema validator. It introduced no runtime feature, dependency, migration, Kubernetes manifest or cloud allocation. The subsequent [controlled production cutover](production-cutover.md) promoted the audited product to `main` and verified the live portfolio at [contact-resolution.vercel.app](https://contact-resolution.vercel.app).
 
 ## Risk-based findings
 
@@ -141,6 +141,8 @@ One transient initial worker failure was observed during staging deployment. Sub
 
 ## Release decision
 
-The engineering gates passed for the synthetic portfolio/staging environment, with the reliability and retrieval limits above. These results do not verify the GitHub default branch or authorize a production cutover.
+The engineering gates passed for the synthetic portfolio/staging environment, with the reliability and retrieval limits above. The later user-authorized cutover independently verified GitHub's default branch, Production configuration, the active Vercel release and two real Chromium production flows. The existing limitations still apply; this is a portfolio deployment with no enterprise SLA.
 
-Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. Production migration/cutover is a separate controlled release decision. No production Vercel, Render, Neon, Firebase, DNS or `main` change was made. GitHub Actions remains unverified remotely because official authenticated access was unavailable.
+Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. Cutover reused Northflank, private Redis, Neon and Firebase, added only the exact production origin/domain, and copied the verified frontend variables into Vercel Production before merging. Render remains unchanged for rollback. GitHub Actions remains unverified remotely because official authenticated CLI access was unavailable.
+
+Cutover preflight observed a failed Source Job before its durable worker claim. A rollback-only diagnostic succeeded; the existing worker was restarted, and a fresh preflight plus both production browser tests passed. The root cause remains unestablished. No application code changed during cutover. Eight deployment configuration tests and a frontend build using Production variables passed; full frozen application gates were retained from this audit.
