@@ -109,7 +109,7 @@ export const ReviewConsole: React.FC<ReviewConsoleProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+      <div className="review-actions flex flex-col sm:flex-row gap-2 pt-1">
         <button
           type="button"
           onClick={() => handleDecision('ACCEPTED')}

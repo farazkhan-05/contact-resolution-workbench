@@ -19,6 +19,7 @@ export function App() {
   const { status, workspace, signOutUser } = useAuth();
   const [page, setPage] = useState<'cases' | 'sources'>('cases');
   const [cases, setCases] = useState<CaseSummary[]>([]);
+  const [hasUnfilteredQueue, setHasUnfilteredQueue] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedCaseDetail, setSelectedCaseDetail] = useState<CaseDetailType | null>(null);
 
@@ -86,6 +87,7 @@ export function App() {
           search: searchQuery.trim() || undefined,
         });
         setCases(fetched);
+        setHasUnfilteredQueue(activeRoutingFilter === 'ALL' && activeDecisionFilter === 'ALL' && !searchQuery.trim());
 
         // Keep or auto-select case using functional state update
         setSelectedCaseId((currentSelectedId) => {
@@ -101,6 +103,7 @@ export function App() {
           lastViewedCaseRef.current = null;
         }
       } catch (err) {
+        setHasUnfilteredQueue(false);
         const msg = err instanceof ApiError ? err.detail : 'Could not connect to the API. Confirm the backend is running and retry.';
         setFeedback({ type: 'error', message: msg });
       } finally {
@@ -129,6 +132,7 @@ export function App() {
       void fetchCases();
     } else {
       setCases([]);
+      setHasUnfilteredQueue(false);
       setSelectedCaseId(null);
       setSelectedCaseDetail(null);
       setFeedback(null);
@@ -276,11 +280,18 @@ export function App() {
   }
   if (status !== 'ready') return <AuthScreen />;
 
+  // The queue is filtered server side; use only unfiltered results for
+  // the first use state and workspace-wide export availability.
+  const hasFilters = activeRoutingFilter !== 'ALL' || activeDecisionFilter !== 'ALL' || searchQuery.trim() !== '';
+  const isEmptyWorkspace = hasUnfilteredQueue && !hasFilters && cases.length === 0 && !isLoadingQueue;
+  const exportDisabled = hasUnfilteredQueue && !hasFilters && !isLoadingQueue && !cases.some((item) => item.review_decision !== 'PENDING');
+
   return (
     <>
       <AppShell
-        onNavigate={() => setPage(page === 'cases' ? 'sources' : 'cases')}
-        navigationLabel={page === 'cases' ? 'Sources' : 'Cases'}
+        onNavigate={setPage}
+        activePage={page}
+        exportDisabled={exportDisabled}
         onLoadSample={handleLoadSample}
         onUploadCsv={handleUploadCsv}
         onExportCsv={handleExportCsv}
@@ -293,12 +304,12 @@ export function App() {
         onClearFeedback={() => setFeedback(null)}
         onSignOut={signOutUser}
       >
-        <div className="flex h-full w-full overflow-hidden">
+        <div className={`cases-layout ${isEmptyWorkspace ? 'is-empty' : ''}`}>
           {page === 'sources' ? <Sources key={workspace?.id} owner={workspace?.role === 'OWNER'} onReview={() => { setPage('cases'); void fetchCases(); }} /> : <>
           {/* Case Queue Column */}
           <div
-            className={`h-full shrink-0 sm:flex ${
-              mobileView === 'queue' ? 'flex w-full' : 'hidden sm:flex'
+            className={`case-queue-column md:flex ${
+              mobileView === 'queue' || isEmptyWorkspace ? 'flex' : 'hidden md:flex'
             }`}
           >
             <CaseQueue
@@ -312,19 +323,24 @@ export function App() {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               isLoading={isLoadingQueue}
-              onLoadSample={handleLoadSample}
-              onTriggerUpload={() => document.getElementById('csv-upload-input')?.click()}
-              onOpenAiModal={() => setIsAiModalOpen(true)}
+              showFilters={cases.length > 0 || hasFilters}
             />
           </div>
 
           {/* Case Detail Workspace */}
           <div
-            className={`h-full flex-1 overflow-hidden sm:flex ${
-              mobileView === 'detail' ? 'flex w-full' : 'hidden sm:flex'
+            className={`case-detail-column md:flex ${
+              mobileView === 'detail' || isEmptyWorkspace ? 'flex' : 'hidden md:flex'
             }`}
           >
-            <CaseDetail
+            {isEmptyWorkspace ? <div className="workspace-empty"><div>
+              <h2>Start reviewing cases</h2>
+              <p>Load sample data to explore the workflow or upload your own CSV file.</p>
+              <div className="empty-actions">
+                <button type="button" className="shell-button shell-button-primary" onClick={() => void handleLoadSample()} disabled={isLoadingSample || isUploadingCsv}>Load sample cases</button>
+                <button type="button" className="shell-button shell-button-bordered" onClick={() => document.getElementById('csv-upload-input')?.click()} disabled={isLoadingSample || isUploadingCsv}>Upload CSV</button>
+              </div>
+            </div></div> : <CaseDetail
               key={workspace?.id}
               onRefresh={() => { if (selectedCaseId) { void fetchCaseDetail(selectedCaseId); void fetchCases(selectedCaseId); } }}
               caseDetail={selectedCaseDetail}
@@ -332,7 +348,7 @@ export function App() {
               onBackMobile={() => setMobileView('queue')}
               onSubmitDecision={handleSubmitDecision}
               isSubmittingDecision={isSubmittingDecision}
-            />
+            />}
           </div>
           </>}
         </div>

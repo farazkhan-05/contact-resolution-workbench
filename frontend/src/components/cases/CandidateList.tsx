@@ -35,7 +35,7 @@ export const CandidateList: React.FC<CandidateListProps> = ({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="candidate-grid mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {candidates.map((cand, index) => {
           const isSelected = cand.id === selectedCandidateId;
           const candidateLetter = String.fromCharCode(65 + index); // A, B, C...

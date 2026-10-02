@@ -6,6 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "smoke:auth": "playwright test --config playwright.auth.config.mjs",
+    "smoke:ui": "playwright test --config playwright.ui.config.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

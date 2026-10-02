@@ -305,10 +305,16 @@ describe('password reset', () => {
 
 describe('authentication input controls', () => {
   it('renders product identity and associates Forgot Password with the password label', () => {
+    const favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    favicon.href = '/exact-existing-favicon.svg';
+    document.head.appendChild(favicon);
     mount();
-    expect(screen.getByText('Identity Resolution Workbench')).toBeTruthy();
+    expect(document.querySelector('.auth-brand-icon')?.getAttribute('src')).toBe(favicon.href);
+    favicon.remove();
+    expect(screen.getByText('Contact Resolution Workbench')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Sign in to your workspace' })).toBeTruthy();
-    expect(screen.getByText('Continue to Identity Resolution Workbench')).toBeTruthy();
+    expect(screen.getByText('Continue to Contact Resolution Workbench')).toBeTruthy();
     expect(screen.getByText('Resolution example')).toBeTruthy();
     expect(screen.getByText('Synthetic data')).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();

@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import './AuthScreen.css';
+import { ProductLogo } from '../components/layout/ProductLogo';
 
 export function AuthScreen(): ReactNode {
   const { signIn, signUp, resetPassword, continueAsDemo, retryBootstrap, signOutUser, error, authenticated, accountCreated, operation } = useAuth();
@@ -33,7 +34,7 @@ export function AuthScreen(): ReactNode {
   };
   return <main className="auth-page">
     <div className="auth-layout">
-      <header className="auth-brand"><img className="auth-brand-icon" src={document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.href} alt="" aria-hidden="true" />Identity Resolution Workbench</header>
+      <header className="auth-brand"><ProductLogo className="auth-brand-icon" />Contact Resolution Workbench</header>
       <section className="auth-introduction" aria-labelledby="auth-product-heading">
         <h1 id="auth-product-heading">Resolve identity conflicts without unsafe automatic merges.</h1>
         <p className="auth-product-copy">Compare fragmented records, surface contradictions, and route uncertain cases to human review.</p>
@@ -68,7 +69,7 @@ export function AuthScreen(): ReactNode {
                 <button type="button" disabled={pending} onClick={backToSignIn} className="auth-link auth-back">Back to sign in</button>
               </>}
             </> : <>
-              <p className="auth-subtitle">{mode === 'sign_in' ? 'Continue to Identity Resolution Workbench' : 'Set up your workspace to start resolving records.'}</p>
+              <p className="auth-subtitle">{mode === 'sign_in' ? 'Continue to Contact Resolution Workbench' : 'Set up your workspace to start resolving records.'}</p>
               <div className="auth-field"><label htmlFor="auth-email">Email</label><input id="auth-email" required disabled={pending} type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
               <div className="auth-field">
                 <div className="auth-password-label"><label htmlFor="auth-password">Password</label>{mode === 'sign_in' && <button type="button" disabled={pending} onClick={() => { setMode('reset_password'); setResetSent(false); setResetError(null); }} className="auth-link">Forgot password?</button>}</div>

@@ -5,7 +5,6 @@ import {
   HelpCircle,
   Search,
   SlidersHorizontal,
-  Sparkles,
   XCircle,
 } from 'lucide-react';
 import type { CaseSummary, ReviewDecision, RoutingStatus } from '../../types';
@@ -21,9 +20,7 @@ interface CaseQueueProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   isLoading: boolean;
-  onLoadSample: () => Promise<void>;
-  onTriggerUpload: () => void;
-  onOpenAiModal?: () => void;
+  showFilters: boolean;
 }
 
 export const CaseQueue: React.FC<CaseQueueProps> = ({
@@ -37,9 +34,7 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
   searchQuery,
   onSearchChange,
   isLoading,
-  onLoadSample,
-  onTriggerUpload,
-  onOpenAiModal,
+  showFilters,
 }) => {
   const routingTabs: { key: RoutingStatus | 'ALL'; label: string }[] = [
     { key: 'ALL', label: 'All Cases' },
@@ -49,7 +44,7 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
   ];
 
   return (
-    <aside className="flex h-full w-full flex-col border-r border-border bg-surface sm:w-80 md:w-96 shrink-0">
+    <aside className="case-queue flex h-full flex-col border-r border-border bg-surface shrink-0">
       {/* Queue Header */}
       <div className="border-b border-border p-3.5 space-y-1">
         <div className="flex items-center justify-between">
@@ -62,7 +57,7 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
       </div>
 
       {/* Search & Filter Header */}
-      <div className="border-b border-border p-3 space-y-2.5">
+      {showFilters && <div className="border-b border-border p-3 space-y-2.5">
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted" />
@@ -77,15 +72,16 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="flex rounded border border-border bg-surface-muted p-0.5 text-xs">
+        <div className="flex rounded border border-border bg-surface p-0.5 text-xs">
           {routingTabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => onRoutingFilterChange(tab.key)}
+              aria-pressed={activeRoutingFilter === tab.key}
               className={`flex-1 rounded py-1 text-center text-[11px] font-medium transition-colors ${
                 activeRoutingFilter === tab.key
-                  ? 'bg-surface text-foreground shadow-sm'
+                  ? 'bg-accent-muted text-accent'
                   : 'text-muted hover:text-foreground'
               }`}
             >
@@ -101,6 +97,7 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
             <span>Decision filter:</span>
           </div>
           <select
+            aria-label="Decision filter"
             value={activeDecisionFilter}
             onChange={(e) => onDecisionFilterChange(e.target.value as ReviewDecision | 'ALL')}
             className="rounded border border-border bg-surface px-2 py-0.5 text-[11px] text-foreground focus:border-accent focus:outline-none"
@@ -112,46 +109,15 @@ export const CaseQueue: React.FC<CaseQueueProps> = ({
             <option value="NEED_MORE_EVIDENCE">Need Evidence</option>
           </select>
         </div>
-      </div>
+      </div>}
 
       {/* Case Queue List */}
       <div className="flex-1 overflow-y-auto divide-y divide-border">
         {isLoading ? (
           <div className="p-8 text-center text-xs text-muted">Loading cases...</div>
         ) : cases.length === 0 ? (
-          <div className="p-8 text-center space-y-3">
-            <p className="text-xs font-medium text-foreground">No cases yet</p>
-            <p className="text-[11px] text-muted leading-relaxed">
-              Load the synthetic sample set or upload a CSV to begin reviewing possible matches.
-            </p>
-            <div className="pt-2 flex flex-col justify-center gap-2">
-              {onOpenAiModal && (
-                <button
-                  type="button"
-                  onClick={onOpenAiModal}
-                  className="rounded border border-accent/40 bg-accent-muted/40 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent-muted transition-colors flex items-center justify-center space-x-1.5"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-accent" />
-                  <span>Try AI Evidence Extraction</span>
-                </button>
-              )}
-              <div className="flex flex-col sm:flex-row justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={onLoadSample}
-                  className="rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
-                >
-                  Load sample cases
-                </button>
-                <button
-                  type="button"
-                  onClick={onTriggerUpload}
-                  className="rounded border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
-                >
-                  Upload CSV
-                </button>
-              </div>
-            </div>
+          <div className="px-4 py-7 text-xs text-muted">
+            <p>{showFilters ? 'No cases match your filters' : 'No cases yet'}</p>
           </div>
         ) : (
           cases.map((c) => {

@@ -61,8 +61,8 @@ export const EvidenceMatrix: React.FC<EvidenceMatrixProps> = ({
       </div>
 
       {/* Desktop Evidence Table */}
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="evidence-scroll mt-3 overflow-x-auto">
+        <table className="evidence-table w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-border bg-surface-muted/50 text-[11px] font-medium text-muted">
               <th className="py-2 px-3">Field</th>
@@ -81,19 +81,19 @@ export const EvidenceMatrix: React.FC<EvidenceMatrixProps> = ({
                   <td className="py-2.5 px-3 font-medium text-foreground whitespace-nowrap">
                     {fieldLabel}
                   </td>
-                  <td className="py-2.5 px-3 text-slate-700">
+                  <td data-label="Original Record" className="py-2.5 px-3 text-slate-700">
                     {ev.source_value || <span className="text-muted italic">Not provided</span>}
                   </td>
-                  <td className="py-2.5 px-3 font-medium text-foreground">
+                  <td data-label="Candidate Record" className="py-2.5 px-3 font-medium text-foreground">
                     {ev.candidate_value || <span className="text-muted italic">Not provided</span>}
                   </td>
-                  <td className="py-2.5 px-3">
+                  <td data-label="Evidence Explanation" className="py-2.5 px-3">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
                       {getMethodBadge(ev.match_method, ev.points_awarded, ev.max_points)}
                       <span className="text-[11px] text-slate-600">{ev.explanation}</span>
                     </div>
                   </td>
-                  <td className="py-2.5 px-3 text-right font-mono font-semibold whitespace-nowrap">
+                  <td data-label="Points" className="py-2.5 px-3 text-right font-mono font-semibold whitespace-nowrap">
                     <span className={ev.points_awarded > 0 ? 'text-emerald-700' : 'text-slate-400'}>
                       {ev.points_awarded}
                     </span>

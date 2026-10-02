@@ -77,12 +77,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
   const isNeedsReview = caseDetail.routing_status === 'NEEDS_REVIEW';
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 space-y-5">
+    <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 space-y-5 case-detail-content">
       {/* Mobile Back Button */}
       <button
         type="button"
         onClick={onBackMobile}
-        className="inline-flex items-center space-x-1.5 text-xs font-medium text-muted hover:text-foreground sm:hidden"
+        className="inline-flex items-center space-x-1.5 text-xs font-medium text-muted hover:text-foreground md:hidden"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         <span>Back to case queue</span>
@@ -90,8 +90,8 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
 
       {caseDetail.ingestion_id && <div className="rounded border border-border bg-surface p-3 text-xs"><p>Source: {caseDetail.source_identifier}</p><p>Ingestion: API ? {caseDetail.ingestion_id}</p><p>External record: {caseDetail.external_record_id}</p><p>Received: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}</p></div>}
       {/* Case Header Card */}
-      <div className="rounded border border-border bg-surface p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="rounded border border-border bg-surface p-4 sm:p-5">
+        <div className="case-header-content flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center space-x-2.5">
               <span className="font-mono text-xs font-bold text-muted bg-surface-muted px-2 py-0.5 rounded border border-border">

@@ -45,6 +45,7 @@ test('production signup, sign-in, restoration, loading and tenant isolation', as
   expect(signupResponse.status()).toBe(200);
   workspaceA = (await signupResponse.json()).workspaces[0].id;
   await ready(page);
+  await page.getByRole('button', { name: 'Account menu', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   const signinGate = gate();
   await page.route('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword*', async route => {
@@ -114,6 +115,7 @@ test('production Firebase partial signup and login recover with explicit bootstr
   await ready(page);
   expect(signups).toBe(1);
   expect(bootstrapRequests).toBe(2);
+  await page.getByRole('button', { name: 'Account menu', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   simulateFailure = true;
   await fillCredentials(page, credentials);

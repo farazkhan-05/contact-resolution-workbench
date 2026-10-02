@@ -57,7 +57,7 @@ export const OriginalRecord: React.FC<OriginalRecordProps> = ({ caseDetail }) =>
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="record-fields mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {fields.map((field) => {
           const Icon = field.icon;
           const hasValue = Boolean(field.raw);
