@@ -16,6 +16,20 @@ export function firebaseErrorMessage(error: unknown): string {
   }
 }
 
+export function passwordResetErrorMessage(error: unknown): string | null {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+  switch (code) {
+    case 'auth/user-not-found':
+    case 'auth/email-not-found':
+      // Keep the result indistinguishable from a successful request.
+      return null;
+    case 'auth/invalid-email': return 'Enter a valid email address.';
+    case 'auth/network-request-failed': return 'Could not connect. Check your connection and try again.';
+    case 'auth/too-many-requests': return 'Too many attempts. Please wait and try again.';
+    default: return 'The reset request could not be completed. Please try again.';
+  }
+}
+
 export function bootstrapErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401 || error.status === 403) return 'The workspace service could not verify your session. Retry, or sign out and sign in again.';

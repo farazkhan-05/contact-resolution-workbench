@@ -9,7 +9,7 @@ import { bootstrapErrorMessage, firebaseErrorMessage } from './errors';
 const firebase = vi.hoisted(() => ({
   auth: { currentUser: null as User | null },
   listener: null as ((user: User | null) => void) | null,
-  signUp: vi.fn(), signIn: vi.fn(), demo: vi.fn(), signOut: vi.fn(),
+  signUp: vi.fn(), signIn: vi.fn(), demo: vi.fn(), signOut: vi.fn(), resetPassword: vi.fn(),
 }));
 vi.mock('firebase/app', () => ({ initializeApp: vi.fn(() => ({})) }));
 vi.mock('firebase/auth', () => ({
@@ -21,6 +21,7 @@ vi.mock('firebase/auth', () => ({
   },
   createUserWithEmailAndPassword: firebase.signUp,
   signInWithEmailAndPassword: firebase.signIn,
+  sendPasswordResetEmail: firebase.resetPassword,
   signInAnonymously: firebase.demo,
   signOut: firebase.signOut,
 }));
@@ -60,6 +61,7 @@ beforeEach(() => {
   firebase.signUp.mockReset().mockImplementation(authenticate);
   firebase.signIn.mockReset().mockImplementation(authenticate);
   firebase.signOut.mockReset().mockImplementation(async () => emit(null));
+  firebase.resetPassword.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
@@ -226,4 +228,76 @@ describe('safe error mapping', () => {
     expect(bootstrapErrorMessage(new ApiError(status, 'private infrastructure detail'))).not.toContain('private');
   });
   it('maps transport failure', () => expect(bootstrapErrorMessage(new TypeError('private'))).toContain('Check your connection'));
+});
+
+describe('password reset', () => {
+  async function openReset() {
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
+    return screen.findByRole('button', { name: 'Send reset link' });
+  }
+
+  it('shows Forgot Password on Sign In and opens the reset form', async () => {
+    mount();
+    expect(screen.getByRole('button', { name: 'Forgot password?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
+    expect(await screen.findByLabelText('Email')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Back to sign in' })).toBeTruthy();
+    expect(screen.queryByLabelText('Password')).toBeNull();
+  });
+
+  it('sends a valid email directly through Firebase and shows a neutral success message', async () => {
+    await openReset();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'synthetic@example.invalid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
+    expect(await screen.findByText('If an account exists for that email, a password reset link has been sent.')).toBeTruthy();
+    expect(firebase.resetPassword).toHaveBeenCalledTimes(1);
+    expect(firebase.resetPassword.mock.calls[0][1]).toBe('synthetic@example.invalid');
+    expect(screen.queryByText(/account was not found|no account exists/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back to sign in' })).toBeTruthy();
+  });
+
+  it('shows loading and blocks duplicate reset requests', async () => {
+    const request = deferred<void>();
+    firebase.resetPassword.mockReturnValue(request.promise);
+    await openReset();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'synthetic@example.invalid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
+    const pending = await screen.findByRole('button', { name: 'Sending reset link…' });
+    expect((pending as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(pending);
+    expect(firebase.resetPassword).toHaveBeenCalledTimes(1);
+    await act(async () => request.resolve());
+    expect(await screen.findByText('If an account exists for that email, a password reset link has been sent.')).toBeTruthy();
+  });
+
+  it.each([
+    ['auth/invalid-email', 'Enter a valid email address.'],
+    ['auth/network-request-failed', 'Could not connect. Check your connection and try again.'],
+    ['auth/too-many-requests', 'Too many attempts. Please wait and try again.'],
+    ['auth/internal-error', 'The reset request could not be completed. Please try again.'],
+  ])('maps %s safely', async (code, message) => {
+    firebase.resetPassword.mockRejectedValue({ code, message: 'private SDK detail' });
+    await openReset();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'synthetic@example.invalid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(message);
+    expect(screen.queryByText(/private SDK detail/)).toBeNull();
+  });
+
+  it('treats a Firebase account-existence error as a neutral success', async () => {
+    firebase.resetPassword.mockRejectedValue({ code: 'auth/user-not-found', message: 'private SDK detail' });
+    await openReset();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'synthetic@example.invalid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send reset link' }));
+    expect(await screen.findByText('If an account exists for that email, a password reset link has been sent.')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('returns to Sign In from reset state', async () => {
+    await openReset();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to sign in' }));
+    expect(await screen.findByLabelText('Password')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
+  });
 });

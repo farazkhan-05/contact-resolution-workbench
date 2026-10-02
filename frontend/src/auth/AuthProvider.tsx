@@ -1,16 +1,17 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, type Auth, type User, type UserCredential } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, sendPasswordResetEmail, signInAnonymously, signInWithEmailAndPassword, signOut, type Auth, type User, type UserCredential } from 'firebase/auth';
 import { api, clearAuthenticatedApiSession, setAuthenticatedApiSession, type WorkspaceSummary } from '../api/client';
-import { bootstrapErrorMessage, firebaseErrorMessage } from './errors';
+import { bootstrapErrorMessage, firebaseErrorMessage, passwordResetErrorMessage } from './errors';
 
 type AuthStatus = 'loading' | 'signed_out' | 'bootstrapping' | 'ready' | 'error';
-type AuthOperation = 'sign_in' | 'sign_up' | 'demo' | 'sign_out' | null;
+type AuthOperation = 'sign_in' | 'sign_up' | 'demo' | 'sign_out' | 'password_reset' | null;
 type AuthContextValue = {
   status: AuthStatus; workspace: WorkspaceSummary | null; error: string | null;
   authenticated: boolean; accountCreated: boolean; operation: AuthOperation;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<string | null>;
   continueAsDemo: () => Promise<void>; signOutUser: () => Promise<void>;
   retryBootstrap: () => Promise<void>;
 };
@@ -146,6 +147,22 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     if (user) await bootstrapApplicationSession(user);
   }, [bootstrapApplicationSession]);
 
+  const resetPassword = useCallback(async (email: string): Promise<string | null> => {
+    if (busy.current) return 'Please wait and try again.';
+    busy.current = 'password_reset';
+    setOperation('password_reset');
+    setError(null);
+    try {
+      await sendPasswordResetEmail(getFirebaseAuth(), email);
+      return null;
+    } catch (err) {
+      return passwordResetErrorMessage(err);
+    } finally {
+      busy.current = null;
+      if (mounted.current) setOperation(null);
+    }
+  }, []);
+
   const signOutUser = useCallback(async () => {
     if (busy.current) return;
     busy.current = 'sign_out';
@@ -167,11 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   }, [changeUser]);
 
   const value = useMemo<AuthContextValue>(() => ({
-    status, workspace, error, authenticated, accountCreated, operation, retryBootstrap, signOutUser,
+    status, workspace, error, authenticated, accountCreated, operation, retryBootstrap, signOutUser, resetPassword,
     signIn: (email, password) => authenticate('sign_in', (auth) => signInWithEmailAndPassword(auth, email, password)),
     signUp: (email, password) => authenticate('sign_up', (auth) => createUserWithEmailAndPassword(auth, email, password)),
     continueAsDemo: () => authenticate('demo', signInAnonymously),
-  }), [status, workspace, error, authenticated, accountCreated, operation, retryBootstrap, signOutUser, authenticate]);
+  }), [status, workspace, error, authenticated, accountCreated, operation, retryBootstrap, signOutUser, resetPassword, authenticate]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
