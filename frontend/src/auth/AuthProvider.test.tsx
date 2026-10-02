@@ -311,11 +311,12 @@ describe('authentication input controls', () => {
     expect(screen.getByText('Continue to Identity Resolution Workbench')).toBeTruthy();
     expect(screen.getByText('Resolution example')).toBeTruthy();
     expect(screen.getByText('Synthetic data')).toBeTruthy();
-    expect(screen.getByRole('table').querySelectorAll('tr')).toHaveLength(5);
-    expect(screen.getAllByText('Arthur James Pendelton', { selector: 'td' })).toHaveLength(2);
-    expect(screen.getByText('Different generational suffixes require manual review.')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByText('Arthur James Pendelton Jr.')).toBeTruthy();
+    expect(screen.getByText('Arthur James Pendelton Sr.')).toBeTruthy();
+    expect(screen.getByText('Strong name similarity')).toBeTruthy();
+    expect(screen.getByText('Suffix conflict')).toBeTruthy();
     expect(screen.getByText('Needs review')).toBeTruthy();
-    expect(screen.getByText('IR')).toBeTruthy();
     const forgot = screen.getByRole('button', { name: 'Forgot password?' });
     expect(forgot.parentElement?.querySelector('label')?.htmlFor).toBe('auth-password');
     expect((screen.getByLabelText('Email') as HTMLInputElement).autocomplete).toBe('email');

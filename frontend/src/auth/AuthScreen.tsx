@@ -33,22 +33,18 @@ export function AuthScreen(): ReactNode {
   };
   return <main className="auth-page">
     <div className="auth-layout">
-      <header className="auth-brand"><span className="auth-brand-mark" aria-hidden="true">IR</span>Identity Resolution Workbench</header>
+      <header className="auth-brand"><img className="auth-brand-icon" src={document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.href} alt="" aria-hidden="true" />Identity Resolution Workbench</header>
       <section className="auth-introduction" aria-labelledby="auth-product-heading">
         <h1 id="auth-product-heading">Resolve identity conflicts without unsafe automatic merges.</h1>
         <p className="auth-product-copy">Compare fragmented records, surface contradictions, and route uncertain cases to human review.</p>
         <figure className="auth-example" aria-label="Identity resolution example using synthetic data">
           <figcaption><span>Resolution example</span><span className="auth-synthetic-note">Synthetic data</span></figcaption>
-          <table className="auth-comparison">
-            <thead><tr><th scope="col"></th><th scope="col">Incoming record</th><th scope="col">Candidate</th></tr></thead>
-            <tbody>
-              <tr><th scope="row">Name</th><td>Arthur James Pendelton</td><td>Arthur James Pendelton</td></tr>
-              <tr><th scope="row">Suffix</th><td>Jr.</td><td>Sr.</td></tr>
-              <tr><th scope="row">Name similarity</th><td colSpan={2}>Strong</td></tr>
-              <tr><th scope="row">Suffix comparison</th><td colSpan={2}><span className="auth-conflict">Conflict</span></td></tr>
-            </tbody>
-          </table>
-          <div className="auth-resolution"><div><p className="auth-conflict">Suffix mismatch</p><p className="auth-review-copy">Different generational suffixes require manual review.</p></div><span className="auth-review-state">Needs review</span></div>
+          <div className="auth-records">
+            <div className="auth-record"><p className="auth-small-label">Incoming record</p><p className="auth-record-name">Arthur James<br />{' '}Pendelton Jr.</p></div>
+            <div className="auth-record"><p className="auth-small-label">Candidate</p><p className="auth-record-name">Arthur James<br />{' '}Pendelton Sr.</p></div>
+          </div>
+          <p className="auth-similarity">Strong name similarity</p>
+          <div className="auth-resolution"><p className="auth-conflict">Suffix conflict</p><span className="auth-review-state">Needs review</span></div>
         </figure>
       </section>
       <section className="auth-interface" aria-labelledby="auth-form-heading">
