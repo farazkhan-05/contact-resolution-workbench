@@ -33,23 +33,27 @@ export function AuthScreen(): ReactNode {
   };
   return <main className="auth-page">
     <div className="auth-layout">
-      <header className="auth-brand"><span className="auth-brand-mark" aria-hidden="true">ir</span>Identity Resolution Workbench</header>
+      <header className="auth-brand"><span className="auth-brand-mark" aria-hidden="true">IR</span>Identity Resolution Workbench</header>
       <section className="auth-introduction" aria-labelledby="auth-product-heading">
         <h1 id="auth-product-heading">Resolve identity conflicts without unsafe automatic merges.</h1>
         <p className="auth-product-copy">Compare fragmented records, surface contradictions, and route uncertain cases to human review.</p>
-        <figure className="auth-example" aria-label="Synthetic identity-resolution example">
-          <figcaption>Synthetic resolution example</figcaption>
-          <div className="auth-records">
-            <div className="auth-record"><p className="auth-small-label">Incoming record</p><p className="auth-record-name">Arthur James<br />{' '}Pendelton <span>Jr.</span></p></div>
-            <div className="auth-record"><p className="auth-small-label">Candidate</p><p className="auth-record-name">Arthur James<br />{' '}Pendelton <span>Sr.</span></p></div>
-          </div>
-          <div className="auth-relationship"><span>Strong name similarity</span></div>
-          <div className="auth-resolution"><div><p className="auth-conflict">Suffix conflict</p><p className="auth-review-copy">Human review required</p></div><span className="auth-review-state">NEEDS REVIEW</span></div>
+        <figure className="auth-example" aria-label="Identity resolution example using synthetic data">
+          <figcaption><span>Resolution example</span><span className="auth-synthetic-note">Synthetic data</span></figcaption>
+          <table className="auth-comparison">
+            <thead><tr><th scope="col"></th><th scope="col">Incoming record</th><th scope="col">Candidate</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Name</th><td>Arthur James Pendelton</td><td>Arthur James Pendelton</td></tr>
+              <tr><th scope="row">Suffix</th><td>Jr.</td><td>Sr.</td></tr>
+              <tr><th scope="row">Name similarity</th><td colSpan={2}>Strong</td></tr>
+              <tr><th scope="row">Suffix comparison</th><td colSpan={2}><span className="auth-conflict">Conflict</span></td></tr>
+            </tbody>
+          </table>
+          <div className="auth-resolution"><div><p className="auth-conflict">Suffix mismatch</p><p className="auth-review-copy">Different generational suffixes require manual review.</p></div><span className="auth-review-state">Needs review</span></div>
         </figure>
       </section>
       <section className="auth-interface" aria-labelledby="auth-form-heading">
         <form onSubmit={mode === 'reset_password' ? submitReset : submit}>
-          <h2 id="auth-form-heading">{authenticated ? 'Workspace setup' : mode === 'reset_password' ? 'Reset your password' : mode === 'sign_up' ? 'Create your account' : 'Welcome back'}</h2>
+          <h2 id="auth-form-heading">{authenticated ? 'Workspace setup' : mode === 'reset_password' ? 'Reset your password' : mode === 'sign_up' ? 'Create your account' : 'Sign in to your workspace'}</h2>
           {authenticated ? <>
             <p className="auth-subtitle">{accountCreated ? 'Your account was created, but the workspace could not be initialized.' : 'You are signed in, but the workspace could not be initialized.'}</p>
             {error && <p role="alert" className="auth-error">{error}</p>}
@@ -68,7 +72,7 @@ export function AuthScreen(): ReactNode {
                 <button type="button" disabled={pending} onClick={backToSignIn} className="auth-link auth-back">Back to sign in</button>
               </>}
             </> : <>
-              <p className="auth-subtitle">{mode === 'sign_in' ? 'Sign in to your workspace' : 'Set up your workspace to start resolving records.'}</p>
+              <p className="auth-subtitle">{mode === 'sign_in' ? 'Continue to Identity Resolution Workbench' : 'Set up your workspace to start resolving records.'}</p>
               <div className="auth-field"><label htmlFor="auth-email">Email</label><input id="auth-email" required disabled={pending} type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
               <div className="auth-field">
                 <div className="auth-password-label"><label htmlFor="auth-password">Password</label>{mode === 'sign_in' && <button type="button" disabled={pending} onClick={() => { setMode('reset_password'); setResetSent(false); setResetError(null); }} className="auth-link">Forgot password?</button>}</div>
