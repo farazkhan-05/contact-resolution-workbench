@@ -33,7 +33,7 @@ test('production signup, sign-in, restoration, loading and tenant isolation', as
     await route.continue();
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create an account', exact: true }).click();
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await fillCredentials(page, credentials);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Creating account…', exact: true })).toBeDisabled();
@@ -74,7 +74,7 @@ test('production signup, sign-in, restoration, loading and tenant isolation', as
     pageB.on('request', req => { if (req.url().startsWith(`${backend}/api/v1/cases`)) sessionB = req.headers(); });
     await pageB.goto('https://contact-resolution.vercel.app');
     const secondBootstrap = pageB.waitForResponse(bootstrapUrl);
-    await pageB.getByRole('button', { name: 'Continue with anonymous demo', exact: true }).click();
+    await pageB.getByRole('button', { name: 'Explore demo workspace', exact: true }).click();
     const secondResponse = await secondBootstrap;
     expect(secondResponse.status()).toBe(200);
     const workspaceB = (await secondResponse.json()).workspaces[0].id;
@@ -101,7 +101,7 @@ test('production Firebase partial signup and login recover with explicit bootstr
     } else await route.continue();
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create an account', exact: true }).click();
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await fillCredentials(page, credentials);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await expect(page.getByText('Your account was created, but the workspace could not be initialized.', { exact: true })).toBeVisible();

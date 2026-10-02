@@ -1,6 +1,7 @@
-﻿import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import './AuthScreen.css';
 
 export function AuthScreen(): ReactNode {
   const { signIn, signUp, resetPassword, continueAsDemo, retryBootstrap, signOutUser, error, authenticated, accountCreated, operation } = useAuth();
@@ -30,38 +31,59 @@ export function AuthScreen(): ReactNode {
     setResetSent(false);
     setResetError(null);
   };
-  return <main className="flex min-h-screen items-center justify-center bg-background p-4">
-    <form onSubmit={mode === 'reset_password' ? submitReset : submit} className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-sm">
-      <h1 className="text-lg font-semibold text-foreground">Contact Resolution Workbench</h1>
-      {authenticated ? <>
-        <p className="mt-3 text-sm text-foreground">{accountCreated ? 'Your account was created, but the workspace could not be initialized.' : 'You are signed in, but the workspace could not be initialized.'}</p>
-        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
-        <button type="button" disabled={pending} onClick={() => void retryBootstrap()} className="mt-5 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Retry</button>
-        <button type="button" disabled={pending} onClick={() => void signOutUser()} className="mt-3 w-full text-sm text-accent">{operation === 'sign_out' ? 'Signing out…' : 'Sign out'}</button>
-      </> : <>
-        {mode === 'reset_password' ? <>
-          <p className="mt-2 text-sm text-muted">Reset your password</p>
-          {resetSent ? <>
-            <p role="status" className="mt-5 text-sm text-foreground">If an account exists for that email, a password reset link has been sent.</p>
-            <button type="button" onClick={backToSignIn} className="mt-5 w-full text-sm text-accent">Back to sign in</button>
+  return <main className="auth-page">
+    <div className="auth-layout">
+      <header className="auth-brand"><span className="auth-brand-mark" aria-hidden="true">ir</span>Identity Resolution Workbench</header>
+      <section className="auth-introduction" aria-labelledby="auth-product-heading">
+        <h1 id="auth-product-heading">Resolve identity conflicts without unsafe automatic merges.</h1>
+        <p className="auth-product-copy">Compare fragmented records, surface contradictions, and route uncertain cases to human review.</p>
+        <figure className="auth-example" aria-label="Synthetic identity-resolution example">
+          <figcaption>Synthetic resolution example</figcaption>
+          <div className="auth-records">
+            <div className="auth-record"><p className="auth-small-label">Incoming record</p><p className="auth-record-name">Arthur James<br />{' '}Pendelton <span>Jr.</span></p></div>
+            <div className="auth-record"><p className="auth-small-label">Candidate</p><p className="auth-record-name">Arthur James<br />{' '}Pendelton <span>Sr.</span></p></div>
+          </div>
+          <div className="auth-relationship"><span>Strong name similarity</span></div>
+          <div className="auth-resolution"><div><p className="auth-conflict">Suffix conflict</p><p className="auth-review-copy">Human review required</p></div><span className="auth-review-state">NEEDS REVIEW</span></div>
+        </figure>
+      </section>
+      <section className="auth-interface" aria-labelledby="auth-form-heading">
+        <form onSubmit={mode === 'reset_password' ? submitReset : submit}>
+          <h2 id="auth-form-heading">{authenticated ? 'Workspace setup' : mode === 'reset_password' ? 'Reset your password' : mode === 'sign_up' ? 'Create your account' : 'Welcome back'}</h2>
+          {authenticated ? <>
+            <p className="auth-subtitle">{accountCreated ? 'Your account was created, but the workspace could not be initialized.' : 'You are signed in, but the workspace could not be initialized.'}</p>
+            {error && <p role="alert" className="auth-error">{error}</p>}
+            <button type="button" disabled={pending} onClick={() => void retryBootstrap()} className="auth-button auth-primary">Retry</button>
+            <button type="button" disabled={pending} onClick={() => void signOutUser()} className="auth-link auth-back">{operation === 'sign_out' ? 'Signing out…' : 'Sign out'}</button>
           </> : <>
-            <label className="mt-5 block text-sm text-foreground">Email<input required disabled={pending} type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 placeholder:text-muted" /></label>
-            {resetError && <p role="alert" className="mt-3 text-sm text-red-600">{resetError}</p>}
-            <button disabled={pending} className="mt-5 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{pending ? 'Sending reset link…' : 'Send reset link'}</button>
-            <button type="button" disabled={pending} onClick={backToSignIn} className="mt-3 w-full text-sm text-accent">Back to sign in</button>
+            {mode === 'reset_password' ? <>
+              <p className="auth-subtitle">Enter your email to request a reset link.</p>
+              {resetSent ? <>
+                <p role="status" className="auth-reset-status">If an account exists for that email, a password reset link has been sent.</p>
+                <button type="button" onClick={backToSignIn} className="auth-link auth-back">Back to sign in</button>
+              </> : <>
+                <div className="auth-field"><label htmlFor="auth-email">Email</label><input id="auth-email" required disabled={pending} type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+                {resetError && <p role="alert" className="auth-error">{resetError}</p>}
+                <button disabled={pending} className="auth-button auth-primary">{pending ? 'Sending reset link…' : 'Send reset link'}</button>
+                <button type="button" disabled={pending} onClick={backToSignIn} className="auth-link auth-back">Back to sign in</button>
+              </>}
+            </> : <>
+              <p className="auth-subtitle">{mode === 'sign_in' ? 'Sign in to your workspace' : 'Set up your workspace to start resolving records.'}</p>
+              <div className="auth-field"><label htmlFor="auth-email">Email</label><input id="auth-email" required disabled={pending} type="email" autoComplete="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+              <div className="auth-field">
+                <div className="auth-password-label"><label htmlFor="auth-password">Password</label>{mode === 'sign_in' && <button type="button" disabled={pending} onClick={() => { setMode('reset_password'); setResetSent(false); setResetError(null); }} className="auth-link">Forgot password?</button>}</div>
+                <div className="auth-password-input"><input id="auth-password" required disabled={pending} minLength={6} autoComplete={mode === 'sign_in' ? 'current-password' : 'new-password'} type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" disabled={pending} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="auth-password-toggle">{showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}</button></div>
+              </div>
+              {error && <p role="alert" className="auth-error">{error}</p>}
+              <button disabled={pending} className="auth-button auth-primary">{operation === 'sign_up' ? 'Creating account…' : operation === 'sign_in' ? 'Signing in…' : mode === 'sign_in' ? 'Sign in' : 'Create account'}</button>
+              <p className="auth-switch">{mode === 'sign_in' ? 'New to the workbench?' : 'Already have an account?'}{' '}<button type="button" disabled={pending} onClick={() => { setMode(mode === 'sign_in' ? 'sign_up' : 'sign_in'); setShowPassword(false); }} className="auth-link">{mode === 'sign_in' ? 'Create account' : 'Back to sign in'}</button></p>
+              <div className="auth-divider"><span>or</span></div>
+              <button type="button" onClick={() => void continueAsDemo()} disabled={pending} className="auth-button auth-demo">{operation === 'demo' ? 'Signing in…' : 'Explore demo workspace'}</button>
+              <p className="auth-demo-copy">No account required</p>
+            </>}
           </>}
-        </> : <>
-        <p className="mt-2 text-sm text-muted">Sign in to use an isolated workspace.</p>
-        <label className="mt-5 block text-sm text-foreground">Email<input required disabled={pending} type="email" placeholder="Enter your email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded border border-border bg-background px-3 py-2 placeholder:text-muted" /></label>
-        <label className="mt-3 block text-sm text-foreground">Password<div className="relative mt-1"><input required disabled={pending} minLength={6} type={showPassword ? 'text' : 'password'} placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded border border-border bg-background py-2 pl-3 pr-10 placeholder:text-muted" /><button type="button" disabled={pending} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)} className="absolute inset-y-0 right-0 flex items-center px-3 text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">{showPassword ? <EyeOff aria-hidden="true" size={16} /> : <Eye aria-hidden="true" size={16} />}</button></div></label>
-        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
-        <button disabled={pending} className="mt-5 w-full rounded bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{operation === 'sign_up' ? 'Creating account…' : operation === 'sign_in' ? 'Signing in…' : mode === 'sign_in' ? 'Sign in' : 'Create account'}</button>
-        {mode === 'sign_in' && <button type="button" disabled={pending} onClick={() => { setMode('reset_password'); setResetSent(false); setResetError(null); }} className="mt-3 w-full text-sm text-accent">Forgot password?</button>}
-        <button type="button" disabled={pending} onClick={() => { setMode(mode === 'sign_in' ? 'sign_up' : 'sign_in'); setShowPassword(false); }} className="mt-3 w-full text-sm text-accent">{mode === 'sign_in' ? 'Create an account' : 'Use an existing account'}</button>
-        <div className="my-4 border-t border-border" />
-        <button type="button" onClick={() => void continueAsDemo()} disabled={pending} className="w-full rounded border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50">{operation === 'demo' ? 'Signing in…' : 'Continue with anonymous demo'}</button>
-        </>}
-      </>}
-    </form>
+        </form>
+      </section>
+    </div>
   </main>;
 }

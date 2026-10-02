@@ -44,7 +44,7 @@ function Probe() { session = useAuth(); return <output>{session.status}:{session
 function mount() { return render(<AuthProvider><Probe /><App /></AuthProvider>); }
 function emit(value: User | null) { firebase.auth.currentUser = value; firebase.listener?.(value); }
 async function createAccount() {
-  fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'synthetic@example.invalid' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Synthetic-only-9!' } });
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
@@ -60,6 +60,7 @@ beforeEach(() => {
   const authenticate = async () => { const value = firebase.auth.currentUser ?? user('a'); emit(value); return { user: value }; };
   firebase.signUp.mockReset().mockImplementation(authenticate);
   firebase.signIn.mockReset().mockImplementation(authenticate);
+  firebase.demo.mockReset().mockImplementation(authenticate);
   firebase.signOut.mockReset().mockImplementation(async () => emit(null));
   firebase.resetPassword.mockReset().mockResolvedValue(undefined);
 });
@@ -303,6 +304,40 @@ describe('password reset', () => {
 });
 
 describe('authentication input controls', () => {
+  it('renders product identity and associates Forgot Password with the password label', () => {
+    mount();
+    expect(screen.getByText('Identity Resolution Workbench')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeTruthy();
+    expect(screen.getByText('Sign in to your workspace')).toBeTruthy();
+    expect(screen.getByText('Suffix conflict')).toBeTruthy();
+    expect(screen.getByText('NEEDS REVIEW')).toBeTruthy();
+    const forgot = screen.getByRole('button', { name: 'Forgot password?' });
+    expect(forgot.parentElement?.querySelector('label')?.htmlFor).toBe('auth-password');
+    expect((screen.getByLabelText('Email') as HTMLInputElement).autocomplete).toBe('email');
+    expect((screen.getByLabelText('Password') as HTMLInputElement).autocomplete).toBe('current-password');
+  });
+
+  it('submits the same credentials through the existing sign-in action', async () => {
+    mount();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'synthetic@example.invalid' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Synthetic-only-9!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByText('No cases yet');
+    expect(firebase.signIn).toHaveBeenCalledWith(firebase.auth, 'synthetic@example.invalid', 'Synthetic-only-9!');
+    expect(firebase.signUp).not.toHaveBeenCalled();
+  });
+
+  it('explores the demo through the existing anonymous Firebase action', async () => {
+    mount();
+    expect(screen.getByText('No account required')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Explore demo workspace' }));
+    await screen.findByText('No cases yet');
+    expect(firebase.demo).toHaveBeenCalledWith(firebase.auth);
+    expect(api.bootstrap).toHaveBeenCalledTimes(1);
+    expect(firebase.signIn).not.toHaveBeenCalled();
+    expect(firebase.signUp).not.toHaveBeenCalled();
+  });
+
   it('uses the email placeholder and provides a keyboard-accessible password visibility toggle', () => {
     mount();
     const emailInput = screen.getByLabelText('Email') as HTMLInputElement;
@@ -324,12 +359,15 @@ describe('authentication input controls', () => {
 
   it('keeps the password toggle in Create Account and omits it from Forgot Password', () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeTruthy();
+    expect(screen.getByText('Set up your workspace to start resolving records.')).toBeTruthy();
+    expect((screen.getByLabelText('Password') as HTMLInputElement).autocomplete).toBe('new-password');
     expect((screen.getByLabelText('Email') as HTMLInputElement).placeholder).toBe('Enter your email');
     expect((screen.getByLabelText('Password') as HTMLInputElement).type).toBe('password');
     expect(screen.getByRole('button', { name: 'Show password' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use an existing account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to sign in' }));
     fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
     expect((screen.getByLabelText('Email') as HTMLInputElement).placeholder).toBe('Enter your email');
     expect(screen.queryByLabelText('Password')).toBeNull();
