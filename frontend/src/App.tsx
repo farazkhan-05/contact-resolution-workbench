@@ -210,25 +210,25 @@ export function App() {
     try {
       const res = await api.ingestCsv(file);
       recordUsageEvent('CSV_UPLOADED');
-      setFeedback({ type: 'info', message: 'CSV ingestion queued.' });
+      setFeedback({ type: 'info', message: 'CSV uploaded. Waiting for the import result.' });
       const poll = async (): Promise<void> => {
         try {
           const job = await api.getJob(res.id);
           if (!pollingSessionActive.current) return;
           if (job.status === 'SUCCEEDED') {
-            setFeedback({ type: 'success', message: `CSV ingestion completed: ${job.successful_rows} cases created.` });
+            setFeedback({ type: 'success', message: `${job.successful_rows} ${job.successful_rows === 1 ? 'record' : 'records'} imported.` });
             await fetchCases();
           } else if (job.status === 'FAILED') {
-            setFeedback({ type: 'error', message: job.failure_message || 'CSV ingestion failed.' });
+            setFeedback({ type: 'error', message: `No records were imported. ${job.failure_message || 'Fix the CSV and try again.'}` });
           } else {
-            setFeedback({ type: 'info', message: `CSV ingestion ${job.status.toLowerCase()}: ${job.processed_rows}/${job.total_rows ?? '?'} rows.` });
+            setFeedback({ type: 'info', message: 'Importing your CSV. Waiting for the result.' });
             const timer = window.setTimeout(() => {
               jobPollTimers.current.delete(timer);
               void poll();
             }, 1500);
             jobPollTimers.current.add(timer);
           }
-        } catch { setFeedback({ type: 'error', message: 'Could not check CSV ingestion status.' }); }
+        } catch { setFeedback({ type: 'error', message: 'Could not check the import result. Check Jobs before trying again.' }); }
       };
       void poll();
     } catch (err) {

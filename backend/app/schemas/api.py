@@ -25,10 +25,12 @@ class JobResponse(BaseModel):
     workspace_id: str
     job_type: str
     status: str
-    total_rows: int | None = None
+    total_rows: int | None = Field(default=None, description="Input rows, when reliably known.")
     processed_rows: int
-    successful_rows: int
-    rejected_rows: int
+    successful_rows: int = Field(description="Rows durably imported by a completed job.")
+    rejected_rows: int = Field(
+        description="Rows rejected; atomic CSV validation rejects the batch."
+    )
     source_label: str | None = None
     failure_code: str | None = None
     failure_message: str | None = None

@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.auth import WorkspaceContext, get_workspace_context
@@ -45,7 +46,7 @@ def upload_csv(
     try:
         uploaded_bytes = file.file.read(256_001)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to read uploaded file: {e}") from e
+        raise HTTPException(status_code=422, detail="Could not read the CSV. Try again.") from e
     if len(uploaded_bytes) > 256_000:
         raise HTTPException(
             status_code=413, detail="CSV exceeds the 256 KB asynchronous upload limit."
@@ -55,8 +56,11 @@ def upload_csv(
     except UnicodeDecodeError as e:
         raise HTTPException(
             status_code=422,
-            detail=f"Could not read uploaded file as UTF-8 text: {e}",
+            detail="Save the CSV as UTF-8 and try again.",
         ) from e
+
+    if "\x00" in content:
+        raise HTTPException(status_code=422, detail="CSV contains null characters. Fix the CSV.")
 
     # Structural validation happens in the worker so deterministic failures are inspectable Jobs.
     job = Job(
@@ -73,11 +77,25 @@ def upload_csv(
         job.celery_task_id = async_result.id
         db.commit()
     except Exception:
-        job.status = "FAILED"
-        job.failure_code = "BROKER_UNAVAILABLE"
-        job.failure_message = "The ingestion queue is unavailable. Please try again later."
-        job.completed_at = datetime.now(UTC)
+        db.rollback()
+        # Publication may have succeeded even if its acknowledgement failed. Never
+        # overwrite a result already claimed or committed by the CSV worker.
+        db.execute(
+            update(Job)
+            .where(
+                Job.id == job.id,
+                Job.workspace_id == context.workspace.id,
+                Job.status == "PENDING",
+            )
+            .values(
+                status="FAILED",
+                failure_code="BROKER_UNAVAILABLE",
+                failure_message="The upload could not be queued. Try again later.",
+                completed_at=datetime.now(UTC),
+            )
+        )
         db.commit()
+        db.refresh(job)
     return JobResponse.model_validate(job, from_attributes=True)
 
 

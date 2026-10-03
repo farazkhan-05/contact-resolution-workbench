@@ -245,6 +245,12 @@ def ingest_csv(
                 source_type="csv_upload",
             )
             case_ids.append(new_case.id)
+        db.flush()
+        persisted_ids = db.scalars(
+            select(Case.id).where(Case.workspace_id == workspace_id, Case.id.in_(case_ids))
+        ).all()
+        if len(persisted_ids) != len(records):
+            raise RuntimeError("CSV batch persistence count mismatch")
         if commit:
             db.commit()
     except Exception:
@@ -253,7 +259,7 @@ def ingest_csv(
 
     return CsvIngestResponse(
         ingested_count=len(records),
-        created_count=len(records),
+        created_count=len(persisted_ids),
         case_ids=case_ids,
     )
 

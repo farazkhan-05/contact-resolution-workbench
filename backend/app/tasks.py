@@ -95,6 +95,9 @@ def ingest_csv_job(self: Task, job_id: str, workspace_id: str) -> None:
         try:
             result = ingest_csv(db, job.payload, job.workspace_id, commit=False)
         except CsvValidationError as exc:
+            job.total_rows = exc.total_rows
+            job.rejected_rows = exc.total_rows or 0
+            job.processed_rows = job.rejected_rows
             fail_job(db, job, "INVALID_CSV", _safe_csv_failure(exc))
             return
         except IntegrityError:
@@ -103,24 +106,34 @@ def ingest_csv_job(self: Task, job_id: str, workspace_id: str) -> None:
             job = db.get(Job, job_id)
             if job and job.status == "SUCCEEDED":
                 return
-            if job:
-                fail_job(db, job, "PERSISTENCE_ERROR", "Could not persist the CSV batch.")
+            if job and job.status == "RUNNING":
+                fail_job(db, job, "PERSISTENCE_ERROR", "Could not save the CSV. Try again.")
             return
         job.status = "SUCCEEDED"
         job.total_rows = result.ingested_count
         job.processed_rows = result.ingested_count
         job.successful_rows = result.created_count
         job.completed_at = utcnow()
+        # Cases, read-back count and terminal result become visible in ONE commit.
         db.commit()
+        db.refresh(job)
+        annotate(**{"operation.status": job.status, "ingestion.record_count": job.successful_rows})
     except (ConnectionError, TimeoutError) as exc:
+        db.rollback()
+        committed_job = db.scalar(
+            select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id)
+        )
+        if committed_job and committed_job.status == "SUCCEEDED":
+            return
         _retry_if_transient(self, db, job_id, workspace_id, exc)
     except Retry:
         raise
     except Exception:
         db.rollback()
         job = db.scalar(select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id))
-        if job:
-            fail_job(db, job, "WORKER_ERROR", "The ingestion worker could not complete this job.")
+        # A lost commit acknowledgement must never overwrite an already durable success.
+        if job and job.status == "RUNNING":
+            fail_job(db, job, "WORKER_ERROR", "Could not save the CSV. Try again.")
         return
     finally:
         db.close()

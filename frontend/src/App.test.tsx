@@ -111,9 +111,41 @@ describe('authenticated workbench shell', () => {
     expect(click).toHaveBeenCalledTimes(1);
     const file = new File(['case_number,full_name\nCSV-1,Example'], 'records.csv', { type: 'text/csv' });
     fireEvent.change(input, { target: { files: [file] } });
-    await screen.findByText('CSV ingestion completed: 1 cases created.');
+    await screen.findByText('1 record imported.');
     expect(api.ingestCsv).toHaveBeenCalledWith(file);
     expect(api.getJob).toHaveBeenCalledWith('job-1');
+  });
+
+  it.each([
+    ['CSV contains unsupported columns.', 'No records were imported. CSV contains unsupported columns.'],
+    ['A case number in this CSV already exists in this workspace.', 'No records were imported. A case number in this CSV already exists in this workspace.'],
+    ['Could not save the CSV. Try again.', 'No records were imported. Could not save the CSV. Try again.'],
+  ])('shows the durable CSV failure: %s', async (failure_message, message) => {
+    await mountEmpty();
+    vi.mocked(api.getJob).mockResolvedValue({ status: 'FAILED', successful_rows: 0, failure_message } as Awaited<ReturnType<typeof api.getJob>>);
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
+    await screen.findByText(message);
+    expect(screen.queryByText(/records imported\./)).toBeNull();
+  });
+
+  it('does not show success while the CSV result is pending or unavailable', async () => {
+    await mountEmpty();
+    let complete!: (job: Awaited<ReturnType<typeof api.getJob>>) => void;
+    vi.mocked(api.getJob).mockReturnValueOnce(new Promise(resolve => { complete = resolve; }));
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
+    await screen.findByText('CSV uploaded. Waiting for the import result.');
+    expect(screen.queryByText(/record imported\./)).toBeNull();
+    complete({ status: 'SUCCEEDED', successful_rows: 2 } as Awaited<ReturnType<typeof api.getJob>>);
+    await screen.findByText('2 records imported.');
+  });
+
+  it('leaves the import outcome unknown when polling fails', async () => {
+    await mountEmpty();
+    vi.mocked(api.getJob).mockRejectedValueOnce(new Error('synthetic network failure'));
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
+    await screen.findByText('Could not check the import result. Check Jobs before trying again.');
+    expect(screen.queryByText(/No records were imported/)).toBeNull();
+    expect(screen.queryByText(/record imported\./)).toBeNull();
   });
 
   it('preserves server side search and filters when a filtered query returns no cases', async () => {

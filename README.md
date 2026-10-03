@@ -23,6 +23,33 @@ Optional Gemini extraction turns unstructured notes into schema-validated fields
 
 Upload a CSV of incoming identities to create resolution Cases. Inspect candidates, field evidence and contradictions, then record a human decision. CSV export preserves those decisions. The current CSV importer creates Cases; persisted master/reference records are loaded through a REFERENCE Source.
 
+CSV uploads use UTF-8 (with or without a BOM), at most 256,000 bytes and 100 data
+records. Required headers are `case_number,full_name`; optional headers are
+`source_identifier,old_email,old_phone,employer,location`. Headers are case-sensitive;
+their order and surrounding whitespace do not matter. Unknown, empty or duplicate
+headers, inconsistent column counts, invalid quoting, blank records, missing required
+values, and values exceeding database storage bounds reject the **entire file**.
+Empty and header-only files are rejected. Optional values may be empty. Email and
+phone format validation is not imposed; original Unicode and formula-like prefixes
+are preserved in raw values (surrounding whitespace is trimmed). Existing CSV export
+formula protection remains in place.
+
+Case numbers are unique within a workspace. Duplicate case numbers within a file or
+already in that workspace reject the whole upload; re-uploading the same file adds
+zero Cases and reports failure explicitly. `source_identifier` is provenance, not a
+deduplication key, and may repeat. Redelivery of the same completed Job is a no-op.
+
+Upload HTTP 202 means queued, **not imported**. Read the scoped Job until it is
+terminal. `SUCCEEDED.successful_rows` counts Cases read back from the inserted batch;
+Cases and this result are committed together. Validation/persistence failure imports
+zero Cases. `total_rows` counts logical data records (including blanks) when readable;
+it is null when a reliable total is unavailable. For readable validation failures,
+`rejected_rows` counts the entire rejected batch and `failure_message` describes the
+first issue using a row number or safe grouped reason. Row numbers identify logical
+records (header is 1); malformed quoting reports a physical line. The API never
+returns raw row values in failure diagnostics. A lost polling response leaves the
+outcome unknown: check Jobs before re-uploading.
+
 ### Ongoing operation
 
 Create a REFERENCE Source for master records and an INCOMING Source for identities requiring resolution. External applications submit ongoing machine-to-machine batches using a Source-specific API key and an Idempotency-Key. Owners can rotate keys or disable ingestion; members can inspect processing history. Both incoming paths use the same deterministic scoring, contradiction checks and review workflow.

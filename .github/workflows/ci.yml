@@ -110,6 +110,7 @@ jobs:
           DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench
           CELERY_BROKER_URL: redis://localhost:6379/0
           RUN_ASYNC_INTEGRATION: "1"
+          CSV_TEST_DATABASE_URL: postgresql+psycopg://workbench:workbench@localhost:5432/workbench
         run: |
           uv run celery -A app.celery_app:celery_app worker --include tests.mcp_worker --loglevel=warning > /tmp/celery-worker.log 2>&1 &
           worker_pid=$!
@@ -121,4 +122,4 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then cat /tmp/celery-worker.log; exit 1; fi
-          uv run pytest tests/test_async_integration.py tests/test_investigation_integration.py -q
+          uv run pytest tests/test_csv_import.py tests/test_async_integration.py tests/test_investigation_integration.py -q
