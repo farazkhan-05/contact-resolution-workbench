@@ -75,6 +75,7 @@ export interface AuditEvent {
 }
 
 export interface CaseDetail {
+  ai_provenance?: AIProvenance | null;
   received_at?: string | null;
   ingestion_mechanism?: string;
   source_id?: string | null;
@@ -173,3 +174,17 @@ export interface InvestigationRun {
   interrupt: { reason: string; evidence_gap: string; allowed_actions: string[] } | null;
 }
 
+
+export interface AIProvenance {
+  source_type: 'AI_EXTRACTED';
+  job_title: string | null;
+  source_context_available: boolean;
+  unverified: true;
+}
+export interface SourceContext {
+  source_type: 'AI_EXTRACTED';
+  original_text: string;
+  job_title: string | null;
+  created_at: string;
+  unverified: true;
+}

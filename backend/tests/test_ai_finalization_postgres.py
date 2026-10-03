@@ -12,18 +12,22 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, func, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app import tasks
-from app.core.database import Base
+from app.core import auth
+from app.core.database import Base, get_db
+from app.main import app
 from app.models.audit import AuditLog
 from app.models.case import CandidateRecord, Case, Contradiction, MatchEvidence
 from app.models.job import Job
-from app.models.workspace import Workspace
+from app.models.workspace import Workspace, WorkspaceMembership
 from app.schemas.resolution import ExtractedCandidateProfile
+from app.services.case_service import get_case_detail, get_source_context
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
 
 pytestmark = pytest.mark.skipif(
@@ -104,7 +108,9 @@ def pg(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
         with sessions() as db:
             assert db.get(Job, job.id).status == "RUNNING"
             assert db.scalar(select(func.count()).select_from(Case)) == 0
-        return ExtractedCandidateProfile(name="Claire Reynolds", employer="Harbor Analytics")
+        return ExtractedCandidateProfile(
+            name="Claire Reynolds", employer="Harbor Analytics", job_title="Operations Manager"
+        )
 
     monkeypatch.setattr(GeminiExtractor, "extract_from_unstructured_text", extract)
 
@@ -140,6 +146,16 @@ def result(pg: dict[str, Any], status: str, cases: int) -> None:
         assert counts[0] == cases
         if cases:
             assert job.successful_rows == job.processed_rows == job.total_rows == 1
+            case = db.scalar(select(Case))
+            assert case.review_decision == "PENDING"
+            assert case.selected_candidate_id is None
+            ingested = [a for a in case.audit_logs if a.event_type == "CASE_INGESTED"]
+            assert len(ingested) == 1
+            assert ingested[0].payload["ai_extraction"] == {
+                "version": 1,
+                "originating_job_id": job.id,
+                "extracted_job_title": "Operations Manager",
+            }
             assert counts[1] > 0 and counts[2] > 0 and counts[4] == 2
         else:
             assert counts == [0] * len(MODELS)
@@ -391,3 +407,82 @@ def test_foreign_workspace_cannot_claim_or_fail(pg: dict[str, Any]) -> None:
         tasks._fail_unstructured_job(pg["job_id"], str(uuid4()), "WORKER_ERROR", "synthetic")
     with pg["sessions"]() as db:
         assert db.get(Job, pg["job_id"]).status == "PENDING"
+
+
+def test_source_context_independent_workspace_checks(pg: dict[str, Any]) -> None:
+    run(pg)
+    with pg["sessions"]() as db:
+        case = db.scalar(select(Case))
+        assert case is not None
+        case_id = case.id
+        context = get_source_context(db, pg["workspace_id"], case_id)
+        assert context is not None and context.original_text == "synthetic F06"
+        assert context.job_title == "Operations Manager"
+        foreign = Workspace(name="F11 synthetic foreign workspace")
+        db.add(foreign)
+        db.flush()
+        foreign_id = foreign.id
+        assert get_source_context(db, foreign_id, case_id) is None
+        job = db.get(Job, pg["job_id"])
+        assert job is not None
+        job.workspace_id = foreign_id
+        db.commit()
+    with pg["sessions"]() as db:
+        assert get_source_context(db, pg["workspace_id"], case_id) is None
+        assert get_source_context(db, foreign_id, case_id) is None
+        detail = get_case_detail(db, pg["workspace_id"], case_id)
+        assert detail is not None and detail.ai_provenance is not None
+        assert detail.ai_provenance.source_context_available is False
+        assert detail.ai_provenance.job_title is None
+
+
+@pytest.mark.parametrize("role", ["OWNER", "REVIEWER"])
+def test_source_api_postgres_membership_and_foreign_reference(
+    pg: dict[str, Any], monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    run(pg)
+    monkeypatch.setattr(
+        auth, "verify_firebase_id_token", lambda _: auth.FirebaseIdentity("f11-user", None, True)
+    )
+
+    def database() -> Iterator[Session]:
+        with pg["sessions"]() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = database
+    try:
+        client = TestClient(app)
+        headers = {"Authorization": "Bearer synthetic-local-test"}
+        bootstrap = client.post("/api/v1/auth/bootstrap", headers=headers).json()
+        foreign_id = bootstrap["workspaces"][0]["id"]
+        with pg["sessions"]() as db:
+            db.add(
+                WorkspaceMembership(
+                    workspace_id=pg["workspace_id"],
+                    user_id=bootstrap["user"]["id"],
+                    role=role,
+                )
+            )
+            db.commit()
+            case_id = db.scalar(select(Case.id))
+        url = f"/api/v1/cases/{case_id}/source-context"
+        headers["X-Workspace-ID"] = pg["workspace_id"]
+        response = client.get(url, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["original_text"] == "synthetic F06"
+        assert "no-store" in response.headers["cache-control"]
+        headers["X-Workspace-ID"] = foreign_id
+        assert client.get(url, headers=headers).status_code == 404
+        with pg["sessions"]() as db:
+            job = db.get(Job, pg["job_id"])
+            assert job is not None
+            job.workspace_id = foreign_id
+            db.commit()
+        headers["X-Workspace-ID"] = pg["workspace_id"]
+        assert client.get(url, headers=headers).status_code == 404
+        with pg["sessions"]() as db:
+            db.query(WorkspaceMembership).filter_by(workspace_id=pg["workspace_id"]).delete()
+            db.commit()
+        assert client.get(url, headers=headers).status_code == 403
+    finally:
+        app.dependency_overrides.clear()

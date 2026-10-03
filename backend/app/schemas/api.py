@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -129,7 +129,23 @@ class AuditLogResponse(BaseModel):
     created_at: datetime
 
 
+class AIProvenanceResponse(BaseModel):
+    source_type: Literal["AI_EXTRACTED"] = "AI_EXTRACTED"
+    job_title: str | None = None
+    source_context_available: bool
+    unverified: Literal[True] = True
+
+
+class SourceContextResponse(BaseModel):
+    source_type: Literal["AI_EXTRACTED"] = "AI_EXTRACTED"
+    original_text: str
+    job_title: str | None = None
+    created_at: datetime
+    unverified: Literal[True] = True
+
+
 class CaseDetailResponse(BaseModel):
+    ai_provenance: AIProvenanceResponse | None = None
     received_at: datetime | None = None
     ingestion_mechanism: str = "manual"
     source_id: str | None = None

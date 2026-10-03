@@ -48,7 +48,7 @@ export const OriginalRecord: React.FC<OriginalRecordProps> = ({ caseDetail }) =>
     <div className="rounded border border-border bg-surface p-4">
       <div className="flex items-center justify-between pb-3 border-b border-border">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-          Original Ingested Record
+          Original Ingested Record{caseDetail.ai_provenance && <span className="ml-2 text-xs font-normal">AI extracted / Unverified</span>}
         </h3>
         {caseDetail.source_identifier && (
           <span className="font-mono text-[10px] text-muted">

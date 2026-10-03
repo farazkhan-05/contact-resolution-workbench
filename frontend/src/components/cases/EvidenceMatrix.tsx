@@ -4,10 +4,12 @@ import type { CandidateDetail } from '../../types';
 
 interface EvidenceMatrixProps {
   activeCandidate: CandidateDetail;
+  aiExtracted?: boolean;
 }
 
 export const EvidenceMatrix: React.FC<EvidenceMatrixProps> = ({
   activeCandidate,
+  aiExtracted = false,
 }) => {
   const getMethodBadge = (method: string, points: number, maxPoints: number) => {
     if (points === maxPoints && maxPoints > 0) {
@@ -62,6 +64,7 @@ export const EvidenceMatrix: React.FC<EvidenceMatrixProps> = ({
 
       {/* Desktop Evidence Table */}
       <div className="evidence-scroll mt-3 overflow-x-auto">
+        {aiExtracted && <p className="px-4 py-2 text-xs text-muted">Subject evidence: AI extracted / Unverified</p>}
         <table className="evidence-table w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-border bg-surface-muted/50 text-[11px] font-medium text-muted">

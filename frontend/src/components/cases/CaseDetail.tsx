@@ -12,6 +12,7 @@ import { AuditTimeline } from './AuditTimeline';
 import { CandidateList } from './CandidateList';
 import { ContradictionAlert } from './ContradictionAlert';
 import { EvidenceMatrix } from './EvidenceMatrix';
+import { AIProvenanceSection } from './AIProvenanceSection';
 import { OriginalRecord } from './OriginalRecord';
 import { ReviewConsole } from './ReviewConsole';
 import { InvestigationPanel } from './InvestigationPanel';
@@ -149,6 +150,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
       </div>
 
       {/* 1. Original Record Panel */}
+      {caseDetail.ai_provenance && <AIProvenanceSection key={`ai:${caseDetail.id}`} caseId={caseDetail.id} provenance={caseDetail.ai_provenance} />}
       <OriginalRecord caseDetail={caseDetail} />
       <InvestigationPanel key={caseDetail.id} caseId={caseDetail.id}
         eligible={isNeedsReview && ['PENDING', 'NEED_MORE_EVIDENCE'].includes(caseDetail.review_decision)}
@@ -170,6 +172,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
       {activeCandidate && (
         <EvidenceMatrix
           activeCandidate={activeCandidate}
+          aiExtracted={!!caseDetail.ai_provenance}
         />
       )}
 

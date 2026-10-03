@@ -1,6 +1,9 @@
 import csv
 import io
+import json
 from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -15,8 +18,10 @@ from app.core.constants import (
 from app.core.observability import annotate, traced
 from app.models.audit import AuditLog
 from app.models.case import CandidateRecord, Case, Contradiction, MatchEvidence
+from app.models.job import Job
 from app.models.source import SourceIngestion
 from app.schemas.api import (
+    AIProvenanceResponse,
     AuditLogResponse,
     CandidateDetailResponse,
     CaseDetailResponse,
@@ -26,6 +31,7 @@ from app.schemas.api import (
     DecisionRequest,
     MatchEvidenceResponse,
     SampleIngestResponse,
+    SourceContextResponse,
 )
 from app.schemas.resolution import CaseQuery, CaseResolution
 from app.services.csv_importer import parse_and_validate_csv
@@ -63,8 +69,25 @@ def persist_case_resolution(
     query: CaseQuery,
     resolution: CaseResolution,
     source_type: str = "sample",
+    *,
+    originating_job: Job | None = None,
+    extracted_job_title: str | None = None,
 ) -> Case:
     """Add/flush a resolved Case and its records; the caller owns commit/rollback."""
+    ingestion_payload: dict[str, Any] = {"case_number": case_number, "source": source_type}
+    if source_type == "gemini_unstructured_ingest":
+        if (
+            originating_job is None
+            or originating_job.workspace_id != workspace_id
+            or originating_job.job_type != "GEMINI_UNSTRUCTURED_INGEST"
+            or originating_job.status != "RUNNING"
+        ):
+            raise ValueError("Invalid AI ingestion provenance")
+        ingestion_payload["ai_extraction"] = {
+            "version": 1,
+            "originating_job_id": originating_job.id,
+            "extracted_job_title": extracted_job_title,
+        }
     name_parts = parse_name_parts(query.name)
 
     case = Case(
@@ -154,7 +177,7 @@ def persist_case_resolution(
         case_id=case.id,
         event_type=AuditEventType.CASE_INGESTED.value,
         actor=ACTOR_SYSTEM,
-        payload={"case_number": case_number, "source": source_type},
+        payload=ingestion_payload,
         created_at=_to_utc_naive(),
     )
     audit_routed = AuditLog(
@@ -325,6 +348,53 @@ def list_cases(
     return summaries
 
 
+def _ai_source(db: Session, case: Case) -> tuple[Job, str | None, str] | None:
+    """Trust one explicit association and independently scoped Job, never heuristics."""
+    events = [a for a in case.audit_logs if a.event_type == "CASE_INGESTED"]
+    if len(events) != 1:
+        return None
+    payload = events[0].payload
+    if not isinstance(payload, dict) or payload.get("source") != "gemini_unstructured_ingest":
+        return None
+    metadata = payload.get("ai_extraction")
+    if not isinstance(metadata, dict) or type(metadata.get("version")) is not int:
+        return None
+    if metadata["version"] != 1:
+        return None
+    job_id = metadata.get("originating_job_id")
+    role = metadata.get("extracted_job_title")
+    if not isinstance(job_id, str) or (role is not None and not isinstance(role, str)):
+        return None
+    try:
+        if str(UUID(job_id)) != job_id:
+            return None
+    except ValueError:
+        return None
+    job = db.scalar(select(Job).where(Job.id == job_id, Job.workspace_id == case.workspace_id))
+    if job is None or job.job_type != "GEMINI_UNSTRUCTURED_INGEST" or job.status != "SUCCEEDED":
+        return None
+    try:
+        data = json.loads(job.payload)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("raw_evidence_text"), str):
+        return None
+    return job, role, data["raw_evidence_text"]
+
+
+def get_source_context(
+    db: Session, workspace_id: str, case_id: str
+) -> SourceContextResponse | None:
+    case = db.scalar(select(Case).where(Case.id == case_id, Case.workspace_id == workspace_id))
+    if case is None:
+        return None
+    source = _ai_source(db, case)
+    if source is None:
+        return None
+    job, role, text = source
+    return SourceContextResponse(original_text=text, job_title=role, created_at=job.created_at)
+
+
 def get_case_detail(db: Session, workspace_id: str, case_id: str) -> CaseDetailResponse | None:
     """Retrieve full investigation detail for a single case."""
     stmt = (
@@ -429,7 +499,20 @@ def get_case_detail(db: Session, workspace_id: str, case_id: str) -> CaseDetailR
     ]
 
     ingestion = db.get(SourceIngestion, case.ingestion_id) if case.ingestion_id else None
+    source = _ai_source(db, case)
+    is_ai = any(
+        a.event_type == "CASE_INGESTED"
+        and isinstance(a.payload, dict)
+        and a.payload.get("source") == "gemini_unstructured_ingest"
+        for a in case.audit_logs
+    )
     return CaseDetailResponse(
+        ai_provenance=AIProvenanceResponse(
+            job_title=source[1] if source else None,
+            source_context_available=source is not None,
+        )
+        if is_ai
+        else None,
         id=case.id,
         case_number=case.case_number,
         source_identifier=case.source_identifier,

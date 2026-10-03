@@ -69,6 +69,18 @@ def _fail_unstructured_job(
                 ):
                     raise AIFinalizationIntegrityError("AI terminal result is incomplete")
                 if expected_resolution is not None:
+                    ingestion_events = [
+                        entry for entry in case.audit_logs if entry.event_type == "CASE_INGESTED"
+                    ]
+                    if (
+                        len(ingestion_events) != 1
+                        or ingestion_events[0].payload.get("source") != "gemini_unstructured_ingest"
+                        or ingestion_events[0]
+                        .payload.get("ai_extraction", {})
+                        .get("originating_job_id")
+                        != job.id
+                    ):
+                        raise AIFinalizationIntegrityError("AI provenance is inconsistent")
                     actual = (
                         len(case.candidates),
                         sum(len(candidate.evidence) for candidate in case.candidates),
@@ -249,6 +261,7 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
                 Job.id == job_id,
                 Job.workspace_id == workspace_id,
                 Job.status == "PENDING",
+                Job.job_type == "GEMINI_UNSTRUCTURED_INGEST",
             )
             .values(status="RUNNING", started_at=utcnow())
         ).rowcount  # type: ignore[attr-defined]
@@ -301,6 +314,8 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
             query,
             resolution,
             "gemini_unstructured_ingest",
+            originating_job=job,
+            extracted_job_title=extracted.job_title,
         )
         case_id = case.id
         job.status = "SUCCEEDED"

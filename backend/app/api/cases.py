@@ -1,11 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.core.auth import WorkspaceContext, get_workspace_context
 from app.core.constants import ReviewDecision, RoutingStatus
 from app.core.database import get_db
-from app.schemas.api import CaseDetailResponse, CaseSummaryResponse, DecisionRequest
-from app.services.case_service import get_case_detail, list_cases, record_decision
+from app.schemas.api import (
+    CaseDetailResponse,
+    CaseSummaryResponse,
+    DecisionRequest,
+    SourceContextResponse,
+)
+from app.services.case_service import (
+    get_case_detail,
+    get_source_context,
+    list_cases,
+    record_decision,
+)
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -58,3 +68,19 @@ def submit_decision(
         if "not found" in msg.lower():
             raise HTTPException(status_code=404, detail=msg) from e
         raise HTTPException(status_code=422, detail=msg) from e
+
+
+@router.get("/{case_id}/source-context", response_model=SourceContextResponse)
+def source_context(
+    case_id: str,
+    response: Response,
+    context: WorkspaceContext = Depends(get_workspace_context),
+    db: Session = Depends(get_db),
+) -> SourceContextResponse:
+    """Expose retained source text only through authenticated workspace membership."""
+    headers = {"Cache-Control": "no-store, private", "Vary": "Authorization, X-Workspace-ID"}
+    detail = get_source_context(db, context.workspace.id, case_id)
+    if detail is None:
+        raise HTTPException(404, "Source context unavailable.", headers=headers)
+    response.headers.update(headers)
+    return detail

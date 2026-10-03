@@ -1,4 +1,4 @@
-import type { CaseDetail, CaseSummary, DecisionPayload, InvestigationRun, Job, ReviewDecision, RoutingStatus, SampleIngestResponse, UnstructuredIngestRequest } from '../types';
+import type { SourceContext, CaseDetail, CaseSummary, DecisionPayload, InvestigationRun, Job, ReviewDecision, RoutingStatus, SampleIngestResponse, UnstructuredIngestRequest } from '../types';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 export interface WorkspaceSummary { id: string; name: string; role: string; }
@@ -44,6 +44,7 @@ export interface SourceCredential extends Source { api_key: string; }
 export const sourceIngestionUrl = `${BASE_URL}/api/v1/source-ingestions`;
 
 export const api = {
+  async getSourceContext(caseId: string, signal?: AbortSignal): Promise<SourceContext> { return handleResponse(await request(`/api/v1/cases/${caseId}/source-context`, { method: 'GET', cache: 'no-store', signal })); },
   async listSources(): Promise<Source[]> { return handleResponse(await request('/api/v1/sources', { method: 'GET' })); },
   async createSource(name: string, source_type: Source['source_type']): Promise<SourceCredential> { return handleResponse(await request('/api/v1/sources', { method: 'POST', body: JSON.stringify({ name, source_type }) })); },
   async rotateSource(id: string): Promise<SourceCredential> { return handleResponse(await request(`/api/v1/sources/${id}/rotate`, { method: 'POST' })); },

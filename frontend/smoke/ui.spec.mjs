@@ -4,7 +4,7 @@ import { sampleDetail, sampleSummary } from '../src/test-support/cases.ts';
 
 // These overrides are confined to the local browser test. Production auth,
 // ingestion, API code and job processing run unchanged.
-async function fixture(page) {
+async function fixture(page, aiEvidence = false) {
   let records = [];
   const requests = [];
   await page.route('**/src/auth/AuthProvider.tsx', route => route.fulfill({ contentType: 'text/javascript', body: `
@@ -42,15 +42,45 @@ async function fixture(page) {
       records = records.map(r => r.id === 'case-1' ? { ...r, review_decision: payload.decision } : r);
       return reply({ ...sampleDetail, review_decision: payload.decision, reviewer_notes: payload.notes });
     }
+    if (url.pathname.endsWith('/source-context')) return reply({
+      source_type: 'AI_EXTRACTED', original_text: 'Her email appears to be leyla@demo.example. She might be in İzmir, but Ankara is also mentioned.',
+      job_title: 'Operations Manager', created_at: sampleDetail.created_at, unverified: true,
+    });
     if (/\/cases\/case-\d$/.test(url.pathname)) {
       const summary = records.find(r => url.pathname.endsWith(r.id)) || sampleSummary;
-      return reply({ ...sampleDetail, id: summary.id, raw_name: summary.person_name, case_number: summary.case_number, review_decision: summary.review_decision });
+      return reply({ ...sampleDetail, id: summary.id, raw_name: summary.person_name, case_number: summary.case_number, review_decision: summary.review_decision,
+        ai_provenance: aiEvidence ? { source_type: 'AI_EXTRACTED', job_title: 'Operations Manager', source_context_available: true, unverified: true } : null });
     }
     if (url.pathname.endsWith('/export/csv')) return route.fulfill({ contentType: 'text/csv', body: 'case_number,review_decision\nSAMPLE-001,REJECTED\n' });
     return reply([]);
   });
   return requests;
 }
+
+test('AI source note supports keyboard disclosure and reload without changing final review', async ({ page }) => {
+  const requests = await fixture(page, true);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Load sample cases', exact: true }).click();
+  const section = page.getByRole('region', { name: 'AI extracted evidence', exact: true }).filter({ visible: true });
+  await expect(section).toContainText('Unverified');
+  await expect(section).toContainText('Role: Operations Manager');
+  await expect(section).toContainText('not used in the match score');
+  const summary = section.locator('summary');
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(section.locator('pre')).toContainText('appears to be');
+  await expect(section.locator('pre')).toContainText('İzmir, but Ankara');
+  await page.keyboard.press('Space');
+  await expect(section.locator('pre')).toHaveCount(0);
+  await page.reload();
+  await expect(section).toContainText('Unverified');
+  await expect(section.locator('pre')).toHaveCount(0);
+  await section.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(section.locator('pre')).toContainText('appears to be');
+  await expect(page.getByText('Decision: PENDING', { exact: true }).filter({ visible: true })).toBeVisible();
+  expect(requests.some(r => r.path.endsWith('/decision'))).toBe(false);
+});
 
 async function noOverflow(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
