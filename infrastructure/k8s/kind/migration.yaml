@@ -18,12 +18,7 @@ spec:
         - name: migrate
           image: contact-resolution-workbench-backend:kind
           imagePullPolicy: Never
-          command: [python, -c]
-          args:
-            - >-
-              import subprocess;
-              subprocess.run(['alembic', 'upgrade', 'head'], check=True);
-              subprocess.run(['python', '-m', 'app.services.investigation_service'], check=True)
+          command: [python, -m, app.migrate]
           envFrom:
             - configMapRef: {name: backend-config}
             - secretRef: {name: backend-secrets}

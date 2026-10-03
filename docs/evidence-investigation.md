@@ -27,14 +27,25 @@ Application migrations support SQLite, but runtime investigations require Postgr
 ```sh
 docker compose up -d postgres redis
 docker compose build api
-docker compose run --rm api alembic upgrade head
-docker compose run --rm api python -m app.services.investigation_service
+docker compose run --rm api python -m app.migrate
 docker compose up -d api worker
 ```
 
 The common backend image serves both processes as a non-root user. The frontend polls pending/running investigations, restores the latest run when revisiting a case, shows allowed interrupt actions, and refreshes evidence after a pause or completion. Logout, workspace changes and case changes cancel polling and discard stale responses. Investigations never auto-start.
 
 ## Verification and limits
+
+The deployment entry point `python -m app.migrate` applies Alembic first, then calls
+the pinned checkpoint package's `PostgresSaver.setup()` through the existing saver
+factory. Northflank's dedicated `staging-migrate` Job owns this initialization;
+it must succeed before investigations are enabled. Checkpoint tables and their
+`checkpoint_migrations` versions remain package-owned, outside Alembic's application
+revisions. Setup uses the same PostgreSQL database and search path as runtime, with
+autocommit and dictionary rows. No DDL runs on ordinary investigation requests.
+Repeated execution is supported; an initialization error exits nonzero without
+printing database exception bodies. Verify the Alembic head, table/index existence,
+package migration versions and an unchanged Case count without selecting checkpoint
+payloads. PostgreSQL remains the durable store; there is no memory fallback.
 
 Normal pytest uses fake Gemini behavior and isolated in-memory checkpoints. The service-based CI job additionally uses disposable PostgreSQL and Redis: it verifies persisted checkpoint rows, closes and reconstructs the saver/graph, resumes the same thread, checks evidence and final status, tests concurrent worker delivery, and runs the graph through the real Celery worker. The existing ingestion integration remains in that job. Migration tests exercise upgrades, preservation of older case rows and downgrades on SQLite and a separate disposable PostgreSQL database. No live Gemini, Firebase, external providers or production databases are required.
 

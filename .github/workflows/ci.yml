@@ -94,18 +94,17 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.13" }
       - run: uv sync --frozen
-      - run: uv run alembic upgrade head
-        env: { DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench }
-      - run: uv run python -m app.services.investigation_service
+      - run: uv run python -m app.migrate
         env: { DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench }
       - name: Verify application migration preservation and downgrade
         env:
           DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench
           E4_MIGRATION_TEST_URL: postgresql+psycopg://workbench:workbench@localhost:5432/e4_migrations
+          CHECKPOINT_SETUP_TEST_URL: postgresql://workbench:workbench@localhost:5432/workbench
           D1_MIGRATION_TEST_URL: postgresql://workbench:workbench@localhost:5432/d1_migrations
         run: |
           uv run python -c "import psycopg; conn = psycopg.connect('postgresql://workbench:workbench@localhost:5432/workbench', autocommit=True); conn.execute('CREATE DATABASE d1_migrations'); conn.execute('CREATE DATABASE e4_migrations'); conn.close()"
-          uv run pytest tests/test_investigation_migration.py tests/test_source_migration.py -q
+          uv run pytest tests/test_investigation_migration.py tests/test_source_migration.py tests/test_checkpoint_setup.py -q
       - name: Run real broker and worker integration
         env:
           DATABASE_URL: postgresql://workbench:workbench@localhost:5432/workbench

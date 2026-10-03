@@ -1,6 +1,8 @@
 """Disposable PostgreSQL checkpoints and real Celery; no live model required."""
 
 import os
+import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -56,6 +58,27 @@ def test_postgres_checkpoint_survives_reconstruction_and_resume() -> None:
             > 0
         )
     before = counts(SessionLocal)
+    # A separate interpreter reconstructs the graph from PostgreSQL, not memory.
+    read = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; from app.core.database import SessionLocal; "
+                "from app.services.investigation_service import postgres_checkpointer; "
+                "from app.services.investigation_graph import build_graph; "
+                "s=postgres_checkpointer(); saver=s.__enter__(); "
+                "config={'configurable':{'thread_id':sys.argv[1]}}; "
+                "state=build_graph(SessionLocal,saver).get_state(config); "
+                "assert state.next == ('human_input',); assert len(state.interrupts)==1; "
+                "s.__exit__(None,None,None)"
+            ),
+            run.thread_id,
+        ],
+        capture_output=True,
+        timeout=30,
+    )
+    assert read.returncode == 0
     # New saver connection AND new compiled graph after closing the first context.
     with SessionLocal() as db:
         current = db.get(InvestigationRun, run.id)
@@ -109,6 +132,43 @@ def test_concurrent_duplicate_worker_delivery_serializes(
         release.set()
         first.result(timeout=10)
     assert model.plan_calls == model.extraction_calls == 1
+
+
+def test_postgres_repeated_start_concurrent_resume_and_scope() -> None:
+    import threading
+
+    from app.services.investigation_service import create_run, get_run
+
+    run = seed_run(SessionLocal)
+    with SessionLocal() as db:
+        assert create_run(db, run.workspace_id, run.created_by_user_id, run.case_id).id == run.id
+        assert get_run(db, "foreign-workspace", run.id) is None
+    with postgres_checkpointer() as saver:
+        execute_run(run.id, saver, SessionLocal, FakeExtractor())
+    barrier = threading.Barrier(2)
+
+    def resume() -> bool:
+        with SessionLocal() as db:
+            current = db.get(InvestigationRun, run.id)
+            assert current is not None
+            barrier.wait(timeout=10)
+            try:
+                queue_resume(db, current, HumanResponse(action="STOP"))
+                return True
+            except ValueError:
+                return False
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: resume(), range(2)))
+    assert sorted(results) == [False, True]
+    with postgres_checkpointer() as saver:
+        execute_run(run.id, saver, SessionLocal, FakeExtractor())
+        execute_run(run.id, saver, SessionLocal, FakeExtractor())
+    with SessionLocal() as db:
+        current = db.get(InvestigationRun, run.id)
+        assert current is not None and current.status == "SUCCEEDED"
+        with pytest.raises(ValueError, match="not waiting"):
+            queue_resume(db, current, HumanResponse(action="STOP"))
 
 
 def wait_status(run_id: str, expected: str) -> None:
