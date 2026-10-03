@@ -47,6 +47,13 @@ printing database exception bodies. Verify the Alembic head, table/index existen
 package migration versions and an unchanged Case count without selecting checkpoint
 payloads. PostgreSQL remains the durable store; there is no memory fallback.
 
+The historical Northflank provisioning template still pins its original image.
+Its migration command therefore invokes Alembic and the existing
+`app.services.investigation_service` initializer sequentially with `check=True`,
+instead of referring to the newer `app.migrate` module absent from that image.
+Both paths use the same official saver migrations; the live migration Job uses
+the unified entry point on the current backend image.
+
 Normal pytest uses fake Gemini behavior and isolated in-memory checkpoints. The service-based CI job additionally uses disposable PostgreSQL and Redis: it verifies persisted checkpoint rows, closes and reconstructs the saver/graph, resumes the same thread, checks evidence and final status, tests concurrent worker delivery, and runs the graph through the real Celery worker. The existing ingestion integration remains in that job. Migration tests exercise upgrades, preservation of older case rows and downgrades on SQLite and a separate disposable PostgreSQL database. No live Gemini, Firebase, external providers or production databases are required.
 
 Checkpoints accumulate. Retention, pruning and run-deletion policy remain an operational follow-up; no cleanup is scheduled. SQLite CRUD remains available, but runtime checkpointing never falls back to an in-memory saver. Approved graph operations use the embedded MCP client/server described in the [architecture](productization-architecture.md#identity-and-ai-boundary). Optional OpenTelemetry/Langfuse export is implemented and tested, but disabled in public staging. LangSmith is a transitive dependency of the official LangGraph distribution; LangSmith tracing is not configured.

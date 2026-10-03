@@ -199,7 +199,7 @@
               },
               "docker": {
                 "configType": "customCommand",
-                "customCommand": "python -m app.migrate"
+                "customCommand": "python -c \"import subprocess,sys; subprocess.run([sys.executable,'-m','alembic','upgrade','head'],check=True); subprocess.run([sys.executable,'-m','app.services.investigation_service'],check=True)\""
               }
             },
             "settings": {
