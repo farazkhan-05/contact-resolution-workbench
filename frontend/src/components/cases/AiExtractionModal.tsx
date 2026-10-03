@@ -27,7 +27,6 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
-  const [caseNumber, setCaseNumber] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
   const active = useRef(true);
 
@@ -59,7 +58,6 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
         raw_evidence_text: evidenceText.trim(),
         source_identifier: 'GEMINI_EXTRACTION_DEMO',
       });
-      setCaseNumber(createdCaseNumber);
       setJob(submitted);
       const poll = async (): Promise<void> => {
         try {
@@ -73,7 +71,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
             timer.current = window.setTimeout(() => void poll(), 1800);
           }
         } catch {
-          if (active.current) setError('Could not check extraction status. The Job remains available in this workspace.');
+          if (active.current) setError('Could not check extraction progress. Please try again shortly.');
         }
       };
       timer.current = window.setTimeout(() => void poll(), 1000);
@@ -81,7 +79,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
       const message =
         err instanceof ApiError
           ? err.detail
-          : 'Extraction request failed. Check server logs or connectivity and retry.';
+          : 'Could not extract evidence. Please try again.';
       setError(message);
     } finally {
       setIsExtracting(false);
@@ -180,7 +178,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
           ) : job ? (
             <div className={`flex items-start space-x-2 rounded border p-3 text-xs ${job.status === 'FAILED' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-blue-200 bg-blue-50 text-blue-900'}`} role="status">
               {job.status === 'FAILED' ? <AlertCircle className="h-4 w-4 shrink-0" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-              <div><p className="font-semibold">Gemini ingestion {job.status.toLowerCase()}</p><p className="mt-0.5 text-[11px]">{job.failure_message || (caseNumber ? `Case ${caseNumber}` : 'Processing structured evidence and deterministic resolution.')}</p></div>
+              <div><p className="font-semibold">{job.status === 'FAILED' ? 'Could not extract evidence' : 'Extracting evidence…'}</p><p className="mt-0.5 text-[11px]">{job.failure_message || 'Extracting contact details from your text.'}</p></div>
             </div>
           ) : null}
         </div>

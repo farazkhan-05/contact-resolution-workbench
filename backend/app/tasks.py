@@ -126,7 +126,9 @@ def ingest_csv_job(self: Task, job_id: str, workspace_id: str) -> None:
         db.close()
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=5)  # type: ignore[untyped-decorator]
+@celery_app.task(  # type: ignore[untyped-decorator]
+    bind=True, max_retries=3, soft_time_limit=100, time_limit=110
+)
 def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
     """Run Gemini extraction outside an HTTP request, then deterministic resolution."""
     db = SessionLocal()
@@ -148,19 +150,16 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
             return
         data = json.loads(job.payload)
         try:
-            extracted = GeminiExtractor().extract_from_unstructured_text(data["raw_evidence_text"])
-        except GeminiExtractionError as exc:
-            if isinstance(exc.__cause__, (ConnectionError, TimeoutError)):
-                _retry_if_transient(self, db, job_id, workspace_id, exc)
-            fail_job(
-                db,
-                job,
-                "GEMINI_EXTRACTION_FAILED",
-                "Gemini could not extract valid structured evidence.",
+            extracted = GeminiExtractor().extract_from_unstructured_text(
+                data["raw_evidence_text"], retry_transient=True
             )
+        except GeminiExtractionError as exc:
+            fail_job(db, job, exc.code, exc.public_message)
             return
         if not extracted.name or not extracted.name.strip():
-            fail_job(db, job, "INVALID_EXTRACTION", "No valid person name was extracted.")
+            fail_job(
+                db, job, "INVALID_EXTRACTION", "No useful contact evidence was found in this text."
+            )
             return
         query = CaseQuery(
             name=extracted.name.strip(),
