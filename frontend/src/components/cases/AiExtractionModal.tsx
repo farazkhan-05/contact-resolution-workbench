@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   Info,
@@ -8,11 +8,14 @@ import {
 } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import type { Job } from '../../types';
+import { JobStatus } from '../jobs/JobStatus';
+import { useJobStatus } from '../jobs/useJobStatus';
 
 interface AiExtractionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCaseCreated: (caseNumber: string) => Promise<void>;
+  onCaseCreated: (caseNumber: string, canApply: () => boolean) => Promise<void>;
+  onJobAccepted?: () => void;
 }
 
 const DEFAULT_SYNTHETIC_EVIDENCE =
@@ -22,26 +25,48 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
   isOpen,
   onClose,
   onCaseCreated,
+  onJobAccepted,
 }) => {
   const [evidenceText, setEvidenceText] = useState(DEFAULT_SYNTHETIC_EVIDENCE);
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
-  const timer = useRef<number | null>(null);
-  const active = useRef(true);
-
-  useEffect(() => {
-    active.current = true;
+  const [submissionUnknown, setSubmissionUnknown] = useState(false);
+  const [caseNumber, setCaseNumber] = useState('');
+  const [refreshError, setRefreshError] = useState(false);
+  const tracking = useJobStatus(job, isOpen);
+  const currentJob = tracking.job;
+  const generation = useRef(0);
+  const dialog = useRef<HTMLDivElement>(null);
+  const notified = useRef<string | null>(null);
+  const callback = useRef(onCaseCreated);
+  callback.current = onCaseCreated;
+  useLayoutEffect(() => {
+    const lifecycle = generation;
+    ++lifecycle.current;
+    if (!isOpen) return;
+    const trigger = document.activeElement as HTMLElement | null;
+    (dialog.current?.querySelector<HTMLElement>('textarea:not(:disabled)') || dialog.current?.querySelector<HTMLElement>('button'))?.focus();
     return () => {
-      active.current = false;
-      if (timer.current !== null) window.clearTimeout(timer.current);
+      ++lifecycle.current;
+      if (trigger?.isConnected) trigger.focus();
+      else document.querySelector<HTMLElement>('[aria-label="More case actions"]')?.focus();
     };
-  }, []);
+  }, [isOpen]);
+  useLayoutEffect(() => {
+    if (!isOpen || currentJob?.status !== 'SUCCEEDED' || notified.current === currentJob.id) return;
+    notified.current = currentJob.id;
+    const owner = generation.current;
+    void callback.current(caseNumber, () => generation.current === owner).catch(() => {
+      if (generation.current === owner) setRefreshError(true);
+    });
+  }, [isOpen, currentJob, caseNumber]);
 
   if (!isOpen) return null;
 
   const handleExtractAndResolve = async () => {
-    if (!evidenceText.trim() || isExtracting) return;
+    if (!evidenceText.trim() || isExtracting || job || submissionUnknown) return;
+    const owner = generation.current;
     setIsExtracting(true);
     setError(null);
 
@@ -52,43 +77,31 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
         : `AI-DEMO-${Math.random().toString(36).substring(2, 10)}`;
 
     try {
-      const createdCaseNumber = uniqueDemoCaseNumber;
       const submitted = await api.ingestUnstructured({
         case_number: uniqueDemoCaseNumber,
         raw_evidence_text: evidenceText.trim(),
         source_identifier: 'GEMINI_EXTRACTION_DEMO',
       });
+      if (generation.current !== owner) return;
+      setCaseNumber(uniqueDemoCaseNumber);
       setJob(submitted);
-      const poll = async (): Promise<void> => {
-        try {
-          const current = await api.getJob(submitted.id);
-          if (!active.current) return;
-          setJob(current);
-          if (current.status === 'SUCCEEDED') {
-            await onCaseCreated(createdCaseNumber);
-            onClose();
-          } else if (current.status !== 'FAILED') {
-            timer.current = window.setTimeout(() => void poll(), 1800);
-          }
-        } catch {
-          if (active.current) setError('Could not check extraction progress. Please try again shortly.');
-        }
-      };
-      timer.current = window.setTimeout(() => void poll(), 1000);
+      onJobAccepted?.();
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.detail
-          : 'Could not extract evidence. Please try again.';
-      setError(message);
+      if (generation.current !== owner) return;
+      const rejected = err instanceof ApiError && [400, 413, 422].includes(err.status);
+      setSubmissionUnknown(!rejected);
+      setError(rejected ? 'Could not extract evidence. Check your input.' : 'We could not confirm whether the extraction was accepted. Check Recent activity before starting another attempt.');
+      onJobAccepted?.();
     } finally {
-      setIsExtracting(false);
+      if (generation.current === owner) setIsExtracting(false);
     }
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+      ref={dialog}
+      onKeyDown={event => { if (event.key === 'Escape' && !isExtracting) { event.stopPropagation(); onClose(); } }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-modal-title"
@@ -169,18 +182,16 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
                 >
                   <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold">Status check failed</p>
+                    <p className="font-semibold">Could not start extraction</p>
                     <p className="mt-0.5 text-[11px] text-rose-800">{error}</p>
                   </div>
                 </div>
               )}
             </>
-          ) : job ? (
-            <div className={`flex items-start space-x-2 rounded border p-3 text-xs ${job.status === 'FAILED' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-blue-200 bg-blue-50 text-blue-900'}`} role="status">
-              {job.status === 'FAILED' ? <AlertCircle className="h-4 w-4 shrink-0" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}
-              <div><p className="font-semibold">{job.status === 'FAILED' ? 'Could not extract evidence' : 'Extracting evidence…'}</p><p className="mt-0.5 text-[11px]">{job.failure_message || 'Extracting contact details from your text.'}</p></div>
-            </div>
+          ) : currentJob ? (
+            <JobStatus job={currentJob} error={tracking.error} checking={tracking.checking} onCheck={tracking.checkAgain} />
           ) : null}
+          {refreshError && <p role="alert" className="text-xs">Extraction completed. Could not refresh cases. Close this dialog and refresh cases.</p>}
         </div>
 
         {/* Modal Footer Actions */}
@@ -198,7 +209,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
               <button
                 type="button"
                 onClick={handleExtractAndResolve}
-                disabled={isExtracting || !evidenceText.trim()}
+                disabled={isExtracting || submissionUnknown || !evidenceText.trim()}
                 className="inline-flex items-center space-x-1.5 rounded bg-accent px-4 py-1.5 text-xs font-medium text-accent-contrast shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isExtracting ? (
@@ -216,6 +227,10 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
             </>
           ) : (
             <>
+              {currentJob?.status === 'FAILED' && !tracking.error && <button type="button" className="shell-button shell-button-bordered" onClick={() => {
+                ++generation.current;
+                setJob(null); setError(null); setRefreshError(false); notified.current = null;
+              }}>Try again</button>}
               <button type="button" onClick={onClose} className="rounded border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">Close</button>
             </>
           )}

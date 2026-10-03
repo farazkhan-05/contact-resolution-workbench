@@ -23,7 +23,7 @@ it.each([
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={created} />);
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' })); });
   await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
-  expect(screen.getByText('Could not extract evidence')).toBeTruthy();
+  expect(screen.getByText('AI evidence extraction failed.')).toBeTruthy();
   expect(screen.getByText(failure_message)).toBeTruthy();
   expect(screen.queryByText(/Gemini ingestion/i)).toBeNull();
   expect(screen.queryByText(failure_code)).toBeNull();

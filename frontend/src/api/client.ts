@@ -61,6 +61,7 @@ export const api = {
   async ingestSample(): Promise<SampleIngestResponse> { return handleResponse(await request('/api/v1/ingest/sample', { method: 'POST' })); },
   async ingestCsv(file: File): Promise<Job> { const body = new FormData(); body.append('file', file); return handleResponse(await request('/api/v1/ingest/csv', { method: 'POST', body })); },
   async getJob(jobId: string): Promise<Job> { return handleResponse(await request(`/api/v1/jobs/${jobId}`, { method: 'GET' })); },
+  async listJobs(): Promise<Job[]> { return handleResponse(await request('/api/v1/jobs', { method: 'GET' })); },
   async getCases(params?: { routing_status?: RoutingStatus; review_decision?: ReviewDecision; search?: string }): Promise<CaseSummary[]> {
     const query = new URLSearchParams();
     if (params?.routing_status) query.set('routing_status', params.routing_status);

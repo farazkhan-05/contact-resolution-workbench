@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { syntheticJob } from './test-support/jobs';
 import { api } from './api/client';
 import { sampleDetail, sampleSummary } from './test-support/cases';
 
-const auth = vi.hoisted(() => ({ signOutUser: vi.fn(async () => {}), status: 'ready' }));
-vi.mock('./auth/AuthProvider', () => ({ useAuth: () => ({ ...auth, workspace: { id: 'test-workspace', role: 'OWNER' } }) }));
+const auth = vi.hoisted(() => ({ signOutUser: vi.fn(async () => {}), status: 'ready', workspace: { id: 'test-workspace', role: 'OWNER' } }));
+vi.mock('./auth/AuthProvider', () => ({ useAuth: () => auth }));
 vi.mock('./api/telemetry', () => ({ recordUsageEvent: vi.fn() }));
 vi.mock('./api/client', async (original) => {
   const actual = await original<typeof import('./api/client')>();
@@ -16,10 +17,11 @@ beforeEach(() => {
   vi.mocked(api.getCases).mockResolvedValue([]);
   vi.mocked(api.getCase).mockResolvedValue(sampleDetail);
   vi.mocked(api.listSources).mockResolvedValue([]);
+  vi.mocked(api.listJobs).mockResolvedValue([]);
   vi.mocked(api.listInvestigations).mockResolvedValue([]);
   vi.mocked(api.ingestSample).mockResolvedValue({ ingested_count: 1, created_count: 1, existing_count: 0, case_ids: ['case-1'] });
   vi.mocked(api.ingestCsv).mockResolvedValue({ id: 'job-1' } as Awaited<ReturnType<typeof api.ingestCsv>>);
-  vi.mocked(api.getJob).mockResolvedValue({ status: 'SUCCEEDED', successful_rows: 1 } as Awaited<ReturnType<typeof api.getJob>>);
+  vi.mocked(api.getJob).mockResolvedValue(syntheticJob({ status: 'SUCCEEDED', successful_rows: 1 }));
   Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
   document.head.innerHTML = '<link rel="icon" href="/exact-existing-favicon.svg">';
 });
@@ -122,7 +124,7 @@ describe('authenticated workbench shell', () => {
     ['Could not save the CSV. Try again.', 'No records were imported. Could not save the CSV. Try again.'],
   ])('shows the durable CSV failure: %s', async (failure_message, message) => {
     await mountEmpty();
-    vi.mocked(api.getJob).mockResolvedValue({ status: 'FAILED', successful_rows: 0, failure_message } as Awaited<ReturnType<typeof api.getJob>>);
+    vi.mocked(api.getJob).mockResolvedValue(syntheticJob({ status: 'FAILED', successful_rows: 0, failure_message }));
     fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
     await screen.findByText(message);
     expect(screen.queryByText(/records imported\./)).toBeNull();
@@ -135,7 +137,7 @@ describe('authenticated workbench shell', () => {
     fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
     await screen.findByText('CSV uploaded. Waiting for the import result.');
     expect(screen.queryByText(/record imported\./)).toBeNull();
-    complete({ status: 'SUCCEEDED', successful_rows: 2 } as Awaited<ReturnType<typeof api.getJob>>);
+    complete(syntheticJob({ status: 'SUCCEEDED', successful_rows: 2 }));
     await screen.findByText('2 records imported.');
   });
 
@@ -143,9 +145,88 @@ describe('authenticated workbench shell', () => {
     await mountEmpty();
     vi.mocked(api.getJob).mockRejectedValueOnce(new Error('synthetic network failure'));
     fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
-    await screen.findByText('Could not check the import result. Check Jobs before trying again.');
+    await screen.findByText('Could not check the latest status. The import outcome is unknown.');
     expect(screen.queryByText(/No records were imported/)).toBeNull();
     expect(screen.queryByText(/record imported\./)).toBeNull();
+    fireEvent.click(screen.getByText('Check again'));
+    await screen.findByText('1 record imported.');
+    expect(api.ingestCsv).toHaveBeenCalledTimes(1);
+    expect(api.getJob).toHaveBeenCalledTimes(2);
+  });
+
+  it('queue read recovery is accurately named Refresh cases', async () => {
+    vi.mocked(api.getCases).mockRejectedValueOnce(Error('synthetic read failure'));
+    render(<App />);
+    fireEvent.click(await screen.findByText('Refresh cases'));
+    await screen.findByText('No cases yet');
+    expect(api.getCases).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Retry')).toBeNull();
+  });
+
+  it('Try export again only retries the read/download', async () => {
+    vi.mocked(api.getCases).mockResolvedValue([{ ...sampleSummary, review_decision: 'REJECTED' }]);
+    vi.mocked(api.exportReviewedCsv).mockRejectedValueOnce(Error('download')).mockResolvedValueOnce(new Blob(['synthetic']));
+    const createUrl = vi.fn(() => 'blob:synthetic');
+    Object.defineProperty(window.URL, 'createObjectURL', { configurable: true, value: createUrl });
+    Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Claire Reynolds' });
+    fireEvent.click(screen.getByText('Export Reviewed'));
+    await screen.findByText('Try export again');
+    const queueCalls = vi.mocked(api.getCases).mock.calls.length;
+    fireEvent.click(screen.getByText('Try export again'));
+    await screen.findByText('Downloaded reviewed cases CSV.');
+    expect(api.exportReviewedCsv).toHaveBeenCalledTimes(2);
+    expect(api.getCases).toHaveBeenCalledTimes(queueCalls);
+    expect(api.ingestCsv).not.toHaveBeenCalled();
+    expect(api.submitDecision).not.toHaveBeenCalled();
+    click.mockRestore();
+  });
+
+  it('review failure requires durable read-back and never retries the write', async () => {
+    vi.mocked(api.getCases).mockResolvedValue([sampleSummary]);
+    vi.mocked(api.submitDecision).mockRejectedValueOnce(Error('lost acknowledgement'));
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Claire Reynolds' });
+    fireEvent.click(screen.getByText('Reject All'));
+    await screen.findByText(/Could not confirm the review decision/);
+    expect(screen.getByText('Reject All').closest('button')?.disabled).toBe(true);
+    const count = vi.mocked(api.getCase).mock.calls.length;
+    vi.mocked(api.getCase).mockResolvedValue({ ...sampleDetail, review_decision: 'REJECTED' });
+    fireEvent.click(screen.getByText('Refresh case'));
+    await waitFor(() => expect(api.getCase).toHaveBeenCalledTimes(count + 1));
+    expect(api.submitDecision).toHaveBeenCalledTimes(1);
+  });
+
+  it('reload restores active activity independently of Case loading and does not reopen the modal', async () => {
+    vi.mocked(api.listJobs).mockResolvedValue([syntheticJob({ status: 'RUNNING' })]);
+    vi.mocked(api.getJob).mockResolvedValue(syntheticJob({ status: 'RUNNING' }));
+    const view = render(<App />);
+    await screen.findByText('Recent activity (1 active)');
+    view.unmount(); render(<App />);
+    fireEvent.click(await screen.findByText('Recent activity (1 active)'));
+    await screen.findByText('Running');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.ingestCsv).not.toHaveBeenCalled();
+    expect(api.ingestUnstructured).not.toHaveBeenCalled();
+  });
+
+  it('closing AI while its success Case read is in flight prevents late navigation', async () => {
+    await mountEmpty();
+    let complete!: (cases: typeof sampleSummary[]) => void;
+    vi.mocked(api.getCases).mockReturnValueOnce(new Promise(resolve => { complete = resolve; }));
+    vi.mocked(api.ingestUnstructured).mockResolvedValue(syntheticJob());
+    vi.mocked(api.getJob).mockResolvedValue(syntheticJob({ status: 'SUCCEEDED', successful_rows: 1 }));
+    fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
+    fireEvent.click(screen.getByText('Extract & Resolve'));
+    await screen.findByText('Completed');
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    complete([sampleSummary]);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('No cases yet')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Claire Reynolds' })).toBeNull();
   });
 
   it('preserves server side search and filters when a filtered query returns no cases', async () => {

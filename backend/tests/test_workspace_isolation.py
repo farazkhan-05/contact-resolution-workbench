@@ -13,6 +13,7 @@ from app.core import auth
 from app.core.bootstrap_diagnostics import BootstrapDiagnostics
 from app.core.database import Base, get_db
 from app.main import app
+from app.models.job import Job
 from app.models.workspace import User, Workspace, WorkspaceMembership
 
 
@@ -64,6 +65,55 @@ def bootstrap(client: TestClient, token: str) -> str:
 
 def headers(token: str, workspace_id: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", "X-Workspace-ID": workspace_id}
+
+
+def test_jobs_recovery_list_is_scoped_ordered_and_excludes_internal_fields(
+    isolated_client: tuple[TestClient, sessionmaker[Session]],
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    client, sessions = isolated_client
+    workspace_a = bootstrap(client, "user-a")
+    workspace_b = bootstrap(client, "user-b")
+    now = datetime.now(UTC)
+    with sessions() as db:
+        older = Job(
+            workspace_id=workspace_a,
+            job_type="CSV_INGEST",
+            status="FAILED",
+            created_at=now - timedelta(hours=1),
+            payload="synthetic private evidence",
+            celery_task_id="internal-task",
+            failure_message="CSV import failed.",
+        )
+        newer = Job(
+            workspace_id=workspace_a,
+            job_type="GEMINI_UNSTRUCTURED_INGEST",
+            status="RUNNING",
+            created_at=now,
+            started_at=now,
+            payload="{}",
+        )
+        foreign = Job(
+            workspace_id=workspace_b, job_type="CSV_INGEST", status="SUCCEEDED", payload="{}"
+        )
+        db.add_all([older, newer, foreign])
+        db.commit()
+        ids = [newer.id, older.id]
+        foreign_id = foreign.id
+    listing = client.get("/api/v1/jobs", headers=headers("user-a", workspace_a))
+    assert listing.status_code == 200
+    jobs = listing.json()
+    assert [job["id"] for job in jobs] == ids
+    assert all(job["workspace_id"] == workspace_a for job in jobs)
+    assert jobs[0]["started_at"] and jobs[1]["created_at"]
+    assert all("payload" not in job and "celery_task_id" not in job for job in jobs)
+    assert "synthetic private evidence" not in listing.text
+    assert (
+        client.get(f"/api/v1/jobs/{foreign_id}", headers=headers("user-a", workspace_a)).status_code
+        == 404
+    )
+    assert client.get("/api/v1/jobs", headers=headers("user-a", workspace_b)).status_code == 403
 
 
 def test_authentication_bootstrap_and_workspace_isolation(

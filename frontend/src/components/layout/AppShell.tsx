@@ -12,12 +12,12 @@ interface AppShellProps {
   onUploadCsv: (file: File) => Promise<void>;
   onExportCsv: () => Promise<void>;
   onOpenAiModal: () => void;
-  onRetry?: () => void;
+  activity?: React.ReactNode;
   isLoadingSample: boolean;
   isUploadingCsv: boolean;
   isExportingCsv: boolean;
   exportDisabled: boolean;
-  feedback: { type: 'success' | 'error' | 'info'; message: string } | null;
+  feedback: { type: 'success' | 'error' | 'info'; message: string; action?: { label: string; run: () => void } } | null;
   onClearFeedback: () => void;
   onSignOut: () => Promise<void>;
   children: React.ReactNode;
@@ -31,7 +31,7 @@ const subscribe = (callback: () => void) => {
 const getCompact = () => window.matchMedia(compactQuery).matches;
 
 export const AppShell: React.FC<AppShellProps> = ({
-  activePage, onNavigate, onLoadSample, onUploadCsv, onExportCsv, onOpenAiModal, onRetry,
+  activePage, onNavigate, onLoadSample, onUploadCsv, onExportCsv, onOpenAiModal, activity,
   isLoadingSample, isUploadingCsv, isExportingCsv, exportDisabled, feedback, onClearFeedback, onSignOut, children,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,13 +97,13 @@ export const AppShell: React.FC<AppShellProps> = ({
             {feedback.type === 'error' && <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />}
             {feedback.type === 'info' && <HelpCircle className="h-4 w-4 shrink-0 text-blue-600" />}
             <span className="font-medium">{feedback.message}</span>
-            {feedback.type === 'error' && onRetry && (
+            {feedback.action && (
               <button
                 type="button"
-                onClick={onRetry}
+                onClick={feedback.action.run}
                 className="ml-2 rounded border border-rose-300 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-rose-800 hover:bg-white"
               >
-                Retry
+                {feedback.action.label}
               </button>
             )}
           </div>
@@ -118,6 +118,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
       )}
 
+    {activity}
     <main className="shell-workspace">{children}</main>
     <footer className="environment-note">Synthetic demo data only</footer>
   </div>;

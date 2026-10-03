@@ -29,7 +29,7 @@ async function fixture(page) {
     if (url.pathname.endsWith('/ingest/csv')) return reply({ id: 'job-1', status: 'PENDING' });
     if (url.pathname.endsWith('/jobs/job-1')) {
       records = [sampleSummary];
-      return reply({ id: 'job-1', status: 'SUCCEEDED', successful_rows: 1 });
+      return reply({ id: 'job-1', workspace_id: 'synthetic-ui-workspace', status: 'SUCCEEDED', successful_rows: 1 });
     }
     if (url.pathname.endsWith('/cases')) {
       return reply(records.filter(record =>
@@ -158,7 +158,7 @@ test('workflow actions, CSV chooser, filters, review export and Sources remain f
   const chooser = page.waitForEvent('filechooser');
   await page.locator('.workspace-empty').getByRole('button', { name: 'Upload CSV', exact: true }).click();
   await (await chooser).setFiles({ name: 'synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from('case_number,full_name\nCSV-1,Claire Reynolds\n') });
-  await expect(page.getByText('CSV ingestion completed: 1 cases created.', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible();
   expect(requests.some(r => r.path.endsWith('/ingest/csv') && r.method === 'POST')).toBe(true);
   await page.getByRole('button', { name: 'Load Sample Cases', exact: true }).click();
   await expect(page.getByText('3 total', { exact: true })).toBeVisible();
@@ -188,6 +188,48 @@ test('workflow actions, CSV chooser, filters, review export and Sources remain f
   await expect(page.getByRole('heading', { name: 'Sources / Integrations' })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Cases', exact: true }).click();
   await expect(page.getByLabel('Search cases')).toBeVisible();
+});
+
+test('AI status recovery reads only and completed activity survives reload', async ({ page }, info) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await fixture(page);
+  let submissions = 0;
+  let checks = 0;
+  const job = { id: 'ai-recovery', workspace_id: 'synthetic-ui-workspace', job_type: 'GEMINI_UNSTRUCTURED_INGEST', status: 'PENDING', total_rows: 1, processed_rows: 0, successful_rows: 0, rejected_rows: 0, created_at: new Date().toISOString(), started_at: null, completed_at: null };
+  await page.route('**/api/v1/ingest/unstructured', route => {
+    submissions += 1;
+    return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify(job) });
+  });
+  await page.route('**/api/v1/jobs/ai-recovery', route => {
+    checks += 1;
+    if (checks === 1) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"detail":"synthetic read failure"}' });
+    job.status = 'SUCCEEDED'; job.successful_rows = 1; job.completed_at = new Date().toISOString();
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify(job) });
+  });
+  await page.route('**/api/v1/jobs', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(submissions ? [job] : []) }));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'AI Evidence Extraction', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(page.getByLabel('Unstructured Provider Evidence')).toBeFocused();
+  await dialog.getByRole('button', { name: 'Extract & Resolve' }).click();
+  await expect(dialog.getByText('Could not check the latest status. The outcome is unknown.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Check again' }).click();
+  await expect(dialog.getByText('Completed', { exact: true })).toBeVisible();
+  expect(submissions).toBe(1); expect(checks).toBe(2);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.reload();
+  await expect(page.getByText('No cases yet', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Recent activity', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Recent activity' }).getByText('Completed', { exact: true })).toBeVisible();
+  expect(submissions).toBe(1);
+  expect(errors).toEqual([]);
+  await page.screenshot({ path: info.outputPath('activity-desktop.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noOverflow(page);
+  await page.screenshot({ path: info.outputPath('activity-mobile.png') });
 });
 
 test('authentication branding and favicon remain consistent at desktop and mobile sizes', async ({ page }, info) => {

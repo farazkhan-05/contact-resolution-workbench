@@ -6,6 +6,8 @@ import { useAuth } from './auth/AuthProvider';
 import { recordUsageEvent } from './api/telemetry';
 import { AppShell } from './components/layout/AppShell';
 import { AiExtractionModal } from './components/cases/AiExtractionModal';
+import { RecentActivity } from './components/jobs/RecentActivity';
+import { isLongRunning } from './components/jobs/jobPresentation';
 import { CaseDetail } from './components/cases/CaseDetail';
 import { CaseQueue } from './components/cases/CaseQueue';
 import type {
@@ -33,23 +35,28 @@ export function App() {
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+  const [reviewNeedsCheck, setReviewNeedsCheck] = useState<string | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [activityExpanded, setActivityExpanded] = useState(false);
+  const [activityRevision, setActivityRevision] = useState(0);
 
   const [mobileView, setMobileView] = useState<'queue' | 'detail'>('queue');
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
+    action?: { label: string; run: () => void };
   } | null>(null);
 
   const hasTrackedAppOpen = useRef(false);
   const lastViewedCaseRef = useRef<string | null>(null);
   const jobPollTimers = useRef(new Set<number>());
-  const pollingSessionActive = useRef(status === 'ready');
+  const csvRequest = useRef(0);
+  const pollingSession = useRef({ active: status === 'ready', workspaceId: workspace?.id });
   const detailRequestId = useRef(0);
   const reviewInFlight = useRef(false);
   const reviewView = useRef({ caseId: selectedCaseId, workspaceId: workspace?.id, active: false, ready: false });
   const isReviewReady = status === 'ready' && !!workspace && !!selectedCaseDetail
-    && selectedCaseDetail.id === selectedCaseId && !isLoadingDetail;
+    && selectedCaseDetail.id === selectedCaseId && !isLoadingDetail && reviewNeedsCheck !== selectedCaseId;
 
   // A new committed selection/session owns a distinct view, including A -> B -> A.
   useLayoutEffect(() => {
@@ -69,12 +76,13 @@ export function App() {
 
   useEffect(() => () => clearJobPollTimers(), []);
 
-  useEffect(() => {
-    pollingSessionActive.current = status === 'ready';
-    if (!pollingSessionActive.current) {
-      clearJobPollTimers();
-    }
-  }, [status]);
+  useLayoutEffect(() => {
+    const session = { active: status === 'ready', workspaceId: workspace?.id };
+    pollingSession.current = session;
+    setIsAiModalOpen(false);
+    setActivityExpanded(false);
+    return () => { session.active = false; clearJobPollTimers(); };
+  }, [status, workspace?.id]);
 
   // Track initial app open once per browser session load
   useEffect(() => {
@@ -94,7 +102,7 @@ export function App() {
 
   // Fetch Cases list
   const fetchCases = useCallback(
-    async (preferredSelectedId?: string | null, canApplyReviewRefresh?: () => boolean) => {
+    async (preferredSelectedId?: string | null, canApplyReviewRefresh?: () => boolean, preserveSelection = true) => {
       setIsLoadingQueue(true);
       try {
         const fetched = await api.getCases({
@@ -107,7 +115,7 @@ export function App() {
         setHasUnfilteredQueue(activeRoutingFilter === 'ALL' && activeDecisionFilter === 'ALL' && !searchQuery.trim());
 
         // Review refreshes only update the queue, never change the reviewer's selection.
-        if (!canApplyReviewRefresh) {
+        if (!canApplyReviewRefresh || !preserveSelection) {
           setSelectedCaseId((currentSelectedId) => {
             const targetId = preferredSelectedId !== undefined ? preferredSelectedId : currentSelectedId;
             if (targetId && fetched.some((c) => c.id === targetId)) {
@@ -125,7 +133,7 @@ export function App() {
         if (canApplyReviewRefresh && !canApplyReviewRefresh()) return;
         setHasUnfilteredQueue(false);
         const msg = err instanceof ApiError ? err.detail : 'Could not connect to the API. Confirm the backend is running and retry.';
-        setFeedback({ type: 'error', message: msg });
+        setFeedback({ type: 'error', message: msg, action: { label: 'Refresh cases', run: () => void fetchCases() } });
       } finally {
         setIsLoadingQueue(false);
       }
@@ -148,10 +156,11 @@ export function App() {
       if (!isCurrent()) return;
       if (detail.id !== caseId) throw new Error('Case detail did not match the requested case.');
       setSelectedCaseDetail(detail);
+      setReviewNeedsCheck(current => current === caseId ? null : current);
     } catch (err) {
       if (!isCurrent()) return;
       const msg = err instanceof ApiError ? err.detail : 'Could not load case detail.';
-      setFeedback({ type: 'error', message: msg });
+      setFeedback({ type: 'error', message: msg, action: { label: 'Refresh case', run: () => void fetchCaseDetail(caseId) } });
     } finally {
       if (isCurrent()) setIsLoadingDetail(false);
     }
@@ -205,37 +214,52 @@ export function App() {
   };
 
   const handleUploadCsv = async (file: File) => {
+    const session = pollingSession.current;
+    const request = ++csvRequest.current;
+    clearJobPollTimers();
+    const current = () => session.active && pollingSession.current === session && csvRequest.current === request;
     setIsUploadingCsv(true);
     setFeedback(null);
     try {
       const res = await api.ingestCsv(file);
+      if (!current()) return;
+      setActivityRevision(value => value + 1);
       recordUsageEvent('CSV_UPLOADED');
       setFeedback({ type: 'info', message: 'CSV uploaded. Waiting for the import result.' });
+      let checking = false;
       const poll = async (): Promise<void> => {
+        if (!current() || checking) return;
+        checking = true;
         try {
           const job = await api.getJob(res.id);
-          if (!pollingSessionActive.current) return;
+          if (!current()) return;
+          if (job.id !== res.id || job.workspace_id !== session.workspaceId) throw Error('Unexpected Job');
           if (job.status === 'SUCCEEDED') {
             setFeedback({ type: 'success', message: `${job.successful_rows} ${job.successful_rows === 1 ? 'record' : 'records'} imported.` });
-            await fetchCases();
+            setActivityRevision(value => value + 1);
+            await fetchCases(undefined, current, false);
           } else if (job.status === 'FAILED') {
-            setFeedback({ type: 'error', message: `No records were imported. ${job.failure_message || 'Fix the CSV and try again.'}` });
+            setActivityRevision(value => value + 1);
+            setFeedback({ type: 'error', message: `No records were imported. ${job.failure_message || 'Fix the CSV and try again.'}`, action: { label: 'View recent activity', run: () => setActivityExpanded(true) } });
           } else {
-            setFeedback({ type: 'info', message: 'Importing your CSV. Waiting for the result.' });
+            setFeedback({ type: 'info', message: isLongRunning(job) ? 'This is taking longer than expected.' : 'Importing your CSV. Waiting for the result.', action: { label: 'View recent activity', run: () => setActivityExpanded(true) } });
             const timer = window.setTimeout(() => {
               jobPollTimers.current.delete(timer);
               void poll();
             }, 1500);
             jobPollTimers.current.add(timer);
           }
-        } catch { setFeedback({ type: 'error', message: 'Could not check the import result. Check Jobs before trying again.' }); }
+        } catch {
+          if (current()) setFeedback({ type: 'error', message: 'Could not check the latest status. The import outcome is unknown.', action: { label: 'Check again', run: () => { if (current()) void poll(); } } });
+        } finally { checking = false; }
       };
       void poll();
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.detail : 'Failed to process uploaded CSV.';
-      setFeedback({ type: 'error', message: msg });
+    } catch {
+      if (!current()) return;
+      setActivityRevision(value => value + 1);
+      setFeedback({ type: 'error', message: 'Could not confirm the CSV import. Check Recent activity before uploading again.', action: { label: 'View recent activity', run: () => setActivityExpanded(true) } });
     } finally {
-      setIsUploadingCsv(false);
+      if (current()) setIsUploadingCsv(false);
     }
   };
 
@@ -256,7 +280,7 @@ export function App() {
       setFeedback({ type: 'success', message: 'Downloaded reviewed cases CSV.' });
     } catch (err) {
       const msg = err instanceof ApiError ? err.detail : 'Failed to export reviewed cases.';
-      setFeedback({ type: 'error', message: msg });
+      setFeedback({ type: 'error', message: msg, action: { label: 'Try export again', run: () => void handleExportCsv() } });
     } finally {
       setIsExportingCsv(false);
     }
@@ -285,7 +309,10 @@ export function App() {
         notes,
       });
       if (updated.id !== renderedCaseId) {
-        if (isCurrentView()) setFeedback({ type: 'error', message: 'Review response did not match the submitted case.' });
+        if (isCurrentView()) {
+          setReviewNeedsCheck(renderedCaseId);
+          setFeedback({ type: 'error', message: 'Could not confirm the review decision. Refresh this case to check the saved decision.', action: { label: 'Refresh case', run: () => { if (isCurrentView()) void fetchCaseDetail(renderedCaseId); } } });
+        }
         return;
       }
       recordUsageEvent('DECISION_SUBMITTED', updated.case_number);
@@ -303,10 +330,14 @@ export function App() {
       });
       // Refresh summaries in queue
       await fetchCases(undefined, isCurrentRefresh);
-    } catch (err) {
+    } catch {
       if (!isCurrentView()) return;
-      const msg = err instanceof ApiError ? err.detail : 'Failed to submit decision.';
-      setFeedback({ type: 'error', message: msg });
+      setReviewNeedsCheck(renderedCaseId);
+      setFeedback({ type: 'error', message: 'Could not confirm the review decision. Refresh this case to check the saved decision before submitting again.', action: { label: 'Refresh case', run: () => {
+        if (!isCurrentView()) return;
+        void fetchCaseDetail(renderedCaseId);
+        void fetchCases(undefined, isCurrentRefresh);
+      } } });
     } finally {
       reviewInFlight.current = false;
       setIsSubmittingDecision(false);
@@ -314,8 +345,11 @@ export function App() {
   };
 
 
-  const handleCaseCreatedFromAi = async (caseNumber: string) => {
+  const handleCaseCreatedFromAi = async (caseNumber: string, canApply: () => boolean) => {
+    const session = pollingSession.current;
     const refreshed = await api.getCases();
+    if (!canApply() || !session.active || pollingSession.current !== session) return;
+    setActivityRevision(value => value + 1);
     setCases(refreshed);
     const created = refreshed.find((item) => item.case_number === caseNumber);
     if (created) {
@@ -351,7 +385,7 @@ export function App() {
         onUploadCsv={handleUploadCsv}
         onExportCsv={handleExportCsv}
         onOpenAiModal={() => setIsAiModalOpen(true)}
-        onRetry={() => fetchCases()}
+        activity={workspace && <RecentActivity key={workspace.id} workspaceId={workspace.id} revision={activityRevision} expanded={activityExpanded} onToggle={() => setActivityExpanded(value => !value)} onRefreshCases={() => void fetchCases()} />}
         isLoadingSample={isLoadingSample}
         isUploadingCsv={isUploadingCsv}
         isExportingCsv={isExportingCsv}
@@ -417,9 +451,11 @@ export function App() {
       </AppShell>
 
       <AiExtractionModal
+        key={workspace?.id}
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
         onCaseCreated={handleCaseCreatedFromAi}
+        onJobAccepted={() => setActivityRevision(value => value + 1)}
       />
     </>
   );

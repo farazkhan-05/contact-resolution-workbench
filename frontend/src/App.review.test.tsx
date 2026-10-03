@@ -36,6 +36,7 @@ const heading = (detail: CaseDetail) => screen.getByRole('heading', { name: deta
 const rejectButton = () => screen.getByRole('button', { name: 'Reject All' });
 
 beforeEach(() => {
+  vi.mocked(api.listJobs).mockResolvedValue([]);
   vi.mocked(api.getCases).mockResolvedValue(summaries);
   vi.mocked(api.getCase).mockImplementation(async id => id === caseA.id ? caseA : caseB);
   vi.mocked(api.listInvestigations).mockResolvedValue([]);
@@ -201,7 +202,7 @@ describe('review case authority', () => {
     render(<App />);
     await screen.findByRole('heading', { name: caseA.raw_name });
     fireEvent.click(rejectButton());
-    await screen.findByText('Review response did not match the submitted case.');
+    await screen.findByText(/Could not confirm the review decision/);
     expect(heading(caseA)).toBeTruthy();
     expect(screen.getByText('Decision: PENDING')).toBeTruthy();
     expect(api.submitDecision).toHaveBeenCalledTimes(1);
