@@ -1,10 +1,10 @@
-# Identity Resolution Workbench
+# Contact Resolution Workbench
 
-A multi-tenant workbench that compares incoming contact records with reference identities and queues uncertain matches for human review. Suffix and full-middle-name conflicts block automatic likely-match routing even when contact details agree.
+A multi-tenant workbench for safely reviewing stale, duplicated and fragmented contact records. Deterministic identity rules score and route candidates; Gemini assists with evidence extraction, optional LangGraph investigations explore ambiguous evidence, and humans make final review decisions. Contradictions can block unsafe automatic likely-match assumptions.
 
 ## Live portfolio
 
-[Open Identity Resolution Workbench](https://contact-resolution.vercel.app). Choose the anonymous demo or sign in. Use synthetic data only.
+[Open Contact Resolution Workbench](https://contact-resolution.vercel.app). Choose the anonymous demo or sign in. Use synthetic data only.
 
 The live portfolio deployment uses React/Vercel, Firebase, FastAPI on Northflank,
 Neon/PostgreSQL and Redis/Celery. See the [engineering evidence](docs/project-evidence.md)
@@ -15,7 +15,7 @@ an outcome; it does not silently merge records or submit a reviewer decision.
 
 Businesses accumulate outdated contact details and duplicate identities across systems. Exact matching misses legitimate changes; loose fuzzy matching can incorrectly join different people, including family members with similar names.
 
-Optional Gemini extraction turns unstructured notes into schema-validated fields. LangGraph/MCP investigations check extracted values against approved evidence and rerun deterministic analysis. AI cannot set scores, choose a workspace, override contradiction gates or submit the reviewer's Accept/Reject decision. Investigation retrieval currently uses synthetic notes; it has local test evidence but has not run in public staging.
+Optional Gemini extraction turns unstructured notes into schema-validated fields. LangGraph/MCP investigations check extracted values against approved evidence and rerun deterministic analysis. AI cannot set scores, choose a workspace, override contradiction gates or submit the reviewer's Accept/Reject decision. Investigation retrieval currently uses approved synthetic notes. PostgreSQL checkpoint restoration has local real-service and earlier production evidence; clean investigation acceptance on the latest release is pending. AI-extracted evidence is unverified, and no calibrated confidence percentage is supplied.
 
 ## Data ingestion
 
@@ -59,29 +59,28 @@ See the [Source API contract](docs/sources.md) for the schema and retry behavior
 ## Runtime architecture
 
 ```mermaid
-flowchart LR
-    External[External systems] --> Source[Authenticated Source API]
-    CSV[CSV incoming import] --> Jobs[Durable PostgreSQL ingestion / Jobs]
-    Source --> Jobs
-    Jobs --> Queue[Redis / Celery]
-    Queue --> Reference[REFERENCE upsert]
-    Queue --> Resolve[INCOMING candidate generation and scoring]
-    Reference --> Resolve
-    Resolve --> Gates[Contradiction-aware routing]
-    Gates --> Outcome[Automatic routing outcome]
-    Gates --> Review[Human review queue]
+flowchart TD
+    Browser[Browser / React on Vercel] --> API[FastAPI API on Northflank]
+    API --> DB[(PostgreSQL / Neon: durable source of truth)]
+    API --> Queue[Redis on Northflank]
+    Queue --> Worker[Celery worker on Northflank]
+    Worker --> DB
+    Worker --> Gemini[Gemini evidence extraction]
+    Worker --> Graph[Optional LangGraph investigation]
+    Graph --> MCP[Governed MCP tools]
+    MCP --> Gemini
+    MCP --> Rules[Deterministic scoring and contradiction gates]
+    Worker --> Rules
+    Rules --> DB
+    API --> Review[Human review]
+    API -. optional filtered telemetry .-> OTel[OpenTelemetry + Langfuse]
+    Worker -. optional filtered telemetry .-> OTel
 ```
 
-```text
-React / Vercel Production -> Firebase -> FastAPI / Northflank -> Neon PostgreSQL
-                                                  |
-                                            private Redis -> Celery
-
-Explicit investigation -> LangGraph -> governed MCP -> approved evidence
-                                    -> deterministic re-analysis -> human interrupt
-```
-
-Automatic routing recommends an outcome; it does not silently merge records or submit a reviewer decision. LangGraph/MCP is implemented and locally tested, but has not been executed in public staging.
+PostgreSQL owns durable workspace, Case, Job, evidence and checkpoint state. Redis
+and Celery carry asynchronous work. MCP exposes constrained, reauthorized actions;
+it provides no arbitrary database access. Optional telemetry integration is
+implemented and tested; public exporters remain disabled.
 
 ## Capabilities
 
@@ -96,17 +95,52 @@ Automatic routing recommends an outcome; it does not silently merge records or s
 | Experiment | Held-out synthetic evidence | Decision |
 | --- | --- | --- |
 | Deterministic retrieval | Recall@1 92.91%; Recall@5 and Recall@10 100% | Retained deterministic approach |
-| Routing at 75/45 | 99 automatic matches; **0 unsafe automatic decisions observed in the held-out synthetic benchmark**; review/abstention 23.85%; true-match rejection 6/127 | Thresholds retained |
+| Routing at 75/45 | 99 automatic likely matches; **0 unsafe automatic decisions observed in the held-out synthetic benchmark**; review/abstention 23.85%; true-match rejection 6/127 | Thresholds retained |
 | MiniLM retrieval | Underperformed deterministic top-1 | Rejected from runtime |
-| Logistic Regression / XGBoost ranking | Improved synthetic top-1; feature investigation exposed a missing-field dataset artifact | Both rejected from runtime |
+| Logistic Regression / XGBoost ranking | 97.64% R@1 in the synthetic experiment; gains materially reflected synthetic missing-field artifacts | Both rejected from runtime |
 
-These measurements describe the versioned benchmark, not production accuracy or the database provider's 100-candidate cap. Gemini embedding performance is unassessed. Offline DeepEval checks validate scripted contracts and tool governance; their 1.0 results are not live model accuracy. [Methods and artifacts](docs/identity-resolution-benchmark.md).
+The corpus contains 880 synthetic identities, 2,600 records, 880 queries and 1,720 candidates across 22 scenarios. These measurements describe the versioned benchmark, not production accuracy or the database provider's 100-candidate cap. Gemini embedding performance is unassessed. Offline DeepEval checks validate scripted contracts and tool governance; their 1.0 results are not live model accuracy. [Methods and artifacts](docs/identity-resolution-benchmark.md).
 
 ## Deployment
 
-The live portfolio uses Vercel Production on `main`, Firebase authentication, Northflank API/worker, private Redis and Neon PostgreSQL. The already verified environment was reused; internal names such as `crw-staging`, `productization-staging`, `workbench_staging` and `contact-resolution-staging` remain. API, worker and migration workload share the backend image. Kubernetes is validated with kind; it is not the live orchestrator. Optional telemetry exporters remain disabled. This is a synthetic portfolio deployment with no enterprise SLA.
+The portfolio architecture uses Vercel for React, Northflank for the FastAPI API,
+Celery worker and private Redis, and Neon for durable PostgreSQL. Firebase provides
+authentication. API, worker and migration workload share a backend image.
+Kubernetes manifests and kind runs validate the architecture locally and in CI;
+Kubernetes is not the live hosting environment. Render is retained only in the
+[historical cutover/rollback record](docs/production-cutover.md). Terraform is not
+implemented infrastructure. This synthetic portfolio has no availability or scale SLA.
 
-The [controlled cutover](docs/production-cutover.md) passed production browser and API acceptance. The old POC is preserved by annotated tag `v0-poc`; its Render deployment remains temporarily available for rollback and is no longer the live product's backend. Future frontend releases follow commit to `main` → push → automatic Vercel production deployment. Northflank retains its verified pinned backend image; backend changes require a deliberate build/migration/release. Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state.
+### Current release verification status
+
+Local engineering and a controlled synthetic demo are ready with limitations.
+Production verification for the latest backend changes, including AI provenance,
+is pending. The complete latest release has not yet been verified publicly:
+coordinated API/worker rollout, frontend release confirmation and clean synthetic
+provenance/investigation acceptance remain outstanding. Earlier production checks
+are dated evidence, not verification of current HEAD. Unrestricted SaaS readiness
+has not been established. See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md).
+
+Frontend pushes to `main` can trigger Vercel releases; they do not prove deployment
+or acceptance. Backend releases require deliberate coordinated release and migration.
+
+## Controlled synthetic demo
+
+1. Sign in or choose the anonymous demo.
+2. Open Cases.
+3. Upload a supported synthetic CSV or use AI extraction.
+4. Inspect candidate evidence and contradictions.
+5. Record a human Case review decision.
+6. Explore Sources and ingestion history.
+7. Demonstrate an investigation where verified and available; use local evidence until latest-release production acceptance passes.
+8. Inspect AI provenance and the retained source note where available; the latest backend implementation is rollout-pending.
+
+New AI-ingested Cases in the locally verified implementation preserve the exact
+originating Job. An authorized reviewer can retrieve its retained source note through
+a workspace-scoped API. Extracted job title is context only: role is not scored.
+AI evidence is labelled unverified; no confidence percentage is invented. Historical
+Cases or an unreleased source-context API show unavailable context rather than guessed
+provenance. [Implementation evidence](docs/f11-ai-provenance-implementation-2026-10-04.md).
 
 ## Local development
 
@@ -116,8 +150,7 @@ Requires Python 3.13+, uv, Node.js 22+ and Docker for the shared database/broker
 # Repository root: local PostgreSQL, Redis, API and worker
 docker compose build api
 docker compose up -d postgres redis
-docker compose run --rm api alembic upgrade head
-docker compose run --rm api python -m app.services.investigation_service
+docker compose run --rm api python -m app.migrate
 docker compose up -d worker
 docker compose run --rm --service-ports -e FIREBASE_SERVICE_ACCOUNT_JSON api
 
@@ -148,25 +181,25 @@ npm run build
 npm audit
 ```
 
-Real broker/worker and PostgreSQL checkpoint tests run separately against disposable services, as in [CI](.github/workflows/ci.yml). See the [final audit](docs/final-audit.md) for results, dependency audits and reproduction details. No paid live judge is required.
+Real broker/worker and PostgreSQL checkpoint tests run separately against disposable services, as in [CI](.github/workflows/ci.yml). See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md) for current verification scope and the [historical audit](docs/final-audit.md) for earlier reproduction details. No paid live judge is required.
 
 ## Security/privacy
 
 User APIs authorize the verified user's workspace membership. Machine ingestion derives its workspace and purpose from its Source credential. Source tokens contain 256 bits of secret randomness; only a safe lookup prefix and SHA-256 digest are stored. Keys appear only in create/rotate responses and transient UI state.
 
-OTel/Langfuse export allowlisted operation metadata, excluding identities, source rows, prompts, responses and credentials; exporter failures do not change domain outcomes. First-party demo usage events retain bounded identifiers; do not place personal data in case numbers or referral codes. The public environment is for synthetic data.
+OTel/Langfuse export allowlisted operation metadata, excluding identities, source rows, prompts, responses and credentials; exporter failures do not change domain outcomes. First-party demo usage events retain bounded identifiers; do not place personal data in case numbers or referral codes. Server-side provider secrets stay outside browser bundles. AI source notes remain in the originating Job rather than being duplicated into Case metadata; source-context access requires the authorized workspace. The public environment is for synthetic/anonymized portfolio data.
 
 ## Known limitations
 
 - Synthetic benchmarks establish no real-world false-merge guarantee; Gemini embeddings and a live DeepEval judge were not evaluated.
 - Workspace reference retrieval takes at most 100 blocked records, ordered by internal ID. Larger blocks can omit the true candidate; benchmark recall does not validate this database cap.
-- Hard worker termination can strand PENDING/RUNNING Jobs. Recovery is operator-controlled; see the [crash analysis and runbook](docs/final-audit.md#worker-crash-analysis-and-manual-recovery).
-- LangGraph/MCP has local integration evidence and has not been exercised in the public deployment. Approved additional retrieval is currently synthetic.
+- Durable Job state, idempotent processing and duplicate-delivery tolerance do not imply exactly-once execution. Verified ingestion paths finalize domain writes and terminal success atomically; publication gaps and hard termination can strand PENDING/RUNNING Jobs, with no automatic stale-job reconciler. Recovery is operator-controlled; see the [crash analysis and runbook](docs/final-audit.md#worker-crash-analysis-and-manual-recovery).
+- LangGraph/MCP has local integration and earlier production checkpoint evidence; clean investigation acceptance on the latest release remains pending. Approved additional retrieval is currently synthetic.
 - The live portfolio uses Northflank Sandbox resources, with no availability/scale SLA; kind validation does not establish production Kubernetes readiness.
-- Initial worker failures were observed during staging and pre-cutover smoke. Fresh flows passed after a worker restart during cutover; root cause was not established.
 
 ## Documentation links
 
+- [Current readiness and release evidence](docs/final-readiness-audit-2026-10-04.md)
 - [Architecture and component boundaries](docs/productization-architecture.md)
 - [Engineering claims, evidence and caveats](docs/project-evidence.md)
 - [Final engineering/security audit](docs/final-audit.md)

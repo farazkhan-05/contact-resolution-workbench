@@ -1,6 +1,12 @@
 # Public staging
 
-This is the historical Preview acceptance record. The finished product is now [live on Vercel Production](https://contact-resolution.vercel.app); see [production cutover](production-cutover.md). The Preview remains available, and its Northflank/Neon/Firebase resources now also serve the live portfolio. Internal staging names are retained.
+**Historical evidence:** this dated record does not verify the latest release.
+The [4 October final readiness audit](final-readiness-audit-2026-10-04.md) is the
+current authority: local engineering and controlled synthetic demos are ready with
+limitations; backend provenance rollout, frontend release confirmation and clean
+investigation acceptance remain pending.
+
+This is the historical Preview acceptance record. The portfolio frontend moved to [Vercel Production](https://contact-resolution.vercel.app); see [production cutover](production-cutover.md). The Preview remains available, and its Northflank/Neon/Firebase resources now also serve the live portfolio. Internal staging names are retained.
 
 Release validation date: 2026-10-02. This portfolio/staging environment is for synthetic data.
 No availability, SLA or scale guarantee is claimed.

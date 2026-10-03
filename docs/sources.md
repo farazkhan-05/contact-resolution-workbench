@@ -82,7 +82,9 @@ termination. Early acknowledgement or interrupted publication can also strand
 a PENDING Job. Stop and verify all consumers before operator-controlled recovery
 of the same durable Job; submitting a new batch key is not a generic safe recovery
 procedure. See the [failure windows and recovery runbook](final-audit.md#worker-crash-analysis-and-manual-recovery).
-There is no automatic lease/heartbeat/reconciliation service.
+There is no automatic lease/heartbeat/reconciliation service. Durable Job state,
+idempotent processing and atomic finalization support duplicate-delivery tolerance,
+not exactly-once execution or universal publication/stale-job recovery.
 
 Source management audit rows contain actor, event type, Source ID, and timestamp.
 Telemetry accepts only mechanism, source purpose, count, operation status, and

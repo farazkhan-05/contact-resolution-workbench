@@ -1,8 +1,8 @@
 # Project evidence
 
-Audited on 2026-10-02, starting at `b12905c` on `productization/v1`. The finished product is now [live](https://contact-resolution.vercel.app) on `main`. [Production cutover](production-cutover.md) records fresh production browser/API acceptance; [final audit and verification](final-audit.md) preserves the engineering gates and constraints.
+Audited on 2026-10-02, starting at `b12905c` on `productization/v1`. Contact Resolution Workbench has a [portfolio deployment](https://contact-resolution.vercel.app) on `main`. This inventory originally describes 2 October evidence; the [4 October final readiness audit](final-readiness-audit-2026-10-04.md) supersedes its release/verification claims. Local engineering and controlled synthetic demos are ready with limitations; the complete latest public release remains unverified and unrestricted SaaS readiness is not established. [Production cutover](production-cutover.md) records fresh production browser/API acceptance; [final audit and verification](final-audit.md) preserves the engineering gates and constraints.
 
-Statuses describe the evidence available: **IMPLEMENTED** means code exists; **TESTED** means exercised by tests/acceptance; **BENCHMARKED** means measured on the documented dataset; **DEPLOYED** means present in the live portfolio deployment. Deployment alone does not prove execution of an optional capability.
+Statuses describe the evidence available: **IMPLEMENTED** means code exists; **TESTED** means exercised by tests/acceptance; **BENCHMARKED** means measured on the documented dataset; **DEPLOYED** means present in the live portfolio deployment. DEPLOYED entries below refer to retained historical acceptance, not blanket verification of HEAD. Deployment alone does not prove execution of an optional capability.
 
 ## Claim inventory
 
@@ -23,7 +23,7 @@ Statuses describe the evidence available: **IMPLEMENTED** means code exists; **T
 | Human review | IMPLEMENTED, TESTED, DEPLOYED | [Scoped decisions](../backend/app/api/cases.py), API workflow tests, E3 persisted browser review | Routing outcomes do not silently merge people or submit Accept/Reject |
 | Synthetic retrieval/routing benchmark | BENCHMARKED, TESTED | [C1 held-out artifact](../backend/benchmarks/identity_resolution/results/test.json), [C4 held-out artifact](../backend/benchmarks/identity_resolution/results/c4/test.json), final logical reproduction | Synthetic data; separate retrieval implementation from the runtime database provider |
 | Rejected semantic/ranking experiments | BENCHMARKED, TESTED | [C2 results](../backend/benchmarks/identity_resolution/results/c2/local-test.json), [C3 selection veto](../backend/benchmarks/identity_resolution/results/c3/selection.json), [methods](identity-resolution-benchmark.md) | MiniLM underperformed; LR/XGBoost gains were artifact-driven; Gemini embeddings unassessed |
-| LangGraph investigation | IMPLEMENTED, TESTED | [Graph](../backend/app/services/investigation_graph.py), [real PostgreSQL checkpoints/resume](../backend/tests/test_investigation_integration.py) | Capability packaged in staging image but not executed publicly; additional retrieval is synthetic |
+| LangGraph investigation | IMPLEMENTED, TESTED | [Graph](../backend/app/services/investigation_graph.py), [real PostgreSQL checkpoints/resume](../backend/tests/test_investigation_integration.py) | Local real-service and earlier production checkpoint restoration verified; clean latest-release acceptance pending; additional retrieval is synthetic |
 | Governed MCP v2 | IMPLEMENTED, TESTED | [Official Client/server and mapping](../backend/app/services/investigation_mcp.py), [governance tests](../backend/tests/test_investigation_mcp.py), real-service resume test | Embedded protocol boundary; no public MCP endpoint or arbitrary execution tools |
 | OTel privacy/fail-open behavior | IMPLEMENTED, TESTED | [Allowlist/export guard](../backend/app/core/observability.py), [privacy/failure tests](../backend/tests/test_observability.py), Source metadata tests | In-memory/fake exporters; disabled publicly |
 | Langfuse integration | IMPLEMENTED, TESTED | Shared provider, v4 processor filtering/masking tests, [investigation documentation](evidence-investigation.md) | No live Langfuse deployment/export claimed |
@@ -37,11 +37,11 @@ Statuses describe the evidence available: **IMPLEMENTED** means code exists; **T
 
 ## Defensible evaluation claims
 
-The held-out deterministic retrieval artifact reports Recall@1 **92.91%**, Recall@5 **100%** and Recall@10 **100%** among 127 positive queries. C4 retained thresholds **75/45**: 99 automatic matches over 130 queries, **0 unsafe automatic decisions observed in the held-out synthetic benchmark**, 23.85% review/abstention and 6/127 true-match rejections.
+The held-out deterministic retrieval artifact reports Recall@1 **92.91%**, Recall@5 **100%** and Recall@10 **100%** among 127 positive queries. C4 retained thresholds **75/45**: 99 automatic likely matches over 130 queries, **0 unsafe automatic decisions observed in the held-out synthetic benchmark**, 23.85% review/abstention and 6/127 true-match rejections.
 
-The dataset contains 880 synthetic identities and 2,600 records. Partition integrity keeps linked identities and duplicate feature profiles together. These results do not measure production accuracy, validate the 100-row database cap or guarantee real-world false-merge safety. The [benchmark report](identity-resolution-benchmark.md) preserves denominators and rejection rationale.
+The dataset contains 880 synthetic identities, 2,600 records, 880 queries and 1,720 candidate observations across 22 scenarios. Partition integrity keeps linked identities and duplicate feature profiles together. These results do not measure production accuracy, validate the 100-row database cap or guarantee real-world false-merge safety. The [benchmark report](identity-resolution-benchmark.md) preserves denominators and rejection rationale.
 
-MiniLM was evaluated and rejected from runtime retrieval. Logistic Regression and XGBoost improved synthetic top-1, but the feature investigation exposed a missing-field dataset artifact; neither was adopted. Gemini embedding performance remains unassessed. Offline AI evaluation's scripted 1.0 scores are contract regressions, not live Gemini accuracy.
+MiniLM was evaluated and rejected from runtime retrieval. Logistic Regression and XGBoost reached 97.64% R@1 in the synthetic experiment. Gains materially reflected synthetic missing-field artifacts; both were rejected for production ranking. Neither MiniLM nor pgvector semantic retrieval is a runtime service. Gemini embedding performance remains unassessed. Offline AI evaluation's scripted 1.0 scores are contract regressions, not live Gemini accuracy.
 
 ## Ingestion operating model
 
@@ -51,8 +51,29 @@ Salesforce, HubSpot, ERP systems, warehouses and internal applications could int
 
 ## Release boundaries and limitations
 
-Synthetic data provides no real-world false-merge guarantee. Gemini embeddings and live DeepEval judging were not run. LangGraph/MCP and live OTel/Langfuse export were not exercised in the public deployment. Kubernetes was validated with kind, not live hosting. Candidate retrieval is capped at 100 blocked database rows; hard worker crashes require manual recovery. The live portfolio has Northflank Sandbox constraints and no availability/scale SLA.
+Synthetic data provides no real-world false-merge guarantee. Gemini embeddings and live DeepEval judging were not run. LangGraph/MCP has earlier production checkpoint restoration evidence, but clean latest-release investigation acceptance is pending. Live OTel/Langfuse export is unverified and public exporters remain disabled. Kubernetes was validated with kind, not live hosting. Candidate retrieval is capped at 100 blocked database rows; hard worker crashes require manual recovery. The live portfolio has Northflank Sandbox constraints and no availability/scale SLA.
 
 One transient initial worker failure was observed during staging deployment. Subsequent complete end-to-end flows passed; root cause was not established. The final audit also records incomplete smoke observations before its successful run without assigning an unsupported cause.
 
 Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. The controlled production cutover reused the verified environment and retained Render for rollback. One pre-cutover Source Job failed before its durable claim; rollback-only processing succeeded and a fresh smoke passed after restarting the existing worker. The cause remains unestablished. No new cloud resource or paid plan was introduced.
+
+## Latest local engineering and release scope
+
+- Atomic AI finalization commits Case, originating Job provenance and terminal success together; [F06](f06-atomic-finalization-2026-10-03.md) and [latest provenance evidence](f11-ai-provenance-implementation-2026-10-04.md) document local verification. The updated path awaits coordinated API/worker rollout.
+- New AI Cases preserve the exact originating Job; authorized reviewers retrieve the retained source note through a scoped API. Extracted role is context only and is not scored. Evidence is unverified, with no invented confidence percentage. Source notes are not unnecessarily duplicated.
+- Durable Jobs, HTTP/task idempotency and duplicate-delivery tolerance are bounded guarantees. Publication can be interrupted and hard loss can strand work; there is no universal exactly-once or automatic stale-job recovery guarantee.
+- Stale-response protection, human review ownership, tenant isolation and reload/status recovery have current local regression evidence. Earlier production acceptance is retained separately from current frontend release confirmation.
+- Optional OpenTelemetry/Langfuse integration is implemented/tested. DeepEval is evaluation-only: 36 authored synthetic cases and scripted contract/governance metrics, not live Gemini accuracy or continuous production validation.
+- The latest audit reported five HIGH npm build-chain package entries from one advisory and zero CRITICAL; production-only npm audit found no known advisories. A fresh Python advisory scan was unavailable. The repository is not claimed vulnerability-free.
+
+## Reusable project description
+
+Built a multi-tenant Contact Resolution Workbench using FastAPI, React, PostgreSQL,
+Celery/Redis and Gemini, combining deterministic identity safeguards with human
+review, AI-assisted evidence extraction, provenance tracking and stateful LangGraph
+investigations. Implemented workspace authorization, governed MCP tools, stale-response
+protection and optional filtered observability; used synthetic benchmarks to reject
+semantic retrieval and learned ranking that did not justify runtime complexity.
+Docker runtime, Kubernetes/kind validation and CI workflows support the engineering
+portfolio. Latest backend provenance production verification remains pending; no
+production traffic or scale claim is made.

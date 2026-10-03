@@ -1,5 +1,19 @@
 # Northflank portfolio deployment
 
+## Current release scope
+
+Contact Resolution Workbench uses Vercel for the frontend, Northflank for the
+API/Celery worker/private Redis, and Neon PostgreSQL. The last documented matched
+API/worker release is `37735bcf9bda28a0be2351489ded29eadbc23e33` on 3 October 2026.
+Latest backend provenance changes are locally verified and production-pending;
+frontend release confirmation and clean synthetic provenance/investigation acceptance
+remain outstanding. No current runtime inspection is implied. The
+[final readiness audit](../../docs/final-readiness-audit-2026-10-04.md) supersedes
+earlier release claims. The provisioning, resource and smoke records below are
+historical evidence and future operator instructions, not fresh execution evidence.
+
+## Historical provisioning and acceptance
+
 Verified on 2026-10-02. The staging account contains two services, one migration
 job, one Redis addon and one secret group. Available usage entries reported USD 0;
 this is historical account evidence, not a future cost guarantee. The deployed
@@ -40,8 +54,9 @@ Same backend image -> one-off Alembic migration Job -> verified Neon branch
 no Terraform or PostgreSQL addon. The API is a combined build/deploy service,
 the worker a deployment service; both use `backend/Dockerfile`'s same build.
 The migration Job uses that build too. The provisioning template's source SHA
-is pinned to E1 in the Build node and both internal image selectors. The current
-deployed E4 implementation is `92165d6`, as verified in the E4 record. Update all
+is pinned to E1 in the Build node and both internal image selectors. The historical
+E4 deployed implementation was `92165d6`, as verified in the E4 record; it is not
+the last documented release or a statement of current runtime state. Update all
 three selectors together when intentionally releasing a new application version.
 
 The sequential workflow creates or reuses private Redis and a project-wide runtime secret

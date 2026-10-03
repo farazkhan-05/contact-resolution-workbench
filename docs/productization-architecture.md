@@ -1,10 +1,10 @@
-# Identity Resolution Workbench architecture
+# Contact Resolution Workbench architecture
 
-`main` contains the productized system, live at [Identity Resolution Workbench](https://contact-resolution.vercel.app). The [controlled cutover](production-cutover.md) reused the verified Northflank, Neon and Firebase environment. The old POC is tagged `v0-poc`; Render remains temporary rollback insurance.
+`main` contains the productized system. The [Contact Resolution Workbench portfolio](https://contact-resolution.vercel.app) has earlier production acceptance; the latest backend provenance rollout and clean investigation acceptance are pending. The [final readiness audit](final-readiness-audit-2026-10-04.md) governs current release claims. The [controlled cutover](production-cutover.md) reused the verified Northflank, Neon and Firebase environment. The old POC is tagged `v0-poc`; Render remains temporary rollback insurance.
 
 ## Application runtime components
 
-The table distinguishes live portfolio components from optional capabilities with local test evidence.
+The table describes the intended portfolio architecture, retained deployment evidence and optional implementation. It does not assert that all code at HEAD is deployed.
 
 | Component | Responsibility | Live portfolio |
 | --- | --- | --- |
@@ -14,8 +14,8 @@ The table distinguishes live portfolio components from optional capabilities wit
 | PostgreSQL | Workspace-owned domain state, durable Jobs, reference records, provenance, investigation metadata/checkpoints | Isolated Neon branch/database |
 | Redis / Celery | Queue internal identifiers; process durable ingestion and explicit investigations | Project-private Redis and existing worker |
 | Deterministic resolver | Normalize, retrieve candidates, score, detect contradictions and route at 75/45 | Active for CSV/Source ingestion |
-| Gemini structured extraction | Parse/ground evidence within validated schemas | Optional capability; no public AI execution claim |
-| LangGraph / MCP v2 | Governed evidence investigation, deterministic re-analysis, typed human interrupt/resume | Implemented and locally integrated; not exercised publicly |
+| Gemini structured extraction | Parse/ground evidence within validated schemas | Earlier real extraction success retained; latest provenance path local, rollout pending |
+| LangGraph / MCP v2 | Governed evidence investigation, deterministic re-analysis, typed human interrupt/resume | Local real-service and earlier production checkpoint evidence; clean latest-release acceptance pending |
 | OTel / Langfuse | Optional allowlisted operational metadata, fail-open export | Disabled in the public deployment |
 
 ```mermaid
@@ -30,7 +30,14 @@ flowchart TD
     API --> Redis[(Private Redis)]
     Redis --> Worker[Celery / same backend image]
     Worker --> DB
-    Worker --> Resolver[Deterministic resolver]
+    Worker --> Gemini[Gemini evidence extraction]
+    Worker --> Graph[Optional LangGraph investigation]
+    Graph --> MCP[Governed MCP tools]
+    MCP --> Gemini
+    MCP --> Resolver[Deterministic resolver]
+    Worker --> Resolver
+    API -. optional filtered telemetry .-> Telemetry[OpenTelemetry + Langfuse]
+    Worker -. optional filtered telemetry .-> Telemetry
     Resolver --> Routing[75/45 routing + contradiction gates]
     Routing --> Cases[Cases / human review]
     Cases --> DB
@@ -56,19 +63,21 @@ External applications -> Source API ------+-> durable Job + payload in PostgreSQ
                                                   -> history / Case review
 ```
 
-CSV currently creates incoming Cases; there is no separate CSV master/reference importer. REFERENCE batches populate the persistent workspace candidate provider. Incoming CSV and Source batches both use `workspace_resolver`, the existing matcher/router and `persist_case_resolution`. Built-in comparison providers remain synthetic demo fixtures, not live CRM integrations. The unstructured extraction task uses the existing resolver and has a separate persistence/completion window described in the audit.
+CSV currently creates incoming Cases; there is no separate CSV master/reference importer. REFERENCE batches populate the persistent workspace candidate provider. Incoming CSV and Source batches both use `workspace_resolver`, the existing matcher/router and `persist_case_resolution`. Built-in comparison providers remain synthetic demo fixtures, not live CRM integrations. The unstructured extraction task uses the existing resolver. Its current finalization atomically commits the Case, exact originating Job provenance and terminal Job success, with fresh-session verification after ambiguous commit acknowledgement. This updated path is locally verified and rollout-pending; the earlier separate-commit analysis is historical. See [atomic finalization](f06-atomic-finalization-2026-10-03.md) and [provenance implementation](f11-ai-provenance-implementation-2026-10-04.md).
 
 REFERENCE uniqueness is `(workspace_id, source_id, external_record_id)`. Updates replace canonical attributes and point to the latest ingestion; historical ingestion receipts remain. Different Sources cannot overwrite each other's external IDs. Disable prevents new submissions while retaining records/history; already accepted batches continue.
 
 HTTP identity is `(source_id, digest(Idempotency-Key), digest(canonical payload))`: matching retries reuse the original ingestion/Job in any state; changed bodies return 409. A database unique constraint protects concurrent receipts. Source namespace makes an identical key on another Source independent. A 202 means durable receipt; Job state reports completion or failure.
 
-CSV and Source workers commit domain changes with terminal Job success. An atomic conditional claim makes ordinary duplicate task deliveries harmless. There is no lease/heartbeat or automatic stranded-Job reconciler. Ingestion uses Celery's early-ack default; broker redelivery does not reclaim RUNNING state. See [failure windows and manual recovery](final-audit.md#worker-crash-analysis-and-manual-recovery).
+CSV and Source workers commit domain changes with terminal Job success. An atomic conditional claim makes ordinary duplicate task deliveries harmless. This is idempotent processing and duplicate-delivery tolerance, not exactly-once execution. Durable receipt precedes broker publication, leaving a producer-death publication gap. There is no transactional outbox, lease/heartbeat or automatic stranded-Job reconciler. Ingestion uses Celery's early-ack default; broker redelivery does not reclaim RUNNING state. See [failure windows and manual recovery](final-audit.md#worker-crash-analysis-and-manual-recovery).
 
 Workspace reference retrieval uses up to eight normalized name tokens plus exact email/phone blocking, then takes 100 records ordered by internal ID. This bounds returned candidates and scoring/persistence work, not database scan cost. It can affect correctness in large or crowded blocks. The separate C1 benchmark scores its complete blocked pool before taking 20 candidates; its recall cannot validate the runtime database cap.
 
 ### Identity and AI boundary
 
-Suffix conflicts such as Arthur Jr./Sr. and conflicting explicit full middle names block likely-match routing even at a high score. The model cannot set authoritative scores, choose a workspace, override those gates or submit Accept/Reject. `LIKELY_MATCH` is a routing result; persisted reviewer decisions remain human-owned.
+Suffix conflicts such as Arthur Jr./Sr. and conflicting explicit full middle names block likely-match routing even at a high score. The model cannot set authoritative scores, choose a workspace, override those gates or submit Accept/Reject. `LIKELY_MATCH` is a routing result; persisted reviewer decisions remain human-owned. Gemini extracts/interprets unverified evidence, deterministic rules score and route, and human reviewers make final decisions. No hallucination-free extraction, calibrated confidence or live model accuracy is established.
+
+New ordinary AI-ingested Cases preserve exact originating Job provenance. The scoped source-context API returns the retained note only after Case/workspace and Job association checks; the note is not duplicated into Case metadata. Extracted job title is context only, role is not scored, and no confidence percentage is invented. Missing or historical associations fail unavailable rather than guessing. This implementation is locally verified; backend production rollout is pending.
 
 ```text
 Reviewer explicitly starts an unresolved Case investigation
@@ -115,4 +124,4 @@ Gemini embedding runner exists but was not executed; its performance is unassess
 
 Northflank uses its native template and secret configuration. Vercel Production has the five verified frontend variables; branch-specific Preview settings remain available. Cutover read-back confirms two services, one migration job, one private Redis addon and one secret group, with available usage at USD 0. This is account evidence, not a future cost guarantee. Vercel remains Hobby; no resources or plan upgrades were introduced. The portfolio has no enterprise availability or scale SLA.
 
-Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. No unofficial provider or Terraform state was introduced. GitHub default and Vercel Production Branch remain `main`. Pushing `main` automatically releases the frontend; the backend remains deliberately pinned to its verified image. Render and the old POC database/auth environment remain available for rollback.
+Terraform was evaluated and intentionally not adopted because the currently managed infrastructure does not benefit from adding Terraform state. No unofficial provider or Terraform state was introduced. GitHub default and Vercel Production Branch remain `main`. Pushing `main` automatically releases the frontend; the last documented matched API/worker release is `37735bcf9bda28a0be2351489ded29eadbc23e33` (3 October 2026), not current HEAD. Latest provenance changes require coordinated backend release and acceptance; frontend release SHA also needs confirmation. Render and the old POC database/auth environment remain available for rollback.

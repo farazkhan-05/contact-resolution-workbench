@@ -1,5 +1,11 @@
 # AI evaluation
 
+DeepEval is evaluation-only and excluded from the runtime image. Existing evidence
+is synthetic/offline: 36 authored cases and scripted contract/governance metrics.
+It does not measure live Gemini accuracy, act as a production AI judge, or provide
+continuous production model validation. The optional live runner below is a
+reproduction capability, not an executed quality claim.
+
 `backend/benchmarks/ai_evaluation` evaluates the Gemini extraction boundary and the
 LangGraph investigation through its real embedded MCP client/server. Dataset
 `d4-synthetic-v1` contains 36 authored synthetic cases across 17 categories: clean

@@ -1,5 +1,17 @@
 # Final engineering and portfolio audit
 
+**Historical evidence:** this dated record does not verify the latest release.
+The [4 October final readiness audit](final-readiness-audit-2026-10-04.md) is the
+current authority: local engineering and controlled synthetic demos are ready with
+limitations; backend provenance rollout, frontend release confirmation and clean
+investigation acceptance remain pending.
+The separate AI Case/Job commit-window analysis below describes the older
+implementation. [Atomic finalization](f06-atomic-finalization-2026-10-03.md) and
+[exact Job provenance](f11-ai-provenance-implementation-2026-10-04.md) supersede it
+locally; the updated finalization path awaits production rollout. Publication gaps
+and hard-loss/stale-job boundaries still apply. Dated dependency results are not
+a current vulnerability-free claim.
+
 Audit date: 2026-10-02. Starting branch `productization/v1`, full commit `b12905c85bea4a086c99aacb1df63025d534e65c`. Starting worktree was clean. `git ls-remote` independently confirmed that the remote branch matched local HEAD and `origin/productization/v1`.
 
 This historical audit finalized documentation and corrected three whitespace-only formatter failures in the Northflank schema validator. It introduced no runtime feature, dependency, migration, Kubernetes manifest or cloud allocation. The subsequent [controlled production cutover](production-cutover.md) promoted the audited product to `main` and verified the live portfolio at [contact-resolution.vercel.app](https://contact-resolution.vercel.app).
@@ -28,6 +40,14 @@ This historical audit finalized documentation and corrected three whitespace-onl
 The remaining reliability and retrieval limitations below are material for a production release. They do not invalidate the verified synthetic portfolio workflows.
 
 ## Worker crash analysis and manual recovery
+
+**Historical procedure:** the unstructured-AI columns and Case-number reconciliation
+below apply to the older separate-commit implementation only. They must not be used
+as recovery instructions for the current atomic/provenance implementation. Current
+reconciliation verifies the exact originating Job and durable outcome; see
+[atomic finalization](f06-atomic-finalization-2026-10-03.md),
+[provenance implementation](f11-ai-provenance-implementation-2026-10-04.md) and the
+[latest readiness boundaries](final-readiness-audit-2026-10-04.md#async-and-job-durability).
 
 ### Acknowledgement and failure windows
 

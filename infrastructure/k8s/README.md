@@ -1,10 +1,12 @@
 # Kubernetes deployment validation
 
 These manifests validate the existing FastAPI/Celery architecture in an ephemeral
-kind cluster. Kubernetes is not the production hosting platform. The live POC
-remains on Vercel, Render and external Neon PostgreSQL. The separate productized
-[public staging](../../docs/staging-preview.md) uses Vercel Preview, Northflank,
-Firebase staging, private Redis and isolated Neon; it does not run Kubernetes.
+kind cluster. Kubernetes is not the production hosting platform. Contact Resolution Workbench
+uses Vercel for React, Northflank for API/Celery/private Redis and Neon PostgreSQL.
+Render belongs to the historical POC/rollback record. Latest backend rollout and
+public release acceptance remain pending; see the
+[final readiness audit](../../docs/final-readiness-audit-2026-10-04.md).
+The manifests and kind evidence below validate local/CI behavior, not live hosting.
 
 `base/` defines the API Deployment/Service, worker Deployment and non-secret
 ConfigMap. Both Deployments use one locally built backend image with different
@@ -81,5 +83,5 @@ unavailable because GitHub CLI was unauthenticated. These are historical E1
 results; the [final audit](../../docs/final-audit.md#final-verification) records
 the later backend and service gates.
 
-Staging uses the native Northflank template and Vercel Preview configuration.
+Historical staging used the native Northflank template and Vercel Preview configuration; the portfolio frontend subsequently moved to Vercel Production.
 Terraform was evaluated and not adopted; no Terraform state is maintained.

@@ -1,5 +1,14 @@
 # Evidence investigations
 
+LangGraph provides optional stateful investigation of ambiguous evidence, not the
+default request path or autonomous identity resolution. Gemini interprets/extracts
+unverified evidence; deterministic rules score and route, and humans make final
+review decisions. Local real-service tests verify PostgreSQL checkpoint reconstruction
+and interrupt/resume; earlier production checkpoint restoration is retained evidence.
+Clean investigation acceptance on the latest release remains pending. See the
+[final readiness audit](final-readiness-audit-2026-10-04.md); no unrestricted production
+reliability or live AI accuracy is claimed.
+
 Investigation is an explicit reviewer action on a NEEDS_REVIEW case whose decision is PENDING or NEED_MORE_EVIDENCE. Authentication, ingestion, scoring, case APIs, exports and final review submission remain outside LangGraph.
 
 The graph has four nodes: determine_gap, retrieve, deterministic_analysis and human_input. Approved operations map to embedded MCP tools; the retrieval tool validates extraction and persists grounded evidence within that call. A structured Gemini assessment chooses a gap category and one operation from INSPECT_EXISTING, RETRIEVE_SYNTHETIC_NOTES or HUMAN_INPUT. The backend selects the source reference from existing synthetic fixtures; the model supplies no URLs, paths, provider names or executable arguments. When no unused approved note exists, the graph requests human direction without calling Gemini. A run retrieves at most one synthetic note, and a later run cannot retrieve a source already persisted for that case. No external evidence sources are connected.
@@ -51,8 +60,9 @@ The historical Northflank provisioning template still pins its original image.
 Its migration command therefore invokes Alembic and the existing
 `app.services.investigation_service` initializer sequentially with `check=True`,
 instead of referring to the newer `app.migrate` module absent from that image.
-Both paths use the same official saver migrations; the live migration Job uses
-the unified entry point on the current backend image.
+Both paths use the same official saver migrations. Retained later deployment evidence
+uses the unified entry point; actual release SHA and migration success must be
+confirmed during coordinated rollout, rather than inferred from this historical template.
 
 Normal pytest uses fake Gemini behavior and isolated in-memory checkpoints. The service-based CI job additionally uses disposable PostgreSQL and Redis: it verifies persisted checkpoint rows, closes and reconstructs the saver/graph, resumes the same thread, checks evidence and final status, tests concurrent worker delivery, and runs the graph through the real Celery worker. The existing ingestion integration remains in that job. Migration tests exercise upgrades, preservation of older case rows and downgrades on SQLite and a separate disposable PostgreSQL database. No live Gemini, Firebase, external providers or production databases are required.
 
