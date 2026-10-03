@@ -128,9 +128,22 @@ def ingest_unstructured(
         job.celery_task_id = result.id
         db.commit()
     except Exception:
-        job.status = "FAILED"
-        job.failure_code = "BROKER_UNAVAILABLE"
-        job.failure_message = "The ingestion queue is unavailable. Please try again later."
-        job.completed_at = datetime.now(UTC)
+        db.rollback()
+        # A worker may finish before the publication/task-ID acknowledgement fails.
+        db.execute(
+            update(Job)
+            .where(
+                Job.id == job.id,
+                Job.workspace_id == context.workspace.id,
+                Job.status == "PENDING",
+            )
+            .values(
+                status="FAILED",
+                failure_code="BROKER_UNAVAILABLE",
+                failure_message="The ingestion queue is unavailable. Please try again later.",
+                completed_at=datetime.now(UTC),
+            )
+        )
         db.commit()
+        db.refresh(job)
     return JobResponse.model_validate(job, from_attributes=True)

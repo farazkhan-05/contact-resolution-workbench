@@ -64,7 +64,7 @@ def persist_case_resolution(
     resolution: CaseResolution,
     source_type: str = "sample",
 ) -> Case:
-    """Persist a resolved case, candidates, evidence, contradictions, and initial audit logs."""
+    """Add/flush a resolved Case and its records; the caller owns commit/rollback."""
     name_parts = parse_name_parts(query.name)
 
     case = Case(

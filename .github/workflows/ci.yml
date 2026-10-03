@@ -127,3 +127,7 @@ jobs:
         env:
           BOOTSTRAP_TEST_DATABASE_URL: postgresql+psycopg://workbench:workbench@localhost:5432/workbench
         run: uv run pytest tests/test_bootstrap_postgres.py tests/test_workspace_isolation.py tests/test_api_workflow.py -q
+      - name: Verify atomic AI finalization on real PostgreSQL
+        env:
+          AI_TEST_DATABASE_URL: postgresql+psycopg://workbench:workbench@localhost:5432/workbench
+        run: uv run pytest tests/test_ai_finalization_postgres.py -q

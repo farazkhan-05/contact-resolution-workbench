@@ -99,6 +99,37 @@ def test_csv_task_is_idempotent(
         assert db.query(Case).count() == 1
 
 
+def test_ai_publication_failure_cannot_downgrade_completed_worker(
+    jobs_client: tuple[TestClient, sessionmaker[Session]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.schemas.resolution import ExtractedCandidateProfile
+
+    client, maker = jobs_client
+    headers = _workspace(client)
+    monkeypatch.setattr(task_module, "SessionLocal", maker)
+    monkeypatch.setattr(
+        GeminiExtractor,
+        "extract_from_unstructured_text",
+        lambda *args, **kwargs: ExtractedCandidateProfile(name="Claire Reynolds"),
+    )
+
+    def publish(job_id: str, workspace_id: str) -> None:
+        ingest_unstructured_job.run(job_id, workspace_id)
+        raise ConnectionError("synthetic publication acknowledgement failure")
+
+    monkeypatch.setattr(ingest.ingest_unstructured_job, "delay", publish)
+    response = client.post(
+        "/api/v1/ingest/unstructured",
+        headers=headers,
+        json={"raw_evidence_text": "synthetic", "case_number": "F06-PUBLICATION"},
+    )
+    assert response.status_code == 202
+    assert response.json()["status"] == "SUCCEEDED"
+    with maker() as db:
+        assert db.query(Case).count() == 1
+        assert db.get(Job, response.json()["id"]).failure_code is None
+
+
 def test_csv_batch_rolls_back_partial_case_writes(
     jobs_client: tuple[TestClient, sessionmaker[Session]], monkeypatch: pytest.MonkeyPatch
 ) -> None:

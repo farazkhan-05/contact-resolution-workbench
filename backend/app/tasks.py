@@ -1,4 +1,6 @@
 import json
+import logging
+from time import monotonic
 
 from celery import Task
 from celery.exceptions import Retry
@@ -9,13 +11,92 @@ from sqlalchemy.orm import Session
 from app.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.core.observability import annotate
+from app.models.case import Case
 from app.models.job import Job
-from app.schemas.resolution import CaseQuery
+from app.schemas.resolution import CaseQuery, CaseResolution
 from app.services.case_service import ingest_csv, persist_case_resolution
 from app.services.csv_importer import CsvValidationError
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
 from app.services.job_service import fail_job, utcnow
 from app.services.resolution_service import ResolutionService
+
+logger = logging.getLogger(__name__)
+
+
+class AIFinalizationIntegrityError(RuntimeError):
+    """Durable result cannot be reconciled safely; operator inspection is required."""
+
+
+def _fail_unstructured_job(
+    job_id: str,
+    workspace_id: str,
+    code: str,
+    message: str,
+    *,
+    reconcile_finalization: bool = False,
+    expected_resolution: CaseResolution | None = None,
+    expected_case_id: str | None = None,
+) -> str:
+    """Reconcile/record failure using a fresh session and locked durable state.
+
+    The payload's workspace/case_number is the existing unique result identity.
+    No finalization is replayed here, and terminal Jobs are never downgraded.
+    """
+    with SessionLocal() as db:
+        job = db.scalar(
+            select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id).with_for_update()
+        )
+        if job is None:
+            raise AIFinalizationIntegrityError("AI Job disappeared during reconciliation")
+        if reconcile_finalization:
+            data = json.loads(job.payload)
+            case = db.scalar(
+                select(Case).where(
+                    Case.workspace_id == workspace_id, Case.case_number == data["case_number"]
+                )
+            )
+            if job.status == "SUCCEEDED":
+                if (
+                    case is None
+                    or job.successful_rows != 1
+                    or job.processed_rows != 1
+                    or job.total_rows != 1
+                    or job.completed_at is None
+                    or not {"CASE_INGESTED", "SCORED_AND_ROUTED"}.issubset(
+                        {entry.event_type for entry in case.audit_logs}
+                    )
+                    or (expected_case_id is not None and case.id != expected_case_id)
+                ):
+                    raise AIFinalizationIntegrityError("AI terminal result is incomplete")
+                if expected_resolution is not None:
+                    actual = (
+                        len(case.candidates),
+                        sum(len(candidate.evidence) for candidate in case.candidates),
+                        sum(len(candidate.contradictions) for candidate in case.candidates),
+                    )
+                    expected = (
+                        len(expected_resolution.candidates),
+                        sum(
+                            len(candidate.field_evidence)
+                            for candidate in expected_resolution.candidates
+                        ),
+                        sum(
+                            len(candidate.contradictions)
+                            for candidate in expected_resolution.candidates
+                        ),
+                    )
+                    if actual != expected:
+                        raise AIFinalizationIntegrityError("AI resolution records are incomplete")
+            elif case is not None:
+                # This may be a historical contradiction or a conflicting domain identity.
+                # Neither justifies creating another Case or guessing a terminal result.
+                raise AIFinalizationIntegrityError("AI non-success result already has a Case")
+        if job.status in {"SUCCEEDED", "FAILED"}:
+            return job.status
+        if job.status not in {"PENDING", "RUNNING"}:
+            raise AIFinalizationIntegrityError("AI Job is in an ineligible state")
+        fail_job(db, job, code, message)
+        return "FAILED"
 
 
 @celery_app.task(acks_late=True, reject_on_worker_lost=True)  # type: ignore[untyped-decorator]
@@ -144,6 +225,11 @@ def ingest_csv_job(self: Task, job_id: str, workspace_id: str) -> None:
 )
 def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
     """Run Gemini extraction outside an HTTP request, then deterministic resolution."""
+    started = monotonic()
+    phase = "claim"
+    commit_attempted = False
+    resolution: CaseResolution | None = None
+    case_id: str | None = None
     db = SessionLocal()
     try:
         claimed = db.execute(
@@ -155,23 +241,30 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
             )
             .values(status="RUNNING", started_at=utcnow())
         ).rowcount  # type: ignore[attr-defined]
-        db.commit()
         if not claimed:
+            db.rollback()
             return
         job = db.scalar(select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id))
         if job is None:
-            return
+            raise AIFinalizationIntegrityError("Claimed AI Job disappeared")
         data = json.loads(job.payload)
+        # Materialize input in the short claim transaction, then release the connection.
+        db.commit()
+        db.close()
+        phase = "extraction"
         try:
             extracted = GeminiExtractor().extract_from_unstructured_text(
                 data["raw_evidence_text"], retry_transient=True
             )
         except GeminiExtractionError as exc:
-            fail_job(db, job, exc.code, exc.public_message)
+            _fail_unstructured_job(job_id, workspace_id, exc.code, exc.public_message)
             return
         if not extracted.name or not extracted.name.strip():
-            fail_job(
-                db, job, "INVALID_EXTRACTION", "No useful contact evidence was found in this text."
+            _fail_unstructured_job(
+                job_id,
+                workspace_id,
+                "INVALID_EXTRACTION",
+                "No useful contact evidence was found in this text.",
             )
             return
         query = CaseQuery(
@@ -182,7 +275,14 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
             location=extracted.location,
         )
         resolution = ResolutionService().resolve(query)
-        persist_case_resolution(
+        phase = "finalization"
+        db = SessionLocal()
+        job = db.scalar(
+            select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id).with_for_update()
+        )
+        if job is None or job.status != "RUNNING":
+            raise AIFinalizationIntegrityError("AI Job is no longer eligible for finalization")
+        case = persist_case_resolution(
             db,
             job.workspace_id,
             data["case_number"],
@@ -191,27 +291,64 @@ def ingest_unstructured_job(self: Task, job_id: str, workspace_id: str) -> None:
             resolution,
             "gemini_unstructured_ingest",
         )
+        case_id = case.id
+        job.status = "SUCCEEDED"
+        job.successful_rows = 1
+        job.processed_rows = 1
+        job.total_rows = 1
+        job.completed_at = utcnow()
+        db.flush()
+        phase = "commit"
+        commit_attempted = True
+        logger.info("ai.finalization job_id=%s phase=commit attempt=1", job_id)
+        # The only finalization commit: Case, all resolution records and terminal Job.
         db.commit()
-        job = db.get(Job, job_id)
-        if job:
-            job.status = "SUCCEEDED"
-            job.successful_rows = 1
-            job.processed_rows = 1
-            job.total_rows = 1
-            job.completed_at = utcnow()
-            db.commit()
-    except (ConnectionError, TimeoutError) as exc:
-        _retry_if_transient(self, db, job_id, workspace_id, exc)
-    except Retry:
+        phase = "committed"
+        logger.info("ai.finalization job_id=%s outcome=committed terminal=SUCCEEDED", job_id)
+        annotate(**{"operation.status": "SUCCEEDED", "ingestion.record_count": 1})
+    except AIFinalizationIntegrityError:
+        logger.error("ai.finalization job_id=%s phase=%s outcome=inconsistent", job_id, phase)
         raise
     except Exception:
-        db.rollback()
-        job = db.scalar(select(Job).where(Job.id == job_id, Job.workspace_id == workspace_id))
-        if job:
-            fail_job(db, job, "WORKER_ERROR", "The ingestion worker could not complete this job.")
-        return
+        # Invalidate rather than reuse a possibly poisoned/disconnected transaction.
+        # Any commit exception is conservatively ambiguous, even a non-driver error.
+        db.invalidate()
+        logger.warning(
+            "ai.finalization job_id=%s phase=%s outcome=%s",
+            job_id,
+            phase,
+            "ambiguous" if commit_attempted else "rolled_back",
+        )
+        try:
+            terminal = _fail_unstructured_job(
+                job_id,
+                workspace_id,
+                "WORKER_ERROR",
+                "The ingestion worker could not complete this job.",
+                reconcile_finalization=phase in {"finalization", "commit", "committed"},
+                expected_resolution=resolution,
+                expected_case_id=case_id,
+            )
+        except Exception:
+            logger.error("ai.finalization job_id=%s outcome=reconciliation_unavailable", job_id)
+            # Do not guess or replay if the fresh durable read cannot establish the outcome.
+            raise AIFinalizationIntegrityError(
+                "AI finalization requires operator inspection"
+            ) from None
+        logger.info(
+            "ai.finalization job_id=%s outcome=%s terminal=%s",
+            job_id,
+            "reconciled_success" if terminal == "SUCCEEDED" else "reconciled_not_committed",
+            terminal,
+        )
     finally:
         db.close()
+        logger.info(
+            "ai.finalization job_id=%s phase=%s duration_ms=%d",
+            job_id,
+            phase,
+            int((monotonic() - started) * 1000),
+        )
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=5)  # type: ignore[untyped-decorator]
