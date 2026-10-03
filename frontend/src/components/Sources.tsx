@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, sourceIngestionUrl } from "../api/client";
 import type { Source, SourceCredential, SourceIngestion } from "../api/client";
 
@@ -23,6 +23,7 @@ export function Sources({
   const [histories, setHistories] = useState<Record<string, SourceIngestion[]>>(
     {},
   );
+  const [historyErrors, setHistoryErrors] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<Source["source_type"]>("REFERENCE");
@@ -31,30 +32,50 @@ export function Sources({
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const refreshId = useRef(0);
+  const inFlight = useRef(false);
+  const mounted = useRef(false);
   const load = useCallback(async () => {
+    if (!mounted.current || inFlight.current) return;
+    inFlight.current = true;
+    const requestId = ++refreshId.current;
+    const current = () => mounted.current && refreshId.current === requestId;
     try {
       const rows = await api.listSources();
-      const runs = await Promise.all(
-        rows.map(
-          async (source) =>
-            [source.id, await api.sourceHistory(source.id)] as const,
-        ),
-      );
+      if (!current()) return;
       setSources(rows);
-      setHistories(Object.fromEntries(runs));
       setError("");
-    } catch (err) {
-      setError(
-        err instanceof ApiError ? err.detail : "Could not load Sources.",
-      );
-    } finally {
       setLoading(false);
+      const outcomes = await Promise.allSettled(
+        rows.map(async (source) => [source.id, await api.sourceHistory(source.id)] as const),
+      );
+      if (!current()) return;
+      const nextHistories: Record<string, SourceIngestion[]> = {};
+      const nextErrors: Record<string, boolean> = {};
+      outcomes.forEach((outcome, index) => {
+        const sourceId = rows[index].id;
+        if (outcome.status === "fulfilled") nextHistories[sourceId] = outcome.value[1];
+        else nextErrors[sourceId] = true;
+      });
+      setHistories(nextHistories);
+      setHistoryErrors(nextErrors);
+    } catch (err) {
+      if (current()) setError(err instanceof ApiError ? err.detail : "Could not load Sources.");
+    } finally {
+      if (current()) setLoading(false);
+      if (refreshId.current === requestId) inFlight.current = false;
     }
   }, []);
   useEffect(() => {
+    mounted.current = true;
     void load();
     const timer = window.setInterval(() => void load(), 5000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      mounted.current = false;
+      refreshId.current += 1;
+      inFlight.current = false;
+    };
   }, [load]);
   const action = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -163,7 +184,7 @@ export function Sources({
                     </p>
                     <p className="text-sm">
                       Recent result:{" "}
-                      {latest
+                      {historyErrors[source.id] ? <span role="status">History unavailable</span> : latest
                         ? `${latest.job.status} · ${latest.job.successful_rows}/${latest.job.total_rows} succeeded · ${latest.job.rejected_rows} failed`
                         : "No ingestions received"}
                     </p>

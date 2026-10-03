@@ -53,10 +53,15 @@ export function App() {
   const csvRequest = useRef(0);
   const pollingSession = useRef({ active: status === 'ready', workspaceId: workspace?.id });
   const detailRequestId = useRef(0);
+  const casesRequestId = useRef(0);
   const reviewInFlight = useRef(false);
   const reviewView = useRef({ caseId: selectedCaseId, workspaceId: workspace?.id, active: false, ready: false });
   const isReviewReady = status === 'ready' && !!workspace && !!selectedCaseDetail
     && selectedCaseDetail.id === selectedCaseId && !isLoadingDetail && reviewNeedsCheck !== selectedCaseId;
+
+  useLayoutEffect(() => {
+    casesRequestId.current += 1;
+  }, [activeRoutingFilter, activeDecisionFilter, searchQuery, workspace?.id, status]);
 
   // A new committed selection/session owns a distinct view, including A -> B -> A.
   useLayoutEffect(() => {
@@ -103,6 +108,10 @@ export function App() {
   // Fetch Cases list
   const fetchCases = useCallback(
     async (preferredSelectedId?: string | null, canApplyReviewRefresh?: () => boolean, preserveSelection = true) => {
+      const requestId = ++casesRequestId.current;
+      const workspaceId = workspace?.id;
+      const isCurrent = () => requestId === casesRequestId.current
+        && workspaceId === workspace?.id && status === 'ready';
       setIsLoadingQueue(true);
       try {
         const fetched = await api.getCases({
@@ -110,7 +119,7 @@ export function App() {
           review_decision: activeDecisionFilter === 'ALL' ? undefined : activeDecisionFilter,
           search: searchQuery.trim() || undefined,
         });
-        if (canApplyReviewRefresh && !canApplyReviewRefresh()) return;
+        if (!isCurrent() || (canApplyReviewRefresh && !canApplyReviewRefresh())) return;
         setCases(fetched);
         setHasUnfilteredQueue(activeRoutingFilter === 'ALL' && activeDecisionFilter === 'ALL' && !searchQuery.trim());
 
@@ -130,15 +139,15 @@ export function App() {
           }
         }
       } catch (err) {
-        if (canApplyReviewRefresh && !canApplyReviewRefresh()) return;
+        if (!isCurrent() || (canApplyReviewRefresh && !canApplyReviewRefresh())) return;
         setHasUnfilteredQueue(false);
         const msg = err instanceof ApiError ? err.detail : 'Could not connect to the API. Confirm the backend is running and retry.';
         setFeedback({ type: 'error', message: msg, action: { label: 'Refresh cases', run: () => void fetchCases() } });
       } finally {
-        setIsLoadingQueue(false);
+        if (isCurrent()) setIsLoadingQueue(false);
       }
     },
-    [activeRoutingFilter, activeDecisionFilter, searchQuery]
+    [activeRoutingFilter, activeDecisionFilter, searchQuery, workspace?.id, status]
   );
   const currentQueueFetcher = useRef(fetchCases);
   useLayoutEffect(() => { currentQueueFetcher.current = fetchCases; }, [fetchCases]);

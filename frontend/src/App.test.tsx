@@ -289,6 +289,44 @@ describe('authenticated workbench shell', () => {
     expect(within(toolbar()).getByRole('button', { name: 'Export Reviewed' }).hasAttribute('disabled')).toBe(false);
   });
 
+  it('keeps the newest Cases search authoritative through stale success and failure', async () => {
+    let rejectClaire!: (reason: Error) => void;
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]);
+    const view = render(<App />);
+    await screen.findByRole('heading', { name: 'Claire Reynolds' });
+    vi.mocked(api.getCases).mockResolvedValueOnce([{ ...sampleSummary, id: 'two', case_number: 'TWO-001', person_name: 'Two' }]);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Two' } });
+    await screen.findByText('Two');
+    vi.mocked(api.getCases).mockReturnValueOnce(new Promise((_, reject) => { rejectClaire = reject; }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(3));
+    vi.mocked(api.getCases).mockResolvedValueOnce([{ ...sampleSummary, id: 'newer', case_number: 'NEW-001', person_name: 'Newest' }]);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Newest' } });
+    await screen.findByText('Newest');
+    rejectClaire(Error('stale failure'));
+    await waitFor(() => expect(screen.queryByText('stale failure')).toBeNull());
+    expect(screen.getByText('Newest')).toBeTruthy();
+    expect(screen.queryByText('Loading cases...')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Search cases' })).toHaveProperty('value', 'Newest');
+    view.unmount();
+  });
+
+  it('keeps a current Cases error when an older success finishes afterward', async () => {
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]);
+    render(<App />);
+    await screen.findByRole('heading', { name: 'Claire Reynolds' });
+    let resolveOld!: (value: typeof sampleSummary[]) => void;
+    vi.mocked(api.getCases).mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'older' } });
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
+    vi.mocked(api.getCases).mockRejectedValueOnce(Error('current query failed'));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'current' } });
+    await screen.findByText('Could not connect to the API. Confirm the backend is running and retry.');
+    resolveOld([sampleSummary]);
+    await waitFor(() => expect(screen.queryByText('Loading cases...')).toBeNull());
+    expect(screen.getByText('Could not connect to the API. Confirm the backend is running and retry.')).toBeTruthy();
+  });
+
   it('keeps workflow actions reachable through a compact toolbar', async () => {
     vi.mocked(window.matchMedia).mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as MediaQueryList);
     await mountEmpty();
