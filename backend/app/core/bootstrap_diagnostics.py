@@ -16,6 +16,8 @@ from fastapi.routing import APIRoute
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from starlette.responses import JSONResponse
 
+from app.core.bootstrap_errors import exception_category
+
 logger = logging.getLogger("uvicorn.error.bootstrap")
 
 
@@ -77,10 +79,12 @@ class BootstrapDiagnostics:
             exception_chain=",".join(chain),
             exception_category=(
                 "authentication"
-                if isinstance(exc, HTTPException)
+                if isinstance(exc, HTTPException) and exc.status_code == 401
+                else "database_transient"
+                if isinstance(exc, HTTPException) and exc.status_code == 503
                 else "database"
-                if isinstance(exc, SQLAlchemyError)
-                else "server"
+                if isinstance(exc, SQLAlchemyError) and not isinstance(exc, DBAPIError)
+                else exception_category(exc)
             ),
             code_locations=",".join(frames[-12:]),
             sqlstate=sqlstate
@@ -102,16 +106,19 @@ class BootstrapRoute(APIRoute):
             try:
                 response = await handler(request)
                 status_code = response.status_code
+                response.headers["X-Request-ID"] = diagnostics.request_id
                 return response
             except HTTPException as exc:
                 status_code = exc.status_code
                 diagnostics.failure(exc)
+                exc.headers = {**(exc.headers or {}), "X-Request-ID": diagnostics.request_id}
                 raise
             except Exception as exc:
                 diagnostics.failure(exc)
                 return JSONResponse(
                     status_code=500,
                     content={"detail": "The workspace could not be initialized. Please retry."},
+                    headers={"X-Request-ID": diagnostics.request_id},
                 )
             finally:
                 diagnostics.emit(

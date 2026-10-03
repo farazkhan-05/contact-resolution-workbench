@@ -355,7 +355,7 @@ def test_database_exception_diagnostics_exclude_sql_parameters_and_driver_messag
         diagnostics.failure(exc)
     error = diagnostic_records(caplog)[-1]
     assert error["exception_class"] == "OperationalError"
-    assert error["exception_category"] == "database"
+    assert error["exception_category"] == "database_transient"
     assert error["connection_invalidated"] is True
     assert error["phase"] == "application_user"
     assert "private" not in caplog.text

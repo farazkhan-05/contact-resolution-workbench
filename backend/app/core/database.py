@@ -16,6 +16,9 @@ engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
     echo=False,
+    # Validate idle backends at checkout. In-transaction disconnects still need
+    # the operation to roll back and recover from its beginning.
+    pool_pre_ping=True,
 )
 
 

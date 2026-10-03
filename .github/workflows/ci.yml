@@ -123,3 +123,7 @@ jobs:
           done
           if [ "$ready" -ne 1 ]; then cat /tmp/celery-worker.log; exit 1; fi
           uv run pytest tests/test_csv_import.py tests/test_async_integration.py tests/test_investigation_integration.py -q
+      - name: Verify bootstrap transactions and auth fixture isolation
+        env:
+          BOOTSTRAP_TEST_DATABASE_URL: postgresql+psycopg://workbench:workbench@localhost:5432/workbench
+        run: uv run pytest tests/test_bootstrap_postgres.py tests/test_workspace_isolation.py tests/test_api_workflow.py -q

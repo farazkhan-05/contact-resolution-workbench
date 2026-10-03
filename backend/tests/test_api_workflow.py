@@ -32,6 +32,12 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(autouse=True)
 def setup_db() -> Generator[None]:
+    previous = app.dependency_overrides.copy()
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_firebase_identity] = lambda: FirebaseIdentity(
+        uid="api-workflow-user", email="reviewer@example.demo", is_anonymous=False
+    )
     Base.metadata.create_all(bind=engine)
     with TestingSessionLocal() as db:
         user = User(firebase_uid="api-workflow-user", email="reviewer@example.demo")
@@ -47,8 +53,12 @@ def setup_db() -> Generator[None]:
         client.headers.update(
             {"Authorization": "Bearer test-token", "X-Workspace-ID": workspace.id}
         )
-    yield
-    Base.metadata.drop_all(bind=engine)
+    try:
+        yield
+    finally:
+        Base.metadata.drop_all(bind=engine)
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)
 
 
 def override_get_db() -> Generator[Session]:
@@ -59,10 +69,6 @@ def override_get_db() -> Generator[Session]:
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
-app.dependency_overrides[get_firebase_identity] = lambda: FirebaseIdentity(
-    uid="api-workflow-user", email="reviewer@example.demo", is_anonymous=False
-)
 client = TestClient(app)
 
 
