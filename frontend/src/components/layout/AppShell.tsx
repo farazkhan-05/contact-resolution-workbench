@@ -1,4 +1,4 @@
-import React, { useRef, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, Download, HelpCircle, Loader2, MoreHorizontal, RefreshCw, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import { ProductLogo } from './ProductLogo';
 import { HelpTooltip } from './HelpTooltip';
@@ -35,7 +35,35 @@ export const AppShell: React.FC<AppShellProps> = ({
   isLoadingSample, isUploadingCsv, isExportingCsv, exportDisabled, feedback, onClearFeedback, onSignOut, children,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvHelpTriggerRef = useRef<HTMLButtonElement>(null);
+  const csvHelpCloseRef = useRef<HTMLButtonElement>(null);
+  const [csvHelpOpen, setCsvHelpOpen] = useState(false);
   const compact = useSyncExternalStore(subscribe, getCompact, () => false);
+  useEffect(() => {
+    if (!csvHelpOpen) return;
+    csvHelpCloseRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setCsvHelpOpen(false);
+        csvHelpTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [csvHelpOpen]);
+  const closeCsvHelp = () => {
+    setCsvHelpOpen(false);
+    csvHelpTriggerRef.current?.focus();
+  };
+  const downloadCsvTemplate = () => {
+    const template = 'case_number,full_name,source_identifier,old_email,old_phone,employer,location\r\n';
+    const url = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'case-import-template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -54,7 +82,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     <button type="button" className="shell-button shell-button-bordered" onClick={() => fileInputRef.current?.click()} disabled={isLoadingSample || isUploadingCsv}>
       {isUploadingCsv ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Upload size={14} aria-hidden="true" />}Upload CSV
     </button>
-    <HelpTooltip label="Upload CSV" text="Upload a CSV file with records you want to review." />
+    <button ref={csvHelpTriggerRef} type="button" className="help-trigger" aria-label="CSV format help" aria-haspopup="dialog" onClick={() => setCsvHelpOpen(true)}><HelpCircle size={14} aria-hidden="true" /></button>
   </div>;
   const exportAction = <div className="workflow-action">
     <button type="button" className="shell-button" onClick={() => void onExportCsv()} disabled={isExportingCsv || exportDisabled}>
@@ -80,6 +108,20 @@ export const AppShell: React.FC<AppShellProps> = ({
         {compact ? <>{uploadAction}<ActionMenu label="More case actions" trigger={<><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></>}>{aiAction}{sampleAction}{exportAction}</ActionMenu></> : <>{aiAction}{sampleAction}{uploadAction}<span className="toolbar-divider" />{exportAction}</>}
       </div>
     </section>}
+    {csvHelpOpen && <div className="csv-help-backdrop">
+      <section className="csv-help-dialog" role="dialog" aria-modal="true" aria-labelledby="csv-help-title" aria-describedby="csv-help-intro">
+        <div className="csv-help-heading"><h2 id="csv-help-title">CSV format</h2><button ref={csvHelpCloseRef} type="button" className="csv-help-close" onClick={closeCsvHelp} aria-label="Close CSV format help"><X size={18} aria-hidden="true" /></button></div>
+        <p id="csv-help-intro">Upload a CSV file with records you want to review.</p>
+        <h3>Required columns</h3><p><code>case_number</code>, <code>full_name</code></p>
+        <h3>Optional columns</h3><p><code>source_identifier</code>, <code>old_email</code>, <code>old_phone</code>, <code>employer</code>, <code>location</code></p>
+        <p className="csv-help-limits">Up to 100 records<br />Maximum file size 256 KB</p>
+        <p>If the file has an invalid row or column, nothing will be imported.</p>
+        <h3>Example</h3>
+        <pre className="csv-help-example"><code>{'case_number,full_name,source_identifier,old_email,old_phone,employer,location\nDEMO-001,Emre Demo Yılmaz,SRC-001,emre@demo.example,905550000101,Demo Anadolu Teknoloji,İstanbul\nDEMO-002,Leyla Demo Karaca,SRC-002,leyla@demo.example,,Mavişehir Teknoloji,İzmir'}</code></pre>
+        <p className="csv-help-note">This is synthetic demo data.</p>
+        <div className="csv-help-actions"><button type="button" className="shell-button shell-button-bordered" onClick={downloadCsvTemplate}>Download CSV template</button><button type="button" className="shell-button" onClick={closeCsvHelp}>Close</button></div>
+      </section>
+    </div>}
       {/* Inline Feedback Banner */}
       {feedback && (
         <div

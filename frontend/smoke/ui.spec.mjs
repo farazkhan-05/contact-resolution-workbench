@@ -110,9 +110,20 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     }
     if (width < 900) await page.getByRole('button', { name: 'Export Reviewed help' }).press('Escape');
     await page.getByRole('button', { name: 'Account menu' }).focus();
-    const uploadHelp = page.getByRole('button', { name: 'Upload CSV help' });
-    await uploadHelp.hover();
-    await expect(page.getByRole('tooltip')).toHaveText('Upload a CSV file with records you want to review.');
+    const uploadHelp = page.getByRole('button', { name: 'CSV format help' });
+    let fileChooserOpened = false;
+    page.on('filechooser', () => { fileChooserOpened = true; });
+    await uploadHelp.click();
+    const csvHelp = page.getByRole('dialog', { name: 'CSV format' });
+    await expect(csvHelp.getByText('Upload a CSV file with records you want to review.')).toBeVisible();
+    await expect(csvHelp.getByText('Required columns')).toBeVisible();
+    await expect(csvHelp.getByText('Optional columns')).toBeVisible();
+    await expect(csvHelp.getByText('Up to 100 records')).toBeVisible();
+    await expect(csvHelp.getByText('Maximum file size 256 KB')).toBeVisible();
+    expect(fileChooserOpened).toBe(false);
+    await page.keyboard.press('Escape');
+    await expect(csvHelp).toBeHidden();
+    await expect(uploadHelp).toBeFocused();
     await page.getByRole('heading', { name: 'Start reviewing cases' }).click();
 
     const account = page.getByRole('button', { name: 'Account menu' });

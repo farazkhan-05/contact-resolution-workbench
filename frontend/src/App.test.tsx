@@ -59,7 +59,6 @@ describe('authenticated workbench shell', () => {
   it.each([
     ['Sources', 'Manage where your records come from.'],
     ['AI Evidence Extraction', 'Use AI to pull useful details from notes or documents.'],
-    ['Upload CSV', 'Upload a CSV file with records you want to review.'],
     ['Export Reviewed', 'Download cases that already have a review decision.'],
   ])('%s help appears on hover and keyboard focus with a description relationship', async (label, text) => {
     await mountEmpty();
@@ -116,6 +115,52 @@ describe('authenticated workbench shell', () => {
     await screen.findByText('1 record imported.');
     expect(api.ingestCsv).toHaveBeenCalledWith(file);
     expect(api.getJob).toHaveBeenCalledWith('job-1');
+  });
+
+  it('shows CSV requirements before opening the file chooser and downloads the exact template', async () => {
+    await mountEmpty();
+    const input = screen.getByLabelText('Upload CSV file');
+    const chooser = vi.spyOn(input, 'click');
+    const trigger = screen.getByRole('button', { name: 'CSV format help' });
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('dialog', { name: 'CSV format' });
+    expect(chooser).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close CSV format help' }));
+    expect(within(dialog).getByText('Required columns')).toBeTruthy();
+    expect(dialog.querySelectorAll('p')[1].textContent).toBe('case_number, full_name');
+    for (const field of ['source_identifier', 'old_email', 'old_phone', 'employer', 'location']) expect(within(dialog).getByText(field)).toBeTruthy();
+    expect(dialog.querySelector('.csv-help-limits')?.textContent).toBe('Up to 100 recordsMaximum file size 256 KB');
+    expect(within(dialog).getByText('If the file has an invalid row or column, nothing will be imported.')).toBeTruthy();
+    expect(within(dialog).getByText(/DEMO-001,Emre Demo Yılmaz,SRC-001,emre@demo\.example/)).toBeTruthy();
+    expect(within(dialog).getByText(/DEMO-002,Leyla Demo Karaca,SRC-002,leyla@demo\.example/)).toBeTruthy();
+    expect(within(dialog).getByText('This is synthetic demo data.')).toBeTruthy();
+
+    let generatedBlob: Blob | undefined;
+    const createUrl = vi.fn((blob: Blob) => { generatedBlob = blob; return 'blob:template'; });
+    const revokeUrl = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeUrl });
+    const clickedDownloads: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { clickedDownloads.push(this.download); });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Download CSV template' }));
+    expect(createUrl).toHaveBeenCalledTimes(1);
+    const blobText = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(generatedBlob!);
+    });
+    expect(blobText).toBe('case_number,full_name,source_identifier,old_email,old_phone,employer,location\r\n');
+    expect(clickedDownloads).toEqual(['case-import-template.csv']);
+    expect(revokeUrl).toHaveBeenCalledWith('blob:template');
+    click.mockRestore();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Close CSV format help' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it.each([
