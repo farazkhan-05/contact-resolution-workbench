@@ -46,7 +46,7 @@ test('public staging: authenticated CSV, review persistence and isolation', asyn
       jobStates.push((await res.json()).status);
     }
   });
-  await expect(page.getByText('CSV ingestion completed: 1 cases created.', { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible({ timeout: 60_000 });
   expect(jobStates).toContain('SUCCEEDED');
   const queueEntry = page.getByRole('button').filter({ hasText: caseNumber });
   await expect(queueEntry).toBeVisible();

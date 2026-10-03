@@ -37,15 +37,11 @@ class InvestigationState(TypedDict, total=False):
 
 
 def is_transient(exc: Exception) -> bool:
-    cause = exc.__cause__ if isinstance(exc, GeminiExtractionError) else exc
+    if isinstance(exc, GeminiExtractionError):
+        return exc.retryable
+    # Compatibility for non-provider adapters; provider decisions belong to Gemini.
     return isinstance(
-        cause, (TimeoutError, ConnectionError, httpx.TimeoutException, httpx.NetworkError)
-    ) or getattr(cause, "code", None) in (
-        429,
-        500,
-        502,
-        503,
-        504,
+        exc, (TimeoutError, ConnectionError, httpx.TimeoutException, httpx.NetworkError)
     )
 
 

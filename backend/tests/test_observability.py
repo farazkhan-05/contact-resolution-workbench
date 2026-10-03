@@ -427,7 +427,7 @@ def test_celery_job_status_retries_and_safe_headers(
     assert job_span.parent.span_id == parent.span_id
     assert job_span.context.trace_id == parent.trace_id
     assert job_span.attributes["job.retries"] == 2
-    assert job_span.attributes["operation.status"] == "SUCCESS"
+    assert job_span.attributes["operation.status"] == "SUCCEEDED"
     assert job_span.attributes["job.type"] == "CSV_INGEST"
     with sessions() as db:
         assert db.get(Job, job_id).status == "SUCCEEDED"

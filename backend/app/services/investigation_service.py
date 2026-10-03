@@ -1,5 +1,6 @@
 """Application ownership, worker coordination and official checkpoint lifecycle."""
 
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -20,12 +21,15 @@ from app.models.case import Case
 from app.models.investigation import InvestigationRun
 from app.schemas.investigation import HumanResponse, InterruptContext, InvestigationResponse
 from app.services.extractor import GeminiExtractionError, GeminiExtractor
+from app.services.investigation_failure import GovernedCheckpointer, investigation_failure
 from app.services.investigation_graph import (
     build_graph,
     is_transient,
 )
 from app.services.investigation_mcp import MCPToolFailure
 from app.services.investigation_operations import InvestigationState, interrupt_context
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -179,7 +183,7 @@ def execute_run(
             return
         # Separate short business transactions keep evidence durable across checkpoint gaps.
         # NO KEY UPDATE permits FK checks from those transactions while serializing workers.
-        graph = build_graph(sessions, saver, extractor)
+        graph = build_graph(sessions, GovernedCheckpointer(saver), extractor)
         config: RunnableConfig = {"configurable": {"thread_id": run.thread_id}}
         snapshot = graph.get_state(config)
         initial: InvestigationState = {
@@ -225,12 +229,13 @@ def execute_run(
                 )
                 else "INSUFFICIENT_EVIDENCE"
             )
-            run.last_error_code = (
-                exc.error.category.upper()
-                if isinstance(exc, MCPToolFailure)
-                else "EVIDENCE_OPERATION_FAILED"
+            run.last_error_code, run.last_error_message = investigation_failure(exc)
+            logger.warning(
+                "investigation.failure run_id=%s category=%s retryable=%s",
+                run.id,
+                run.last_error_code,
+                is_transient(exc),
             )
-            run.last_error_message = "Investigation could not obtain validated evidence."
             run.completed_at = datetime.now(UTC)
             event = "INVESTIGATION_FAILED"
         run.resume_input = None

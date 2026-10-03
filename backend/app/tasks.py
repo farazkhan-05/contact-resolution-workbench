@@ -101,12 +101,23 @@ def _fail_unstructured_job(
 
 @celery_app.task(acks_late=True, reject_on_worker_lost=True)  # type: ignore[untyped-decorator]
 def investigate_evidence(investigation_run_id: str) -> None:
+    from app.services.investigation_failure import CheckpointUnavailable, investigation_failure
     from app.services.investigation_service import execute_run, postgres_checkpointer
 
+    entered = False
+    completed = False
     try:
         with postgres_checkpointer() as saver:
+            entered = True
             execute_run(investigation_run_id, saver)
-    except Exception:
+            completed = True
+    except Exception as exc:
+        # Only context acquisition is necessarily a checkpoint failure. Execution
+        # failures are classified by their sanitized type, never by this catch's location.
+        code, message = investigation_failure(
+            exc if entered and not completed else CheckpointUnavailable()
+        )
+        logger.warning("investigation.failure run_id=%s category=%s", investigation_run_id, code)
         from app.models.investigation import InvestigationRun
 
         with SessionLocal() as db:
@@ -118,8 +129,8 @@ def investigate_evidence(investigation_run_id: str) -> None:
                 )
                 .values(
                     status="FAILED",
-                    last_error_code="CHECKPOINT_UNAVAILABLE",
-                    last_error_message="Investigation persistence is unavailable.",
+                    last_error_code=code,
+                    last_error_message=message,
                     completed_at=utcnow(),
                     updated_at=utcnow(),
                 )

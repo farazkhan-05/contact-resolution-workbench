@@ -504,12 +504,12 @@ def test_gemini_gap_uses_configured_structured_boundary() -> None:
 
 
 def test_sdk_timeout_classification_is_transient() -> None:
-    try:
-        raise httpx.ReadTimeout("provider details")
-    except httpx.ReadTimeout as cause:
-        wrapped = GeminiExtractionError("Sanitized timeout")
-        wrapped.__cause__ = cause
-    assert is_transient(wrapped)
+    client = MagicMock()
+    client.models.generate_content.side_effect = httpx.ReadTimeout("provider details")
+    with pytest.raises(GeminiExtractionError) as caught:
+        GeminiExtractor(client=client).extract_from_unstructured_text("synthetic evidence")
+    assert caught.value.__cause__ is None
+    assert is_transient(caught.value)
     assert not is_transient(ValueError("invalid extraction"))
 
 
@@ -530,3 +530,167 @@ def test_new_run_does_not_retrieve_an_already_persisted_source(graph_env: Any) -
         current = db.get(InvestigationRun, next_run.id)
         assert current.status == "WAITING_FOR_HUMAN"
         assert investigation_service.run_response(current).interrupt.allowed_actions == ["STOP"]
+
+
+@pytest.mark.parametrize(
+    "failure,recover,attempts,code",
+    [
+        ("timeout", True, 2, None),
+        ("503", True, 2, None),
+        ("429", True, 2, None),
+        ("timeout", False, 3, "PROVIDER_TEMPORARY_FAILURE"),
+        ("503", False, 3, "PROVIDER_TEMPORARY_FAILURE"),
+        ("429", False, 3, "PROVIDER_TEMPORARY_FAILURE"),
+        ("quota", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("billing", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("401", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("403", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("400", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("malformed", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("schema", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("blocked", True, 1, "PROVIDER_PERMANENT_FAILURE"),
+        ("empty_person", True, 1, "EVIDENCE_OPERATION_FAILED"),
+    ],
+)
+def test_real_provider_wrapper_governed_graph_retry(
+    graph_env: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+    recover: bool,
+    attempts: int,
+    code: str | None,
+) -> None:
+    from types import SimpleNamespace
+
+    from google.genai.errors import ClientError, ServerError
+
+    from tests.test_gemini_retry import quota_error
+
+    sessions, saver, run = graph_env
+    client = MagicMock()
+    success = SimpleNamespace(
+        text=FakeExtractor().extract_from_unstructured_text("").model_dump_json()
+    )
+    private = "PRIVATE body evidence name@example.test Bearer api-secret"
+    failures: dict[str, Any] = {
+        "timeout": httpx.ReadTimeout(private),
+        "503": ServerError(503, {"error": {"message": private}}),
+        "429": quota_error("RequestsPerMinute"),
+        "quota": quota_error("RequestsPerDay"),
+        "billing": ClientError(402, {"error": {"message": private}}),
+        "401": ClientError(401, {"error": {"message": private}}),
+        "403": ClientError(403, {"error": {"message": private}}),
+        "400": ClientError(400, {"error": {"message": private}}),
+        "empty_person": SimpleNamespace(text="{}"),
+        "malformed": SimpleNamespace(text=private),
+        "schema": SimpleNamespace(text=json.dumps({"name": {"private": private}})),
+        "blocked": SimpleNamespace(
+            text=None, prompt_feedback=SimpleNamespace(block_reason="SAFETY")
+        ),
+    }
+    first = failures[failure]
+    client.models.generate_content.side_effect = [first, success] if recover else [first] * 3
+    model = GeminiExtractor(client=client)
+    monkeypatch.setattr(model, "determine_evidence_gap", FakeExtractor().determine_evidence_gap)
+    before = counts(sessions)
+    execute_run(run.id, saver, sessions, model)
+    assert client.models.generate_content.call_count == attempts
+    with sessions() as db:
+        current = db.get(InvestigationRun, run.id)
+        assert current.thread_id == run.thread_id
+        assert db.get(Case, run.case_id).review_decision == "PENDING"
+        assert current.last_error_code == code
+        if code:
+            assert current.status == "FAILED"
+            assert counts(sessions)[:2] == before[:2]
+            assert private not in current.last_error_message
+        else:
+            assert current.status == "WAITING_FOR_HUMAN"
+            assert counts(sessions)[0] == before[0] + 1
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(
+                        AuditLog.case_id == run.case_id,
+                        AuditLog.event_type == "INVESTIGATION_EVIDENCE_ADDED",
+                    )
+                )
+                == 1
+            )
+            queue_resume(db, current, HumanResponse(action="STOP"))
+    if not code:
+        execute_run(run.id, saver, sessions, model)
+        after = counts(sessions)
+        execute_run(run.id, saver, sessions, model)
+        assert counts(sessions) == after
+        assert client.models.generate_content.call_count == attempts
+        with sessions() as db:
+            assert db.get(InvestigationRun, run.id).status == "SUCCEEDED"
+            assert db.get(Case, run.case_id).review_decision == "PENDING"
+    assert private not in caplog.text
+
+
+@pytest.mark.parametrize("stage", ["read", "write", "execution", "application_db"])
+def test_worker_failure_attribution(
+    graph_env: Any, monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    from app import tasks
+
+    sessions, saver, run = graph_env
+    monkeypatch.setattr(tasks, "SessionLocal", sessions)
+    if stage in {"read", "write"}:
+
+        def unavailable(*args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError("PRIVATE database credentials")
+
+        monkeypatch.setattr(saver, "get_tuple" if stage == "read" else "put", unavailable)
+        original = execute_run
+        monkeypatch.setattr(
+            investigation_service,
+            "execute_run",
+            lambda run_id, checkpoint: original(run_id, checkpoint, sessions, FakeExtractor()),
+        )
+    else:
+
+        def fail(*args: Any, **kwargs: Any) -> None:
+            if stage == "application_db":
+                from sqlalchemy.exc import OperationalError
+
+                raise OperationalError("PRIVATE", {}, RuntimeError("PRIVATE"))
+            raise RuntimeError("PRIVATE arbitrary execution error")
+
+        monkeypatch.setattr(investigation_service, "execute_run", fail)
+    tasks.investigate_evidence.run(run.id)
+    with sessions() as db:
+        current = db.get(InvestigationRun, run.id)
+        assert current.status == "FAILED"
+        assert current.last_error_code == (
+            "CHECKPOINT_UNAVAILABLE" if stage in {"read", "write"} else "INVESTIGATION_FAILED"
+        )
+        assert "PRIVATE" not in current.last_error_message
+
+
+@pytest.mark.parametrize("retryable", [True, False])
+def test_sanitized_metadata_is_authoritative(retryable: bool) -> None:
+    # Even a legacy raw cause must not override an explicit permanent decision.
+    wrapped = GeminiExtractionError("Safe failure", retryable=retryable)
+    wrapped.__cause__ = TimeoutError("PRIVATE")
+    assert is_transient(wrapped) is retryable
+
+
+def test_real_wrapper_hides_provider_body_and_evidence() -> None:
+    import traceback
+
+    client = MagicMock()
+    private_body = "PRI" + "VATE body Bearer token"
+    private_evidence = "PRI" + "VATE contact evidence"
+    client.models.generate_content.side_effect = httpx.ReadTimeout(private_body)
+    with pytest.raises(GeminiExtractionError) as caught:
+        GeminiExtractor(client=client).extract_from_unstructured_text(private_evidence)
+    exc = caught.value
+    assert exc.code == "PROVIDER_TIMEOUT" and exc.retryable
+    assert exc.__cause__ is None and exc.__suppress_context__
+    assert "PRIVATE" not in str(exc)
+    assert "PRIVATE" not in "".join(traceback.format_exception(exc))

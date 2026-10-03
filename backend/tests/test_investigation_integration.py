@@ -258,3 +258,47 @@ def test_celery_postgres_resume_obtains_mcp_evidence_idempotently() -> None:
     assert counts(SessionLocal) == after
     with SessionLocal() as db:
         assert db.get(Case, run.case_id).review_decision == "PENDING"
+
+
+def test_real_provider_retry_keeps_postgres_checkpoint_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import httpx
+
+    from app.services.extractor import GeminiExtractor
+
+    run = seed_run(SessionLocal)
+    client = MagicMock()
+    client.models.generate_content.side_effect = [
+        httpx.ReadTimeout("PRIVATE provider body"),
+        SimpleNamespace(text=FakeExtractor().extract_from_unstructured_text("").model_dump_json()),
+    ]
+    model = GeminiExtractor(client=client)
+    monkeypatch.setattr(model, "determine_evidence_gap", FakeExtractor().determine_evidence_gap)
+    before = counts(SessionLocal)
+    with postgres_checkpointer() as saver:
+        execute_run(run.id, saver, SessionLocal, model)
+        checkpoint = saver.get_tuple({"configurable": {"thread_id": run.thread_id}})
+        assert checkpoint is not None
+        assert checkpoint.checkpoint["channel_values"]["notes_used"]
+        assert "PRIVATE" not in json.dumps(checkpoint.checkpoint, default=str)
+    assert client.models.generate_content.call_count == 2
+    assert counts(SessionLocal)[0] == before[0] + 1
+    with SessionLocal() as db:
+        current = db.get(InvestigationRun, run.id)
+        assert current.status == "WAITING_FOR_HUMAN" and current.thread_id == run.thread_id
+        queue_resume(db, current, HumanResponse(action="STOP"))
+    after_retrieval = counts(SessionLocal)
+    with postgres_checkpointer() as saver:
+        execute_run(run.id, saver, SessionLocal, model)
+        execute_run(run.id, saver, SessionLocal, model)
+    assert counts(SessionLocal)[:2] == after_retrieval[:2]
+    assert client.models.generate_content.call_count == 2
+    with SessionLocal() as db:
+        current = db.get(InvestigationRun, run.id)
+        assert current.status == "SUCCEEDED" and current.thread_id == run.thread_id
+        assert db.get(Case, run.case_id).review_decision == "PENDING"
