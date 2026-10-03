@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api/client';
 import { Sources } from './components/Sources';
 import { AuthScreen } from './auth/AuthScreen';
@@ -45,6 +45,22 @@ export function App() {
   const lastViewedCaseRef = useRef<string | null>(null);
   const jobPollTimers = useRef(new Set<number>());
   const pollingSessionActive = useRef(status === 'ready');
+  const detailRequestId = useRef(0);
+  const reviewInFlight = useRef(false);
+  const reviewView = useRef({ caseId: selectedCaseId, workspaceId: workspace?.id, active: false, ready: false });
+  const isReviewReady = status === 'ready' && !!workspace && !!selectedCaseDetail
+    && selectedCaseDetail.id === selectedCaseId && !isLoadingDetail;
+
+  // A new committed selection/session owns a distinct view, including A -> B -> A.
+  useLayoutEffect(() => {
+    const view = { caseId: selectedCaseId, workspaceId: workspace?.id, active: status === 'ready', ready: false };
+    reviewView.current = view;
+    return () => {
+      view.active = false;
+      detailRequestId.current += 1;
+    };
+  }, [selectedCaseId, workspace?.id, status]);
+  useLayoutEffect(() => { reviewView.current.ready = isReviewReady; });
 
   const clearJobPollTimers = () => {
     jobPollTimers.current.forEach((timer) => window.clearTimeout(timer));
@@ -78,7 +94,7 @@ export function App() {
 
   // Fetch Cases list
   const fetchCases = useCallback(
-    async (preferredSelectedId?: string | null) => {
+    async (preferredSelectedId?: string | null, canApplyReviewRefresh?: () => boolean) => {
       setIsLoadingQueue(true);
       try {
         const fetched = await api.getCases({
@@ -86,23 +102,27 @@ export function App() {
           review_decision: activeDecisionFilter === 'ALL' ? undefined : activeDecisionFilter,
           search: searchQuery.trim() || undefined,
         });
+        if (canApplyReviewRefresh && !canApplyReviewRefresh()) return;
         setCases(fetched);
         setHasUnfilteredQueue(activeRoutingFilter === 'ALL' && activeDecisionFilter === 'ALL' && !searchQuery.trim());
 
-        // Keep or auto-select case using functional state update
-        setSelectedCaseId((currentSelectedId) => {
-          const targetId = preferredSelectedId !== undefined ? preferredSelectedId : currentSelectedId;
-          if (targetId && fetched.some((c) => c.id === targetId)) {
-            return targetId;
-          }
-          return fetched.length > 0 ? fetched[0].id : null;
-        });
+        // Review refreshes only update the queue, never change the reviewer's selection.
+        if (!canApplyReviewRefresh) {
+          setSelectedCaseId((currentSelectedId) => {
+            const targetId = preferredSelectedId !== undefined ? preferredSelectedId : currentSelectedId;
+            if (targetId && fetched.some((c) => c.id === targetId)) {
+              return targetId;
+            }
+            return fetched.length > 0 ? fetched[0].id : null;
+          });
 
-        if (fetched.length === 0) {
-          setSelectedCaseDetail(null);
-          lastViewedCaseRef.current = null;
+          if (fetched.length === 0) {
+            setSelectedCaseDetail(null);
+            lastViewedCaseRef.current = null;
+          }
         }
       } catch (err) {
+        if (canApplyReviewRefresh && !canApplyReviewRefresh()) return;
         setHasUnfilteredQueue(false);
         const msg = err instanceof ApiError ? err.detail : 'Could not connect to the API. Confirm the backend is running and retry.';
         setFeedback({ type: 'error', message: msg });
@@ -112,18 +132,28 @@ export function App() {
     },
     [activeRoutingFilter, activeDecisionFilter, searchQuery]
   );
+  const currentQueueFetcher = useRef(fetchCases);
+  useLayoutEffect(() => { currentQueueFetcher.current = fetchCases; }, [fetchCases]);
 
   // Fetch Case Detail
   const fetchCaseDetail = useCallback(async (caseId: string) => {
+    const view = reviewView.current;
+    if (!view.active || view.caseId !== caseId) return;
+    const requestId = ++detailRequestId.current;
+    const isCurrent = () => reviewView.current === view && view.active && detailRequestId.current === requestId;
+    view.ready = false;
     setIsLoadingDetail(true);
     try {
       const detail = await api.getCase(caseId);
+      if (!isCurrent()) return;
+      if (detail.id !== caseId) throw new Error('Case detail did not match the requested case.');
       setSelectedCaseDetail(detail);
     } catch (err) {
+      if (!isCurrent()) return;
       const msg = err instanceof ApiError ? err.detail : 'Could not load case detail.';
       setFeedback({ type: 'error', message: msg });
     } finally {
-      setIsLoadingDetail(false);
+      if (isCurrent()) setIsLoadingDetail(false);
     }
   }, []);
 
@@ -146,6 +176,10 @@ export function App() {
   }, [selectedCaseId, fetchCaseDetail, status]);
 
   const handleSelectCase = (caseId: string) => {
+    if (caseId !== selectedCaseId) {
+      reviewView.current.active = false;
+      detailRequestId.current += 1;
+    }
     setSelectedCaseId(caseId);
     setMobileView('detail');
   };
@@ -229,31 +263,52 @@ export function App() {
   };
 
   const handleSubmitDecision = async (
+    renderedCaseId: string,
     decision: ReviewDecision,
     candidateId?: string | null,
     notes?: string | null
   ) => {
-    if (!selectedCaseId) return;
+    const view = reviewView.current;
+    // Fail closed: the rendered identity, committed selection and loaded detail must agree.
+    if (!view.active || !view.ready || reviewInFlight.current || !isReviewReady
+      || view.caseId !== renderedCaseId || selectedCaseDetail?.id !== renderedCaseId) return;
+    const isCurrentView = () => reviewView.current === view && view.active;
+    const isCurrentRefresh = () => isCurrentView() && currentQueueFetcher.current === fetchCases;
+    reviewInFlight.current = true;
+    detailRequestId.current += 1;
     setIsSubmittingDecision(true);
     setFeedback(null);
     try {
-      const updated = await api.submitDecision(selectedCaseId, {
+      const updated = await api.submitDecision(renderedCaseId, {
         decision,
         selected_candidate_id: candidateId,
         notes,
       });
+      if (updated.id !== renderedCaseId) {
+        if (isCurrentView()) setFeedback({ type: 'error', message: 'Review response did not match the submitted case.' });
+        return;
+      }
       recordUsageEvent('DECISION_SUBMITTED', updated.case_number);
+      if (reviewView.current.active && reviewView.current.workspaceId === view.workspaceId) {
+        setCases(current => current.map(item => item.id === renderedCaseId
+          ? { ...item, review_decision: updated.review_decision } : item));
+      }
+      if (!isCurrentView()) return;
+      detailRequestId.current += 1;
+      setIsLoadingDetail(false);
       setSelectedCaseDetail(updated);
       setFeedback({
         type: 'success',
         message: `Recorded decision: ${decision.replace('_', ' ')}`,
       });
       // Refresh summaries in queue
-      await fetchCases(selectedCaseId);
+      await fetchCases(undefined, isCurrentRefresh);
     } catch (err) {
+      if (!isCurrentView()) return;
       const msg = err instanceof ApiError ? err.detail : 'Failed to submit decision.';
       setFeedback({ type: 'error', message: msg });
     } finally {
+      reviewInFlight.current = false;
       setIsSubmittingDecision(false);
     }
   };
@@ -342,12 +397,19 @@ export function App() {
               </div>
             </div></div> : <CaseDetail
               key={workspace?.id}
-              onRefresh={() => { if (selectedCaseId) { void fetchCaseDetail(selectedCaseId); void fetchCases(selectedCaseId); } }}
+              onRefresh={() => {
+                const view = reviewView.current;
+                if (view.active && selectedCaseDetail?.id === view.caseId && view.caseId) {
+                  void fetchCaseDetail(view.caseId);
+                  void fetchCases(undefined, () => reviewView.current === view && view.active && currentQueueFetcher.current === fetchCases);
+                }
+              }}
               caseDetail={selectedCaseDetail}
               isLoading={isLoadingDetail}
               onBackMobile={() => setMobileView('queue')}
               onSubmitDecision={handleSubmitDecision}
               isSubmittingDecision={isSubmittingDecision}
+              isReviewReady={isReviewReady}
             />}
           </div>
           </>}

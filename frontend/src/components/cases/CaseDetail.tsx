@@ -20,8 +20,9 @@ interface CaseDetailProps {
   caseDetail: CaseDetailType | null;
   isLoading: boolean;
   onBackMobile: () => void;
-  onSubmitDecision: (decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
+  onSubmitDecision: (caseId: string, decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmittingDecision: boolean;
+  isReviewReady: boolean;
   onRefresh: () => void;
 }
 
@@ -31,6 +32,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
   onBackMobile,
   onSubmitDecision,
   isSubmittingDecision,
+  isReviewReady,
   onRefresh,
 }) => {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
@@ -177,6 +179,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({
         activeCandidate={activeCandidate}
         onSubmitDecision={onSubmitDecision}
         isSubmitting={isSubmittingDecision}
+        isReviewReady={isReviewReady}
       />
 
       {/* 6. Audit Trail */}
