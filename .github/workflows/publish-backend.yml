@@ -1,0 +1,81 @@
+name: Publish backend to GHCR
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Full backend commit SHA approved for publication
+        required: true
+        type: string
+        default: 324e50b8a85bf34b9853d69db08ad1cb44b37b11
+
+permissions: {}
+
+concurrency:
+  group: ghcr-backend-${{ inputs.commit_sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      COMMIT_SHA: ${{ inputs.commit_sha }}
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Require a full commit SHA
+        shell: bash
+        run: '[[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]'
+
+      - name: Check out the approved backend commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+
+      - name: Set image reference and verify checkout
+        id: image
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$COMMIT_SHA"
+          echo "name=ghcr.io/${REPOSITORY,,}-backend" >> "$GITHUB_OUTPUT"
+          echo "tag=ghcr.io/${REPOSITORY,,}-backend:sha-${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the existing backend Dockerfile
+        env:
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: >-
+          docker build --platform linux/amd64
+          --file backend/Dockerfile
+          --label "org.opencontainers.image.source=https://github.com/$REPOSITORY"
+          --label "org.opencontainers.image.revision=$COMMIT_SHA"
+          --tag "$IMAGE_TAG" backend
+
+      - name: Log in to GHCR
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the commit-SHA tag
+        env:
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        shell: bash
+        run: |
+          # Never intentionally replace an existing release tag.
+          manifest_error=$(mktemp)
+          trap 'rm -f "$manifest_error"' EXIT
+          if docker manifest inspect "$IMAGE_TAG" > /dev/null 2> "$manifest_error"; then
+            echo "This commit-SHA tag already exists; deploy its recorded digest."
+            exit 1
+          fi
+          if ! grep -Eq 'manifest unknown|no such manifest' "$manifest_error"; then
+            echo "Cannot confirm that the tag is absent; refusing to publish."
+            exit 1
+          fi
+          docker push "$IMAGE_TAG"
+          printf 'Image: `%s`\nUse the sha256 digest from the push output for deployment.\n' "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
