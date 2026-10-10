@@ -113,13 +113,12 @@ implemented infrastructure. This synthetic portfolio has no availability or scal
 
 ### Current release verification status
 
-Local engineering and a controlled synthetic demo are ready with limitations.
-Production verification for the latest backend changes, including AI provenance,
-is pending. The complete latest release has not yet been verified publicly:
-coordinated API/worker rollout, frontend release confirmation and clean synthetic
-provenance/investigation acceptance remain outstanding. Earlier production checks
-are dated evidence, not verification of current HEAD. Unrestricted SaaS readiness
-has not been established. See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md).
+The 10–11 October 2026 API/worker rollout and bounded synthetic AI provenance and
+investigation acceptance are recorded in the [production release acceptance](docs/production-release-acceptance-2026-10-11.md).
+Those deployment observations were user-confirmed; the frontend's exact deployed
+SHA remains unverified. This does not establish long-term memory stability or
+unrestricted SaaS readiness. See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md)
+for earlier evidence and continuing operational limitations.
 
 Frontend pushes to `main` can trigger Vercel releases; they do not prove deployment
 or acceptance. Backend releases require deliberate coordinated release and migration.
@@ -132,15 +131,14 @@ or acceptance. Backend releases require deliberate coordinated release and migra
 4. Inspect candidate evidence and contradictions.
 5. Record a human Case review decision.
 6. Explore Sources and ingestion history.
-7. Demonstrate an investigation where verified and available; use local evidence until latest-release production acceptance passes.
-8. Inspect AI provenance and the retained source note where available; the latest backend implementation is rollout-pending.
+7. Demonstrate a bounded synthetic investigation; see the [October release acceptance](docs/production-release-acceptance-2026-10-11.md) and its limitations.
+8. Inspect AI provenance and the retained source note where available; evidence remains unverified and extracted role is nonscored context.
 
-New AI-ingested Cases in the locally verified implementation preserve the exact
-originating Job. An authorized reviewer can retrieve its retained source note through
-a workspace-scoped API. Extracted job title is context only: role is not scored.
-AI evidence is labelled unverified; no confidence percentage is invented. Historical
-Cases or an unreleased source-context API show unavailable context rather than guessed
-provenance. [Implementation evidence](docs/f11-ai-provenance-implementation-2026-10-04.md).
+New AI-ingested Cases preserve the exact originating Job. An authorized reviewer
+can retrieve its retained source note through a workspace-scoped API. Extracted
+job title is context only: role is not scored. AI evidence is labelled unverified;
+no confidence percentage is invented. Historical Cases show unavailable context
+rather than guessed provenance. [Implementation evidence](docs/f11-ai-provenance-implementation-2026-10-04.md).
 
 ## Local development
 
