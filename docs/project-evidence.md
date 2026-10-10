@@ -1,6 +1,6 @@
 # Project evidence
 
-Audited on 2026-10-02, starting at `b12905c` on `productization/v1`. Contact Resolution Workbench has a [portfolio deployment](https://contact-resolution.vercel.app) on `main`. This inventory originally describes 2 October evidence; the [4 October final readiness audit](final-readiness-audit-2026-10-04.md) supersedes its release/verification claims. Local engineering and controlled synthetic demos are ready with limitations; the complete latest public release remains unverified and unrestricted SaaS readiness is not established. [Production cutover](production-cutover.md) records fresh production browser/API acceptance; [final audit and verification](final-audit.md) preserves the engineering gates and constraints.
+Audited on 2026-10-02, starting at `b12905c` on `productization/v1`. Contact Resolution Workbench has a [portfolio deployment](https://contact-resolution.vercel.app) on `main`. This inventory originally describes 2 October evidence; the [4 October audit](final-readiness-audit-2026-10-04.md) records later local verification, and the [October release acceptance](production-release-acceptance-2026-10-11.md) records subsequent user-reported deployment and bounded AI provenance/investigation acceptance. Local engineering and bounded synthetic workflows have evidence; deployed-image attestation, frontend SHA and separate October CSV/final reviewer acceptance remain unverified. Unrestricted SaaS readiness is not established. [Production cutover](production-cutover.md) records fresh production browser/API acceptance; [final audit and verification](final-audit.md) preserves the engineering gates and constraints.
 
 Statuses describe the evidence available: **IMPLEMENTED** means code exists; **TESTED** means exercised by tests/acceptance; **BENCHMARKED** means measured on the documented dataset; **DEPLOYED** means present in the live portfolio deployment. DEPLOYED entries below refer to retained historical acceptance, not blanket verification of HEAD. Deployment alone does not prove execution of an optional capability.
 
@@ -23,7 +23,7 @@ Statuses describe the evidence available: **IMPLEMENTED** means code exists; **T
 | Human review | IMPLEMENTED, TESTED, DEPLOYED | [Scoped decisions](../backend/app/api/cases.py), API workflow tests, E3 persisted browser review | Routing outcomes do not silently merge people or submit Accept/Reject |
 | Synthetic retrieval/routing benchmark | BENCHMARKED, TESTED | [C1 held-out artifact](../backend/benchmarks/identity_resolution/results/test.json), [C4 held-out artifact](../backend/benchmarks/identity_resolution/results/c4/test.json), final logical reproduction | Synthetic data; separate retrieval implementation from the runtime database provider |
 | Rejected semantic/ranking experiments | BENCHMARKED, TESTED | [C2 results](../backend/benchmarks/identity_resolution/results/c2/local-test.json), [C3 selection veto](../backend/benchmarks/identity_resolution/results/c3/selection.json), [methods](identity-resolution-benchmark.md) | MiniLM underperformed; LR/XGBoost gains were artifact-driven; Gemini embeddings unassessed |
-| LangGraph investigation | IMPLEMENTED, TESTED | [Graph](../backend/app/services/investigation_graph.py), [real PostgreSQL checkpoints/resume](../backend/tests/test_investigation_integration.py) | Local real-service and earlier production checkpoint restoration verified; clean latest-release acceptance pending; additional retrieval is synthetic |
+| LangGraph investigation | IMPLEMENTED, TESTED | [Graph](../backend/app/services/investigation_graph.py), [real PostgreSQL checkpoints/resume](../backend/tests/test_investigation_integration.py) | Local real-service and earlier production checkpoint restoration verified; user-reported bounded October start/pause/resume acceptance; additional retrieval is synthetic |
 | Governed MCP v2 | IMPLEMENTED, TESTED | [Official Client/server and mapping](../backend/app/services/investigation_mcp.py), [governance tests](../backend/tests/test_investigation_mcp.py), real-service resume test | Embedded protocol boundary; no public MCP endpoint or arbitrary execution tools |
 | OTel privacy/fail-open behavior | IMPLEMENTED, TESTED | [Allowlist/export guard](../backend/app/core/observability.py), [privacy/failure tests](../backend/tests/test_observability.py), Source metadata tests | In-memory/fake exporters; disabled publicly |
 | Langfuse integration | IMPLEMENTED, TESTED | Shared provider, v4 processor filtering/masking tests, [investigation documentation](evidence-investigation.md) | No live Langfuse deployment/export claimed |
@@ -51,7 +51,7 @@ Salesforce, HubSpot, ERP systems, warehouses and internal applications could int
 
 ## Release boundaries and limitations
 
-Synthetic data provides no real-world false-merge guarantee. Gemini embeddings and live DeepEval judging were not run. LangGraph/MCP has earlier production checkpoint restoration evidence, but clean latest-release investigation acceptance is pending. Live OTel/Langfuse export is unverified and public exporters remain disabled. Kubernetes was validated with kind, not live hosting. Candidate retrieval is capped at 100 blocked database rows; hard worker crashes require manual recovery. The live portfolio has Northflank Sandbox constraints and no availability/scale SLA.
+Synthetic data provides no real-world false-merge guarantee. Gemini embeddings and live DeepEval judging were not run. LangGraph/MCP has earlier production checkpoint restoration evidence, with user-reported bounded October start/pause/resume acceptance. Live OTel/Langfuse export is unverified and public exporters remain disabled. Kubernetes was validated with kind, not live hosting. Candidate retrieval is capped at 100 blocked database rows; hard worker crashes require manual recovery. The live portfolio has Northflank Sandbox constraints and no availability/scale SLA.
 
 One transient initial worker failure was observed during staging deployment. Subsequent complete end-to-end flows passed; root cause was not established. The final audit also records incomplete smoke observations before its successful run without assigning an unsupported cause.
 
@@ -59,7 +59,7 @@ Terraform was evaluated and intentionally not adopted because the currently mana
 
 ## Latest local engineering and release scope
 
-- Atomic AI finalization commits Case, originating Job provenance and terminal success together; [F06](f06-atomic-finalization-2026-10-03.md) and [latest provenance evidence](f11-ai-provenance-implementation-2026-10-04.md) document local verification. The updated path awaits coordinated API/worker rollout.
+- Atomic AI finalization commits Case, originating Job provenance and terminal success together; [F06](f06-atomic-finalization-2026-10-03.md) and [latest provenance evidence](f11-ai-provenance-implementation-2026-10-04.md) document local verification. The [October release acceptance](production-release-acceptance-2026-10-11.md) reports deployment and provenance/reload acceptance; deployed images were not independently attested.
 - New AI Cases preserve the exact originating Job; authorized reviewers retrieve the retained source note through a scoped API. Extracted role is context only and is not scored. Evidence is unverified, with no invented confidence percentage. Source notes are not unnecessarily duplicated.
 - Durable Jobs, HTTP/task idempotency and duplicate-delivery tolerance are bounded guarantees. Publication can be interrupted and hard loss can strand work; there is no universal exactly-once or automatic stale-job recovery guarantee.
 - Stale-response protection, human review ownership, tenant isolation and reload/status recovery have current local regression evidence. Earlier production acceptance is retained separately from current frontend release confirmation.
@@ -75,5 +75,5 @@ investigations. Implemented workspace authorization, governed MCP tools, stale-r
 protection and optional filtered observability; used synthetic benchmarks to reject
 semantic retrieval and learned ranking that did not justify runtime complexity.
 Docker runtime, Kubernetes/kind validation and CI workflows support the engineering
-portfolio. Latest backend provenance production verification remains pending; no
-production traffic or scale claim is made.
+portfolio. October provenance and investigation acceptance is user-reported and
+bounded to synthetic workflows; no production traffic or scale claim is made.

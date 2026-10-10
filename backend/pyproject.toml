@@ -1,8 +1,8 @@
 [project]
 name = "contact-resolution-workbench-backend"
 version = "0.1.0"
-description = "Narrow privacy-safe POC for contact/profile resolution"
-readme = "README.md"
+description = "Contact resolution workbench with deterministic matching, AI evidence extraction, and human review"
+readme = { text = "Contact Resolution Workbench combines deterministic contact matching, AI evidence extraction, and human review.", content-type = "text/plain" }
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.14.0",

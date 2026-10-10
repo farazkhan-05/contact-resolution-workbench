@@ -7,18 +7,19 @@ rollout. It does not certify unrestricted SaaS readiness or long-term reliabilit
 
 | Item | Result and evidence source |
 | --- | --- |
-| Backend source | The supplied rollout evidence identifies `324e50b` as the backend source commit, and the worker image tag begins `sha-324e50b`. In this checkout, `324e50b` is `docs: finalize portfolio documentation` and changes documentation only. The backend source revision is therefore not independently verified from repository history. |
-| API | Deployment successful, confirmed by the user; not independently checked in this documentation pass. |
-| Worker | User-reported GHCR image tag begins `sha-324e50b`; running `1/1` with zero restarts after 13 minutes. |
+| Backend source | The supplied rollout evidence identifies `324e50b` as the backend source commit, and the worker image tag begins `sha-324e50b`. Local Git inspection verifies that `324e50b`, `ed92cc5` and the audited HEAD `97d598b` contain identical backend trees. A documentation-only commit still contains the complete source snapshot. Deployed image attestation is a separate, unverified question. |
+| API | Built and deployed through Northflank; successful deployment confirmed by the user, not independently checked in this documentation pass. |
+| Worker | Uses the public GHCR image, per the user; reported tag begins `sha-324e50b`, running `1/1` with zero restarts after 13 minutes. Its image digest was not independently verified. |
 | Database setup | Earlier migrations and checkpoint setup succeeded, per supplied rollout evidence. |
 | AI provenance | A synthetic AI extraction created a durable Case. AI evidence displayed **Unverified**; extracted role appeared as nonscored context; the source note remained after reload. |
-| Investigation | LangGraph reached **WAITING FOR HUMAN**. Investigation completed as **SUCCEEDED: HUMAN REVIEW REQUIRED**. |
+| Investigation | User-reported start, pause at WAITING FOR HUMAN and resume to SUCCEEDED: HUMAN REVIEW REQUIRED. |
 | Worker memory | No new worker OOM occurred during this bounded test. Observed worker memory was **255.91 MB of 256 MB**. |
 
 The deployment and runtime observations above are user-reported evidence, not
-independent live-provider verification. The source-commit discrepancy is verified
-against local Git history. Earlier migration/checkpoint success is historical
-rollout evidence. This document and the related README status update are
+independent live-provider verification. Backend source-tree equality is independently
+verified against local Git history. The Northflank API and GHCR worker are separate
+builds of the reported shared source revision; their image digests need not match.
+Earlier migration/checkpoint success is historical rollout evidence. This document and the related README status update are
 repository-verified documentation changes.
 
 ## Acceptance boundary and remaining limits

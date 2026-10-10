@@ -3,14 +3,18 @@
 ## Current release scope
 
 Contact Resolution Workbench uses Vercel for the frontend, Northflank for the
-API/Celery worker/private Redis, and Neon PostgreSQL. The last documented matched
-API/worker release is `37735bcf9bda28a0be2351489ded29eadbc23e33` on 3 October 2026.
-Latest backend provenance changes are locally verified and production-pending;
-frontend release confirmation and clean synthetic provenance/investigation acceptance
-remain outstanding. No current runtime inspection is implied. The
-[final readiness audit](../../docs/final-readiness-audit-2026-10-04.md) supersedes
-earlier release claims. The provisioning, resource and smoke records below are
-historical evidence and future operator instructions, not fresh execution evidence.
+API/Celery worker/private Redis, and Neon PostgreSQL. Northflank builds and deploys
+the API; the worker pulls a public GHCR image. The reported October source revision
+is `324e50b`. Shared source and Dockerfile do not imply identical image digests.
+Earlier database migrations and checkpoint initialization succeeded.
+
+The [October release record](../../docs/production-release-acceptance-2026-10-11.md)
+reports deployment, AI extraction/provenance after reload, and investigation start,
+pause and resume acceptance from the user. Local Git verifies backend source-tree
+equality, not deployed images. Worker memory reached 255.91 MB of 256 MB and no
+worker health checks are configured. Frontend SHA, separate CSV/final reviewer
+acceptance and long-term memory stability remain unverified. No unrestricted SaaS
+reliability is established. Provisioning and smoke records below are historical.
 
 ## Historical provisioning and acceptance
 
@@ -52,8 +56,9 @@ Same backend image -> one-off Alembic migration Job -> verified Neon branch
 
 `staging.template.json` is the native Northflank Template IaC source. There is
 no Terraform or PostgreSQL addon. The API is a combined build/deploy service,
-the worker a deployment service; both use `backend/Dockerfile`'s same build.
-The migration Job uses that build too. The provisioning template's source SHA
+the worker a deployment service. Historically both selected the internal build
+from `backend/Dockerfile`, as did the migration Job. The October worker instead
+uses a separately built public GHCR image; see the [release procedure](ghcr-release.md). The provisioning template's source SHA
 is pinned to E1 in the Build node and both internal image selectors. The historical
 E4 deployed implementation was `92165d6`, as verified in the E4 record; it is not
 the last documented release or a statement of current runtime state. Update all

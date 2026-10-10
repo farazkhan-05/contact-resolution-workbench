@@ -1,12 +1,11 @@
 # E4 verification record
 
-**Historical evidence:** this dated record does not verify the latest release.
-The [4 October final readiness audit](final-readiness-audit-2026-10-04.md) is the
-current authority: local engineering and controlled synthetic demos are ready with
-limitations; backend provenance rollout, frontend release confirmation and clean
-investigation acceptance remain pending.
+Historical record: the findings below describe the dated release and testing scope.
+See the [October release acceptance](production-release-acceptance-2026-10-11.md)
+for subsequent user-reported deployment and bounded synthetic acceptance. That
+record also preserves the remaining verification and reliability limits.
 
-This is the historical Source milestone acceptance record. That milestone backend subsequently served the [portfolio](https://contact-resolution.vercel.app); later releases are scoped by the current audit above. [Production cutover](production-cutover.md) records fresh Source, CSV, credential and isolation acceptance on the production frontend, with no application-code change.
+This is the historical Source milestone acceptance record. That milestone backend subsequently served the [portfolio](https://contact-resolution.vercel.app); later releases are scoped by the October acceptance record above. [Production cutover](production-cutover.md) records fresh Source, CSV, credential and isolation acceptance on the production frontend, with no application-code change.
 
 Verified on 2026-10-02. Starting branch: `productization/v1`, commit
 `ee534c18644a3f6b9794cd4107797b49f7526df1`. Application implementation and

@@ -2,7 +2,7 @@
 
 Inspected canonical branch: `main`. Application HEAD: `3688b8469e6cb042514da6a6305f3f260ef61be5`. This is the implementation baseline, before the documentation-only commit containing this report.
 
-The complete [original audit](live-product-audit-2026-10-03.md), including all 26 findings and its evidence/coverage sections, was reread. Its file was already untracked and is deliberately excluded from this commit. No application, test, configuration, deployment, migration, production data, Firebase, Gemini, Northflank, Vercel, Neon or Redis change was made. Local tests used synthetic SQLite data, isolated schemas in the existing disposable localhost PostgreSQL service, and mocked browser APIs. No production writes or new paid provider calls were performed.
+The original audit, including all 26 findings and its evidence/coverage sections, was reread. It is retained locally; the reconciliation below preserves the public findings. Its file was already untracked and is deliberately excluded from this commit. No application, test, configuration, deployment, migration, production data, Firebase, Gemini, Northflank, Vercel, Neon or Redis change was made. Local tests used synthetic SQLite data, isolated schemas in the existing disposable localhost PostgreSQL service, and mocked browser APIs. No production writes or new paid provider calls were performed.
 
 ## SECTION A — Executive status
 
@@ -262,4 +262,4 @@ The repaired safety binding and working core happy paths support a supervised de
 - Avoid claiming automatic old-job replay, immutable historical note rationale, tenant security certification, naturally observed transient retry, unlimited checkpoint storage sustainability or installed vendor connectors.
 - Keep Source count small; do not showcase partial-history failure recovery or credential-dialog keyboard/clipboard denial behavior as verified.
 
-Valid sample review/export, supported CSV, scoped Reference→Incoming ingestion and successful extraction/investigation are demonstrable. These restrictions do not erase remaining defects; they define why controlled synthetic readiness is narrower than public portfolio readiness. Only this audit document is to be committed, with `docs: rebaseline live product audit`, and pushed normally to main.
+Valid sample review/export, supported CSV, scoped Reference→Incoming ingestion and successful extraction/investigation are demonstrable. These restrictions do not erase remaining defects; they define why controlled synthetic readiness is narrower than public portfolio readiness. This report records the historical re-baseline; later fixes and release evidence are documented separately.

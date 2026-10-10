@@ -72,7 +72,7 @@ F06 is **closed and production verified**. This record covers only the ordinary 
 
 31. **Commits:** Application fix: `52aa058326e9e66327be6c370a5ff7ddf9bfcdbc`, `fix: finalize AI case and job atomically`. This verification record is committed separately after deployment; its documentation-only commit is the final repository HEAD and does not change the deployed application image.
 
-32. **Git status:** Main is pushed normally. The pre-existing untracked original audit is preserved; all F06 implementation/test/document changes are committed. Exact final HEAD/status are returned with the final response.
+32. **Git status:** Main is pushed normally. The pre-existing untracked original audit is preserved; all F06 implementation/test/document changes are committed. The fix and subsequent verification record are preserved in Git history.
 
 33. **Scope:** F08 stale/delivery recovery and F11 role/provenance/uncertainty remain separate. No stale reconciler, scheduler, watchdog, outbox, replay UI, original-note redesign, scoring/schema redesign, LangGraph, Firebase/bootstrap, Redis, CSV, Sources, review UI, Render or unrelated Vercel/UI changes. The only additional failure guard is the AI enqueue acknowledgement race needed to preserve F06 terminal integrity.
 

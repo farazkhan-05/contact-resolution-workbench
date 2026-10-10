@@ -1,14 +1,13 @@
 # Final engineering and portfolio audit
 
-**Historical evidence:** this dated record does not verify the latest release.
-The [4 October final readiness audit](final-readiness-audit-2026-10-04.md) is the
-current authority: local engineering and controlled synthetic demos are ready with
-limitations; backend provenance rollout, frontend release confirmation and clean
-investigation acceptance remain pending.
+Historical record: the findings below describe the dated release and testing scope.
+See the [October release acceptance](production-release-acceptance-2026-10-11.md)
+for subsequent user-reported deployment and bounded synthetic acceptance. That
+record also preserves the remaining verification and reliability limits.
 The separate AI Case/Job commit-window analysis below describes the older
 implementation. [Atomic finalization](f06-atomic-finalization-2026-10-03.md) and
 [exact Job provenance](f11-ai-provenance-implementation-2026-10-04.md) supersede it
-locally; the updated finalization path awaits production rollout. Publication gaps
+locally; subsequent bounded production acceptance is reported in the October record. Publication gaps
 and hard-loss/stale-job boundaries still apply. Dated dependency results are not
 a current vulnerability-free claim.
 

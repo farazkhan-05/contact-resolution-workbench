@@ -1,18 +1,20 @@
 # Manual backend image publication and release
 
-Prepared locally on 10 October 2026. No publication, visibility change or deployment
-has been performed. The supplied release target is
-`324e50b8a85bf34b9853d69db08ad1cb44b37b11`; Northflank build
-`second-curve-2571` reportedly succeeded for it. These runtime/build facts are
-operator-supplied, not independently verified here.
+This procedure was prepared on 10 October 2026 for source revision
+`324e50b8a85bf34b9853d69db08ad1cb44b37b11`. The subsequent
+[October release record](../../docs/production-release-acceptance-2026-10-11.md)
+reports successful Northflank API deployment and a worker using the public GHCR
+image. Deployment and runtime acceptance are user-reported; image digests were
+not independently attested. Earlier migration/checkpoint initialization succeeded.
+The steps below describe future deliberate releases.
 
 ## Why GHCR fits
 
 The existing `backend/Dockerfile` and `backend` context build the shared API/Celery
 image. The Northflank template uses a Combined API service and a Deployment worker
 service with an internal image selector; its original pinned SHA is historical.
-Existing CI tests the application and builds local kind images, but does not publish
-backend images to a registry.
+Push/PR CI tests the application and builds local kind images. The separate manual
+publication workflow below publishes backend images to GHCR.
 
 Northflank supports changing an existing Deployment service to an external image,
 including GHCR. This avoids the worker's internal build-selection problem and needs
@@ -29,7 +31,8 @@ Sources: [Northflank image-source changes](https://northflank.com/docs/v1/applic
 `.github/workflows/publish-backend.yml` runs only through `workflow_dispatch`.
 It checks out the supplied full SHA, builds the existing Dockerfile for Linux amd64,
 and publishes `ghcr.io/<lowercase-owner>/<lowercase-repository>-backend:sha-<full-sha>`.
-The default input is the release target above, rather than the future workflow commit.
+The default input is the October source revision above; select the intended full SHA
+for a later release.
 It adds source/revision labels at build time; application files are unchanged.
 
 The job grants only `contents: read` and `packages: write` to `GITHUB_TOKEN`;
@@ -52,7 +55,7 @@ required, entered through Northflank's secure registry-credential form. Do not r
 the ephemeral Actions token. A public package permits anonymous pulls, but making
 it public requires separate explicit approval.
 
-## Cost and release steps after approval
+## Cost and deliberate release steps
 
 GHCR container storage/bandwidth are currently free under
 [GitHub's registry billing policy](https://docs.github.com/en/billing/concepts/product-billing/github-packages).
@@ -61,16 +64,14 @@ consume included minutes (GitHub Free: 2,000/month); exceeding the quota may inc
 charges or block execution depending on budgets. Check remaining quota before
 dispatch; the job has a 30-minute timeout and no cache or artifact uploads.
 See [Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
-No new Northflank resource or paid infrastructure is required by this proposal.
+This release procedure uses the existing Northflank services.
 
-1. Approve the workflow, its commit/push, and publication of the target SHA. Commit
-   only the two files in this proposal; retain unrelated untracked documents.
-   Make the workflow available on the repository's default branch. Its manual
-   trigger does not publish on push, though existing CI workflows may run.
+1. Select the intended full source SHA for publication. The workflow is committed
+   on the default branch and requires manual dispatch; pushes do not publish images.
 2. Confirm Actions/package policy, package Actions write access if already present,
    and available Actions quota. Open Actions -> Publish backend to GHCR -> Run
-   workflow; select the approved workflow branch and enter
-   `324e50b8a85bf34b9853d69db08ad1cb44b37b11` as `commit_sha`.
+   workflow; select the intended workflow branch and enter the full source SHA
+   selected in step 1 as `commit_sha`.
 3. Require success. Record the image reference, source SHA, run URL and pushed
    sha256 digest. This is a fresh build of the same backend source, not an export
    of Northflank's existing build; their image digests need not match.
@@ -84,8 +85,8 @@ No new Northflank resource or paid infrastructure is required by this proposal.
    The existing migration Job has a historical internal selector; do not reapply
    the provisioning template or assume publishing an image updates the Job.
    Northflank documents that Job image sources cannot be switched like services.
-7. Release the Combined API using its successful build `second-curve-2571` at the
-   same SHA. In the existing worker's deployment overview, edit deployment ->
+7. Release the Combined API using a successful Northflank build at that same
+   source SHA. The October build was reported as `second-curve-2571`. In the existing worker's deployment overview, edit deployment ->
    External image, select the GHCR credential and enter
    `ghcr.io/<owner>/<repository>-backend@sha256:<recorded-digest>`.
    Preserve its runtime secret links, replica/resource settings, no public ports,
@@ -96,6 +97,7 @@ No new Northflank resource or paid infrastructure is required by this proposal.
    Celery readiness, and the approved synthetic workflow acceptance. Roll back
    to recorded previous images if acceptance fails.
 
-Live GitHub policy/quota/package state, Northflank digest acceptance and target
-architecture, migration readiness, and runtime acceptance remain unverified. No
-Northflank authentication or production access is part of this preparation.
+For future releases, verify GitHub policy/quota/package access, the intended
+image digest, and migration requirements before dispatch or rollout. The October
+acceptance is bounded user-reported evidence, not independent provider verification
+or a guarantee of future worker memory stability.

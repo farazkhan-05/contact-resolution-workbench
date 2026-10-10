@@ -3,9 +3,9 @@
 These manifests validate the existing FastAPI/Celery architecture in an ephemeral
 kind cluster. Kubernetes is not the production hosting platform. Contact Resolution Workbench
 uses Vercel for React, Northflank for API/Celery/private Redis and Neon PostgreSQL.
-Render belongs to the historical POC/rollback record. Latest backend rollout and
-public release acceptance remain pending; see the
-[final readiness audit](../../docs/final-readiness-audit-2026-10-04.md).
+Render belongs to the historical POC/rollback record. The [October release record](../../docs/production-release-acceptance-2026-10-11.md)
+reports API/worker deployment and bounded provenance/investigation acceptance
+from the user; it does not attest deployed images or long-term reliability.
 The manifests and kind evidence below validate local/CI behavior, not live hosting.
 
 `base/` defines the API Deployment/Service, worker Deployment and non-secret

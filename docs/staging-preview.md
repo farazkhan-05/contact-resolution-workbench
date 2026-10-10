@@ -1,10 +1,9 @@
 # Public staging
 
-**Historical evidence:** this dated record does not verify the latest release.
-The [4 October final readiness audit](final-readiness-audit-2026-10-04.md) is the
-current authority: local engineering and controlled synthetic demos are ready with
-limitations; backend provenance rollout, frontend release confirmation and clean
-investigation acceptance remain pending.
+Historical record: the findings below describe the dated release and testing scope.
+See the [October release acceptance](production-release-acceptance-2026-10-11.md)
+for subsequent user-reported deployment and bounded synthetic acceptance. That
+record also preserves the remaining verification and reliability limits.
 
 This is the historical Preview acceptance record. The portfolio frontend moved to [Vercel Production](https://contact-resolution.vercel.app); see [production cutover](production-cutover.md). The Preview remains available, and its Northflank/Neon/Firebase resources now also serve the live portfolio. Internal staging names are retained.
 

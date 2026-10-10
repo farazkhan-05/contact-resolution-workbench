@@ -1,6 +1,6 @@
 # Contact Resolution Workbench
 
-A multi-tenant workbench for safely reviewing stale, duplicated and fragmented contact records. Deterministic identity rules score and route candidates; Gemini assists with evidence extraction, optional LangGraph investigations explore ambiguous evidence, and humans make final review decisions. Contradictions can block unsafe automatic likely-match assumptions.
+A multi-tenant workbench for data-quality teams reviewing stale, duplicated and fragmented contact records. Deterministic rules score and route candidates. Gemini extracts evidence from notes, and optional LangGraph investigations explore ambiguous evidence. Human reviewers make final decisions. Suffix and full-middle-name conflicts force human review, even when a candidate scores highly.
 
 ## Live portfolio
 
@@ -15,7 +15,7 @@ an outcome; it does not silently merge records or submit a reviewer decision.
 
 Businesses accumulate outdated contact details and duplicate identities across systems. Exact matching misses legitimate changes; loose fuzzy matching can incorrectly join different people, including family members with similar names.
 
-Optional Gemini extraction turns unstructured notes into schema-validated fields. LangGraph/MCP investigations check extracted values against approved evidence and rerun deterministic analysis. AI cannot set scores, choose a workspace, override contradiction gates or submit the reviewer's Accept/Reject decision. Investigation retrieval currently uses approved synthetic notes. PostgreSQL checkpoint restoration has local real-service and earlier production evidence; clean investigation acceptance on the latest release is pending. AI-extracted evidence is unverified, and no calibrated confidence percentage is supplied.
+Optional Gemini extraction turns unstructured notes into schema-validated fields. LangGraph/MCP investigations check extracted values against approved evidence and rerun deterministic analysis. AI cannot set scores, choose a workspace, override contradiction gates or submit the reviewer's Accept/Reject decision. Investigation retrieval currently uses approved synthetic notes. PostgreSQL checkpoint restoration has local real-service and earlier production evidence. The October release has user-reported bounded investigation start, pause and resume acceptance; see the [release record](docs/production-release-acceptance-2026-10-11.md). AI-extracted evidence is unverified, and no calibrated confidence percentage is supplied.
 
 ## Data ingestion
 
@@ -105,7 +105,10 @@ The corpus contains 880 synthetic identities, 2,600 records, 880 queries and 1,7
 
 The portfolio architecture uses Vercel for React, Northflank for the FastAPI API,
 Celery worker and private Redis, and Neon for durable PostgreSQL. Firebase provides
-authentication. API, worker and migration workload share a backend image.
+authentication. Northflank builds and deploys the API; the worker pulls a public
+GHCR image built from the same reported source revision. Separate builds can have
+different image digests. Earlier database migrations and checkpoint initialization
+succeeded; the retained migration workload is not evidence of a newly matched image.
 Kubernetes manifests and kind runs validate the architecture locally and in CI;
 Kubernetes is not the live hosting environment. Render is retained only in the
 [historical cutover/rollback record](docs/production-cutover.md). Terraform is not
@@ -113,12 +116,19 @@ implemented infrastructure. This synthetic portfolio has no availability or scal
 
 ### Current release verification status
 
-The 10–11 October 2026 API/worker rollout and bounded synthetic AI provenance and
-investigation acceptance are recorded in the [production release acceptance](docs/production-release-acceptance-2026-10-11.md).
-Those deployment observations were user-confirmed; the frontend's exact deployed
-SHA remains unverified. This does not establish long-term memory stability or
-unrestricted SaaS readiness. See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md)
-for earlier evidence and continuing operational limitations.
+The [10-11 October release record](docs/production-release-acceptance-2026-10-11.md)
+reports successful API/worker deployment, AI extraction and provenance inspection
+after reload, and a LangGraph investigation that started, paused for human input
+and resumed to completion. These are user-reported observations. Local Git inspection
+verifies that `324e50b`, `ed92cc5` and the audited HEAD `97d598b` have identical backend trees;
+it does not attest the deployed images.
+
+Worker memory reached 255.91 MB of 256 MB, and the worker has no configured health
+checks. Long-term memory stability remains unestablished. The deployed frontend SHA
+is unverified, and separate CSV and final reviewer-decision acceptance were not
+recorded for this release. This is bounded synthetic portfolio evidence, with no
+unrestricted SaaS reliability claim. The [4 October audit](docs/final-readiness-audit-2026-10-04.md)
+preserves earlier local testing and operational limitations.
 
 Frontend pushes to `main` can trigger Vercel releases; they do not prove deployment
 or acceptance. Backend releases require deliberate coordinated release and migration.
@@ -179,7 +189,7 @@ npm run build
 npm audit
 ```
 
-Real broker/worker and PostgreSQL checkpoint tests run separately against disposable services, as in [CI](.github/workflows/ci.yml). See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md) for current verification scope and the [historical audit](docs/final-audit.md) for earlier reproduction details. No paid live judge is required.
+Real broker/worker and PostgreSQL checkpoint tests run separately against disposable services, as in [CI](.github/workflows/ci.yml). See the [final readiness audit](docs/final-readiness-audit-2026-10-04.md) for the 4 October local verification scope and the [historical audit](docs/final-audit.md) for earlier reproduction details. No paid live judge is required.
 
 ## Security/privacy
 
@@ -192,12 +202,13 @@ OTel/Langfuse export allowlisted operation metadata, excluding identities, sourc
 - Synthetic benchmarks establish no real-world false-merge guarantee; Gemini embeddings and a live DeepEval judge were not evaluated.
 - Workspace reference retrieval takes at most 100 blocked records, ordered by internal ID. Larger blocks can omit the true candidate; benchmark recall does not validate this database cap.
 - Durable Job state, idempotent processing and duplicate-delivery tolerance do not imply exactly-once execution. Verified ingestion paths finalize domain writes and terminal success atomically; publication gaps and hard termination can strand PENDING/RUNNING Jobs, with no automatic stale-job reconciler. Recovery is operator-controlled; see the [crash analysis and runbook](docs/final-audit.md#worker-crash-analysis-and-manual-recovery).
-- LangGraph/MCP has local integration and earlier production checkpoint evidence; clean investigation acceptance on the latest release remains pending. Approved additional retrieval is currently synthetic.
+- LangGraph/MCP has local integration, earlier production checkpoint evidence and user-reported bounded October start/pause/resume acceptance. Approved additional retrieval is currently synthetic; worker memory headroom and long-term reliability remain unverified.
 - The live portfolio uses Northflank Sandbox resources, with no availability/scale SLA; kind validation does not establish production Kubernetes readiness.
 
 ## Documentation links
 
-- [Current readiness and release evidence](docs/final-readiness-audit-2026-10-04.md)
+- [Current release acceptance and limits](docs/production-release-acceptance-2026-10-11.md)
+- [Historical local readiness audit](docs/final-readiness-audit-2026-10-04.md)
 - [Architecture and component boundaries](docs/productization-architecture.md)
 - [Engineering claims, evidence and caveats](docs/project-evidence.md)
 - [Final engineering/security audit](docs/final-audit.md)
@@ -206,4 +217,4 @@ OTel/Langfuse export allowlisted operation metadata, excluding identities, sourc
 - [Evidence investigations](docs/evidence-investigation.md)
 - [Source ingestion acceptance](docs/e4-verification.md) / [public staging](docs/staging-preview.md)
 - [Production cutover and rollback record](docs/production-cutover.md)
-- [Northflank runbook](infrastructure/northflank/README.md) / [Kubernetes/kind](infrastructure/k8s/README.md)
+- [Northflank runbook](infrastructure/northflank/README.md) / [GHCR publication and release](infrastructure/northflank/ghcr-release.md) / [Kubernetes/kind](infrastructure/k8s/README.md)

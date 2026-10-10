@@ -1,8 +1,12 @@
 # Final readiness audit — 4 October 2026
 
-**Decision: stop feature development and proceed to a bounded deployment/documentation pass. No further feature implementation is justified before the final deployment/documentation pass.** No demonstrated application-code blocker meets the requested completion-blocker definition. The final HEAD has not been verified as a complete public release: backend provenance rollout and clean production investigation verification remain outstanding.
+Historical audit: findings and release gaps below describe 4 October 2026.
+The [October release acceptance](production-release-acceptance-2026-10-11.md) records subsequent user-reported deployment and bounded
+provenance/investigation acceptance, with remaining operational limits.
 
-This is an evidence-based STOP/SHIP audit, not a certification of unrestricted SaaS reliability. No application, test, dependency, lockfile, infrastructure configuration, production data or existing audit/design document was changed. Only this report is intended for commit. No Northflank authentication, old-session use, remote runtime diagnostics, provider calls or deployment was performed.
+As of 4 October, no demonstrated application-code blocker remained. Backend provenance rollout and clean investigation acceptance were still outstanding, and the complete public release had not been verified.
+
+This is an evidence-based STOP/SHIP audit, not a certification of unrestricted SaaS reliability. No application, test, dependency, lockfile, infrastructure configuration, production data or existing audit/design document was changed. No Northflank authentication, old-session use, remote runtime diagnostics, provider calls or deployment was performed.
 
 ## Repository and evidence boundaries
 
@@ -11,7 +15,7 @@ This is an evidence-based STOP/SHIP audit, not a certification of unrestricted S
 - Starting tracked status: clean.
 - Starting untracked documents, preserved and excluded from this report commit: `docs/live-product-audit-2026-10-03.md`, `docs/f08-delivery-stall-diagnosis-2026-10-03.md`, `docs/f11-ai-provenance-design-2026-10-04.md`.
 - Local `origin/main` also points to the audited HEAD. Existing release records describe normal pushes. A fresh `git ls-remote` attempt could not verify remote main in this environment; its error text was suppressed to avoid accidental credential/URL disclosure. Pushed status below means retained push evidence plus the local remote-tracking ref, not a new independent remote observation.
-- The report commit follows the audited application HEAD. Its hash is recorded in the completion response; a document cannot contain its own final commit hash.
+- Original report commit: `2ff216c`, `docs: add final readiness audit`, following the audited application HEAD.
 
 Documents reviewed or used for their scoped historical evidence:
 
@@ -49,16 +53,16 @@ For B rows, the evidence column distinguishes an unapplied release from already-
 | F14 | B | Scoped durable Recent activity restores ordinary Job status after reload; active work plus latest 20 terminal imports are displayed. Jobs privacy/tenancy tests and local reload smoke pass. No payload/task IDs exposed. Runtime list is unpaginated, acceptable at demo volume. |
 | F15 | B | Action-specific refresh/recheck/export recovery replaces generic Retry; uncertain review writes require read-back and do not silently resubmit. Unit/browser checks pass. No new production uncertain-write test performed. |
 | F16 | B | Case-list generation guard rejects stale success/error/loading updates across searches, filters and sessions. `App.test.tsx` covers reversed responses. Committed after last documented backend release; frontend deployment is possible, not confirmed. |
-| F17 | E | Filters can enable an export that returns only headers when nothing is reviewed. No records leak or identity write occurs. **DO NOT SPEND MORE TIME.** |
+| F17 | E | Filters can enable an export that returns only headers when nothing is reviewed. No records leak or identity write occurs. |
 | F18 | B | `AppShell.tsx` provides schema, limits, rejection guidance and downloadable template before selection; unit/browser flow passes. Frontend release is possible, not independently verified. Parser contract unchanged. |
 | F19 | D | AI dialog has input focus, Escape outside submission and focus return; CSV help has initial focus/Escape/return. No complete Tab trap/background inertness; Source one-time credential dialog has Close autofocus but lacks full Escape/return/trap lifecycle. Practical limitation disclosed below; not a demonstrated primary-path failure or credential leak. |
-| F20 | D | Latest reviewer rationale persists; earlier rationale text is overwritten while decision audit events remain. No immutable historical-note requirement exists for this portfolio. Do not advertise full rationale history. **DO NOT SPEND MORE TIME.** |
+| F20 | D | Latest reviewer rationale persists; earlier rationale text is overwritten while decision audit events remain. No immutable historical-note requirement exists for this portfolio. Do not advertise full rationale history. |
 | F21 | B | Sources list renders independently; per-history `Promise.allSettled` isolates failures; in-flight/request/mount guards suppress overlap and stale updates. `Sources.test.tsx` covers partial failure and sequencing. Frontend production execution is not asserted. |
 | F22 | B | Fixture-owned auth overrides survive reordered workspace/workflow tests and full suite. Test-only issue is closed locally; no production defect or rollout exists for this row. |
-| F23 | B | Current initial heading is `Could not start extraction`; terminal failures and explicit recovery actions use product wording. The old initial `Status check failed` heading is gone. Local modal/recovery tests pass; do not claim production copy inspected. **DO NOT SPEND MORE TIME on additional wording.** |
-| F24 | E | Filtered `cases.length` still says `total`; cosmetic wording, not data mutation. **DO NOT SPEND MORE TIME.** |
-| F25 | E | Single underscore replacement can leave another underscore in multiword labels. Stored enums/decisions unaffected. **DO NOT SPEND MORE TIME.** |
-| F26 | E | Source provenance still displays literal `API ?` beside the durable ingestion ID. ID/relationship intact. **DO NOT SPEND MORE TIME.** |
+| F23 | B | Current initial heading is `Could not start extraction`; terminal failures and explicit recovery actions use product wording. The old initial `Status check failed` heading is gone. Local modal/recovery tests pass; do not claim production copy inspected. |
+| F24 | E | Filtered `cases.length` still says `total`; cosmetic wording, not data mutation. |
+| F25 | E | Single underscore replacement can leave another underscore in multiword labels. Stored enums/decisions unaffected. |
+| F26 | E | Source provenance still displays literal `API ?` beside the durable ingestion ID. ID/relationship intact. |
 | R01 | B | Retryability survives sanitized extractor → MCP → graph boundary; graph permits three attempts only for allowed transient categories. Unit/offline evaluation and real PostgreSQL wrapper tests pass. `37735bc` was deployed, but the subsequent production investigation never reached provider execution because of OOM. No new deployment solely for R01 is required; clean production verification remains pending. |
 | V01 | D | Re-baseline's separate live foreign-workspace investigation POST coverage gap remains. Existing start/get/list/resume/MCP tests deny foreign scope; no exposure was established. A missing live negative POST is an evidence boundary, not a code blocker. |
 
@@ -168,7 +172,7 @@ No current principal demo path consistently fails in the local evidence. Review 
 
 F19 precisely remains: no complete modal Tab/Shift+Tab containment or background inertness in AI/CSV/credential dialogs; Source credential dialog lacks consistent Escape dismissal and trigger-focus return. AI blocks Escape during submission intentionally and otherwise restores focus; native source disclosure supports Enter/Space. Close buttons are keyboard reachable and visible focus styles exist. This is an **accepted practical accessibility limitation** for bounded showcase, not full WCAG conformance. Do not claim fully accessible modal behavior. No broad accessibility platform or certification is justified before finishing; it is not evidence of a secret leak or unusable primary keyboard route.
 
-P3 decisions: **F17, F20, F23, F24, F25 and F26 — DO NOT SPEND MORE TIME**. F23's original copy is already improved; the others are harmless empty export, retained-latest rationale or small labels. None meets the requested blocker definition.
+F17, F20, F23, F24, F25 and F26 were accepted limitations or optional polish for the portfolio release. F23's original copy is already improved; the others are harmless empty export, retained-latest rationale or small labels. None meets the requested blocker definition.
 
 ## Fresh local verification
 
@@ -244,10 +248,10 @@ For presenting the **complete final HEAD** publicly: obtain a fresh safe Northfl
 
 Update README/evidence/resume chronology and claim boundaries above, record exact release SHAs/acceptance, document the build-tool advisory and Python-audit freshness limit, and preserve the existing manual-recovery/retention/scale boundaries. Review historical stale synthetic work only through separately authorized safe operator access; do not blindly replay it or make historical cleanup a feature prerequisite. No deployment can bypass the intentionally paused authentication constraint.
 
-### 3. DO NOT SPEND MORE TIME
+### 3. Optional work outside the release scope
 
 Do not delay for F17/F20/F23/F24/F25/F26, a visual redesign, full WCAG certification, structured uncertainty/role scoring, broad history/pagination/retention features, paid memory upgrades, reconciler/outbox/new infrastructure, embedding/ML adoption, telemetry activation or live DeepEval. These are not established code prerequisites under the requested blocker definition. Reopen only on concrete evidence of wrong identity writes, tenant exposure, silent corruption/loss, secret exposure, persistent primary-path failure, unrecoverable important operations, materially misleading behavior or materially false claims.
 
-**Exact next task:** “Final deployment/documentation pass: use a fresh safe Northflank authentication path, coordinate current API/worker release, verify frontend SHA and one clean bounded synthetic provenance/investigation flow, then update README/project evidence/resume claims to the verified release.” Authentication-dependent steps stay blocked until that safe path is available; documentation preparation can proceed independently.
+At the time of this audit, the remaining work was coordinated deployment and release acceptance. See the October release record for subsequent results.
 
-**Overall conclusion:** No further feature implementation is justified before the final deployment/documentation pass. Current local evidence supports a bounded synthetic portfolio with disclosed limits. Public presentation of the complete final HEAD still needs coordinated rollout and clean release acceptance. Unrestricted SaaS reliability is not established and should not be claimed. No Northflank authentication or real credential/header disclosure occurred in this audit.
+The 4 October local evidence supported a bounded synthetic portfolio, with release verification still outstanding at that date. Unrestricted SaaS reliability was not established. This audit performed no Northflank authentication or credential/header disclosure.

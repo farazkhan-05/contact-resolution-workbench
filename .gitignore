@@ -99,3 +99,8 @@ coverage.xml
 playwright-report/
 test-results/
 traces/
+
+# Historical audit/design documents retained locally
+/docs/live-product-audit-2026-10-03.md
+/docs/f08-delivery-stall-diagnosis-2026-10-03.md
+/docs/f11-ai-provenance-design-2026-10-04.md

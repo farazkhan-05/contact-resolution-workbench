@@ -1,4 +1,4 @@
-# Investigation retry repair — 3 October 2026
+# Investigation retry repair - 3 October 2026
 
 Starting branch `main`, commit `37b192c3f543ebc337c8bbfe98852a7aa64c461b`. Scope: R01, investigation error classification in F09, and stale telemetry/browser assertions. Primary audit: [re-baseline](live-product-audit-rebaseline-2026-10-03.md#r01--p2--new-investigation-retrieval-retry-regression--should_fix).
 

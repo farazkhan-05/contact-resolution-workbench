@@ -1,5 +1,8 @@
 # F11 minimum AI provenance implementation — 4 October 2026
 
+Historical implementation record: local results below describe 4 October.
+See the [October release acceptance](production-release-acceptance-2026-10-11.md) for subsequent user-reported provenance/reload acceptance.
+
 1. **Starting commit:** `91132c6b0b7b86267b0a4563737ba40e9f2871f2`, canonical branch `main`. Confirmed before editing. Three pre-existing untracked audit/design documents are left untouched and excluded from the implementation commit.
 2. **Files changed:** backend `app/api/cases.py`, `app/schemas/api.py`, `app/services/case_service.py`, `app/tasks.py`, `tests/test_ai_provenance.py`, `tests/test_ai_finalization_postgres.py`; frontend `src/api/client.ts`, `src/types/index.ts`, `src/components/cases/{CaseDetail,OriginalRecord,EvidenceMatrix,AIProvenanceSection,AIProvenanceSection.test}.tsx`, `smoke/ui.spec.mjs`; this report.
 3. **Relationship:** the existing Case-owned `CASE_INGESTED` event explicitly identifies the exact locked originating Job. No timestamps, case-number lookup, note search or fuzzy relationship inference is used by source-context retrieval.
@@ -32,7 +35,7 @@
 30. **Sensitive material:** no real credentials, cookies, bearer tokens, authentication headers, API keys, DB or Redis credentials were printed, captured or persisted. All new fixtures and test data are synthetic; browser checks use a local mocked session. No traces or production browser session were used.
 31. **Backend production:** deployment and production verification remain PENDING until safe Northflank authentication is available. API and worker must be deployed together for new writes/reads.
 32. **Frontend production:** normal Git push can trigger existing Vercel integration; live deployment status is not asserted or inspected. Frontend gracefully handles legacy provenance and unavailable source API during rollout.
-33. **Final commit:** recorded in the final task response after the normal implementation commit and push; this report is part of that commit.
-34. **Git status:** implementation changes committed on main. The three pre-existing untracked documents are intentionally preserved; final status and push result are reported with the commit hash.
+33. **Implementation commit:** `ed92cc5`, `feat: expose AI evidence provenance`; this report is part of that commit.
+34. **Git status:** implementation changes committed on main. The three pre-existing untracked documents were preserved and excluded from the implementation commit.
 35. **Closure:** F11 is closed for PORTFOLIO REVIEWABILITY at implementation/local-verification level: exact provenance, authorized original-note access, nonscored role, unverified labels, inspectable qualifiers, unchanged human authority, and passing tenant isolation. Production rollout remains pending and is not represented as verified.
 36. **Accepted limitation:** flat extracted values do not encode machine-structured uncertainty or alternatives and can still increase deterministic match scores. Original-note inspection restores reviewer context; it does not solve or claim calibrated certainty, field probability or uncertainty-aware scoring.

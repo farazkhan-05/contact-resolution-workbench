@@ -5,9 +5,10 @@ default request path or autonomous identity resolution. Gemini interprets/extrac
 unverified evidence; deterministic rules score and route, and humans make final
 review decisions. Local real-service tests verify PostgreSQL checkpoint reconstruction
 and interrupt/resume; earlier production checkpoint restoration is retained evidence.
-Clean investigation acceptance on the latest release remains pending. See the
-[final readiness audit](final-readiness-audit-2026-10-04.md); no unrestricted production
-reliability or live AI accuracy is claimed.
+The [October release record](production-release-acceptance-2026-10-11.md) reports
+bounded start, pause and resume acceptance from the user. This is separate from
+local testing and earlier checkpoint evidence; no independent deployed-image
+attestation, unrestricted production reliability or live AI accuracy is claimed.
 
 Investigation is an explicit reviewer action on a NEEDS_REVIEW case whose decision is PENDING or NEED_MORE_EVIDENCE. Authentication, ingestion, scoring, case APIs, exports and final review submission remain outside LangGraph.
 
