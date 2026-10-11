@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 // Local, mocked API tests only. Production/staging test configurations are not used.
 export default defineConfig({
-  testDir: './smoke', testMatch: ['ui.spec.mjs', 'safety.spec.mjs'], workers: 1, retries: 0,
+  testDir: './smoke', testMatch: ['ui.spec.mjs', 'safety.spec.mjs', 'foundations.spec.mjs'], workers: 1, retries: 0,
   timeout: 30_000, reporter: 'line', outputDir: './.system_generated/phase2a/browser',
   use: { browserName: 'chromium', baseURL: 'http://127.0.0.1:5177',
     trace: 'off', screenshot: 'off', video: 'off', serviceWorkers: 'block' },

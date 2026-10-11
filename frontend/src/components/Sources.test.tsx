@@ -9,6 +9,34 @@ vi.mock("../api/client", async (original) => {
 });
 
 describe('Source authority and history fidelity', () => {
+  it('one-time synthetic credential display is discarded on close and never restored by refresh', async () => {
+    vi.mocked(api.createSource).mockResolvedValue({ ...source('new'), api_key: 'SYNTHETIC-NOT-A-CREDENTIAL' });
+    render(<Sources owner onReview={vi.fn()} />);
+    await screen.findByRole('heading', { name: 'one' });
+    fireEvent.change(screen.getByLabelText('Source name'), { target: { value: 'Synthetic feed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Source' }));
+    const dialog = await screen.findByRole('dialog', { name: 'API key for new' });
+    expect(dialog.getAttribute('aria-describedby')).toBe('key-description');
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close and discard key' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close and discard key' }));
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.queryByText('SYNTHETIC-NOT-A-CREDENTIAL')).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Disable' })[0]);
+    await waitFor(() => expect(api.sourceStatus).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(api.createSource).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains explicit rotation confirmation and treats Escape as closing/discarding the one-time display', async () => {
+    const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(api.rotateSource).mockResolvedValue({ ...source('one'), api_key: 'SYNTHETIC-NOT-A-CREDENTIAL' });
+    render(<Sources owner onReview={vi.fn()} />);
+    const trigger = (await screen.findAllByRole('button', { name: 'Rotate API Key' }))[0]; trigger.focus(); fireEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent(dialog, new Event('cancel', { cancelable: true }));
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(document.activeElement).toBe(trigger);
+    expect(confirmation).toHaveBeenCalledExactlyOnceWith('Rotate the API key? The current key will stop working immediately.');
+    expect(api.rotateSource).toHaveBeenCalledExactlyOnceWith('one'); confirmation.mockRestore();
+  });
+
   const article = (name: string) => screen.getByRole('heading', { name }).closest('article')!;
   it('binds expanded history to its Source and removes previous expanded history', async () => {
     render(<Sources owner onReview={vi.fn()} />);

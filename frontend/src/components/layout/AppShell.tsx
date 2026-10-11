@@ -1,8 +1,11 @@
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AlertCircle, CheckCircle2, ChevronDown, Download, HelpCircle, Loader2, MoreHorizontal, RefreshCw, Sparkles, Upload, UserRound, X } from 'lucide-react';
+import React, { useRef, useState, useSyncExternalStore } from 'react';
+import { ChevronDown, Download, HelpCircle, Loader2, MoreHorizontal, RefreshCw, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import { ProductLogo } from './ProductLogo';
 import { HelpTooltip } from './HelpTooltip';
 import { ActionMenu } from './ActionMenu';
+import { Dialog } from '../ui/Dialog';
+import { Button } from '../ui/Button';
+import { InlineFeedback } from '../ui/Feedback';
 import './AppShell.css';
 
 interface AppShellProps {
@@ -39,21 +42,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   const csvHelpCloseRef = useRef<HTMLButtonElement>(null);
   const [csvHelpOpen, setCsvHelpOpen] = useState(false);
   const compact = useSyncExternalStore(subscribe, getCompact, () => false);
-  useEffect(() => {
-    if (!csvHelpOpen) return;
-    csvHelpCloseRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setCsvHelpOpen(false);
-        csvHelpTriggerRef.current?.focus();
-      }
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [csvHelpOpen]);
   const closeCsvHelp = () => {
     setCsvHelpOpen(false);
-    csvHelpTriggerRef.current?.focus();
   };
   const downloadCsvTemplate = () => {
     const template = 'case_number,full_name,source_identifier,old_email,old_phone,employer,location\r\n';
@@ -108,9 +98,10 @@ export const AppShell: React.FC<AppShellProps> = ({
         {compact ? <>{uploadAction}<ActionMenu label="More case actions" trigger={<><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></>}>{aiAction}{sampleAction}{exportAction}</ActionMenu></> : <>{aiAction}{sampleAction}{uploadAction}<span className="toolbar-divider" />{exportAction}</>}
       </div>
     </section>}
-    {csvHelpOpen && <div className="csv-help-backdrop">
-      <section className="csv-help-dialog" role="dialog" aria-modal="true" aria-labelledby="csv-help-title" aria-describedby="csv-help-intro">
-        <div className="csv-help-heading"><h2 id="csv-help-title">CSV format</h2><button ref={csvHelpCloseRef} type="button" className="csv-help-close" onClick={closeCsvHelp} aria-label="Close CSV format help"><X size={18} aria-hidden="true" /></button></div>
+    <Dialog open={csvHelpOpen} onDismiss={closeCsvHelp} labelledBy="csv-help-title" describedBy="csv-help-intro"
+      initialFocusRef={csvHelpCloseRef} returnFocusRef={csvHelpTriggerRef} className="csv-help-content">
+        <div className="ui-dialog-header"><h2 id="csv-help-title" className="ui-dialog-title">CSV format</h2><Button ref={csvHelpCloseRef} variant="quiet" iconOnly onClick={closeCsvHelp} aria-label="Close CSV format help"><X size={18} aria-hidden="true" /></Button></div>
+        <div className="ui-dialog-body">
         <p id="csv-help-intro">Upload a CSV file with records you want to review.</p>
         <h3>Required columns</h3><p><code>case_number</code>, <code>full_name</code></p>
         <h3>Optional columns</h3><p><code>source_identifier</code>, <code>old_email</code>, <code>old_phone</code>, <code>employer</code>, <code>location</code></p>
@@ -119,45 +110,29 @@ export const AppShell: React.FC<AppShellProps> = ({
         <h3>Example</h3>
         <pre className="csv-help-example"><code>{'case_number,full_name,source_identifier,old_email,old_phone,employer,location\nDEMO-001,Emre Demo Yılmaz,SRC-001,emre@demo.example,905550000101,Demo Anadolu Teknoloji,İstanbul\nDEMO-002,Leyla Demo Karaca,SRC-002,leyla@demo.example,,Mavişehir Teknoloji,İzmir'}</code></pre>
         <p className="csv-help-note">This is synthetic demo data.</p>
-        <div className="csv-help-actions"><button type="button" className="shell-button shell-button-bordered" onClick={downloadCsvTemplate}>Download CSV template</button><button type="button" className="shell-button" onClick={closeCsvHelp}>Close</button></div>
-      </section>
-    </div>}
+        </div>
+        <div className="ui-dialog-footer"><Button onClick={downloadCsvTemplate}>Download CSV template</Button><Button variant="quiet" onClick={closeCsvHelp}>Close</Button></div>
+    </Dialog>
       {/* Inline Feedback Banner */}
       {feedback && (
-        <div
-          className={`flex shrink-0 items-center justify-between border-b px-4 py-2 text-xs transition-colors ${
-            feedback.type === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : feedback.type === 'error'
-              ? 'border-rose-200 bg-rose-50 text-rose-900'
-              : 'border-blue-200 bg-blue-50 text-blue-900'
-          }`}
-          role="alert"
-        >
-          <div className="flex items-center space-x-2">
-            {feedback.type === 'success' && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />}
-            {feedback.type === 'error' && <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />}
-            {feedback.type === 'info' && <HelpCircle className="h-4 w-4 shrink-0 text-blue-600" />}
+        <InlineFeedback tone={feedback.type} className="ui-feedback-row">
+          <div className="ui-feedback-content">
             <span className="font-medium">{feedback.message}</span>
             {feedback.action && (
-              <button
-                type="button"
+              <Button
                 onClick={feedback.action.run}
-                className="ml-2 rounded border border-rose-300 bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-rose-800 hover:bg-white"
               >
                 {feedback.action.label}
-              </button>
+              </Button>
             )}
           </div>
-          <button
-            type="button"
+          <Button variant="quiet" iconOnly
             onClick={onClearFeedback}
-            className="rounded p-0.5 hover:bg-black/5"
             aria-label="Dismiss message"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+          </Button>
+        </InlineFeedback>
       )}
 
     {activity}

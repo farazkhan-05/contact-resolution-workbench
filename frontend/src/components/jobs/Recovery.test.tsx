@@ -222,8 +222,36 @@ it('focus enters dialog, Escape closes, and focus returns to the trigger', async
   const close = vi.fn();
   const view = render(<AiExtractionModal isOpen onClose={close} onCaseCreated={vi.fn(async () => {})} />);
   expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
-  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
   expect(close).toHaveBeenCalledTimes(1);
   view.rerender(<AiExtractionModal isOpen={false} onClose={close} onCaseCreated={vi.fn(async () => {})} />);
   expect(document.activeElement).toBe(trigger); trigger.remove();
+});
+
+it('does not dismiss while the initial submission outcome is still pending', async () => {
+  const acknowledgement = deferred<Job>();
+  vi.mocked(api.ingestUnstructured).mockReturnValue(acknowledgement.promise);
+  const close = vi.fn();
+  render(<AiExtractionModal isOpen onClose={close} onCaseCreated={vi.fn(async () => {})} />);
+  await extract();
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+  expect(screen.getByRole('button', { name: 'Close dialog' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true);
+  expect(close).not.toHaveBeenCalled();
+  await flush(() => acknowledgement.resolve(syntheticJob()));
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+  expect(close).toHaveBeenCalledTimes(1); expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
+});
+
+it('allows dismissal after an unknown acknowledgement without allowing another submission', async () => {
+  vi.mocked(api.ingestUnstructured).mockRejectedValue(Error('Synthetic acknowledgement unavailable'));
+  const props = { onClose: vi.fn(), onCaseCreated: vi.fn(async () => {}) };
+  const view = render(<AiExtractionModal isOpen {...props} />); await extract();
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+  expect(props.onClose).toHaveBeenCalledTimes(1);
+  view.rerender(<AiExtractionModal isOpen={false} {...props} />);
+  view.rerender(<AiExtractionModal isOpen {...props} />);
+  expect(screen.getByRole('button', { name: 'Extract & Resolve' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('alert').textContent).toContain('could not confirm whether');
+  expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });

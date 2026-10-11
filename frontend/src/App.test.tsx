@@ -338,7 +338,7 @@ describe('authenticated workbench shell', () => {
     expect(revokeUrl).toHaveBeenCalledWith('blob:template');
     click.mockRestore();
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(trigger);
     fireEvent.click(trigger);

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, sourceIngestionUrl } from "../api/client";
 import type { Source, SourceCredential, SourceIngestion } from "../api/client";
+import { Dialog } from './ui/Dialog';
+import { Button } from './ui/Button';
+import { TextInput } from './ui/Field';
+import { InlineFeedback } from './ui/Feedback';
 
 const button =
   "rounded border border-border bg-surface px-3 py-2 text-sm hover:bg-surface-muted disabled:opacity-50";
@@ -36,6 +40,8 @@ export function Sources({
   const refreshId = useRef(0);
   const inFlight = useRef(false);
   const mounted = useRef(false);
+  const discardKeyButton = useRef<HTMLButtonElement>(null);
+  const credentialTrigger = useRef<HTMLElement | null>(null);
   const load = useCallback(async () => {
     if (!mounted.current || inFlight.current) return;
     inFlight.current = true;
@@ -112,12 +118,12 @@ export function Sources({
         for ongoing ingestion. Reference Sources maintain master records;
         Incoming Sources send records for resolution.
       </p>
-      {error && (
+      {error && !credential && (
         <p role="alert" className="mb-3 text-rose-700">
           {error}
         </p>
       )}
-      {message && (
+      {message && !credential && (
         <p role="status" className="mb-3 text-emerald-700">
           {message}
         </p>
@@ -127,20 +133,21 @@ export function Sources({
           className="mb-5 flex flex-wrap gap-3"
           onSubmit={(e) => {
             e.preventDefault();
+            credentialTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             void action(async () => {
               setCredential(await api.createSource(name.trim(), type));
               setName("");
             });
           }}
         >
-          <input
+          <TextInput
             aria-label="Source name"
             required
             maxLength={100}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="CRM Feed"
-            className="rounded border border-border bg-surface px-3 py-2"
+            style={{ width: 'auto' }}
           />
           <select
             aria-label="Source type"
@@ -206,7 +213,8 @@ export function Sources({
                         <button
                           disabled={busy}
                           className={button}
-                          onClick={() => {
+                          onClick={(event) => {
+                            credentialTrigger.current = event.currentTarget;
                             if (
                               window.confirm(
                                 "Rotate the API key? The current key will stop working immediately.",
@@ -322,25 +330,19 @@ export function Sources({
         </pre>
       </details>
       {credential && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="key-title"
-            className="w-full max-w-xl rounded border border-border bg-surface p-6"
-          >
-            <h3 id="key-title" className="font-semibold">
+        <Dialog open onDismiss={() => setCredential(null)} labelledBy="key-title" describedBy="key-description" initialFocusRef={discardKeyButton} returnFocusRef={credentialTrigger}>
+          <div className="ui-dialog-body">
+            <h3 id="key-title" className="ui-dialog-title">
               API key for {credential.name}
             </h3>
-            <p className="my-3 text-sm">
+            <p id="key-description">
               Copy this key now. It cannot be shown again.
             </p>
             <code className="block break-all rounded bg-surface-muted p-3 text-sm">
               {credential.api_key}
             </code>
-            <div className="mt-4 flex gap-3">
-              <button
-                className={button}
+            <div className="flex flex-wrap gap-3">
+              <Button
                 onClick={() => {
                   void navigator.clipboard.writeText(credential.api_key).then(
                     () => setMessage("API key copied."),
@@ -352,22 +354,22 @@ export function Sources({
                 }}
               >
                 Copy API Key
-              </button>
-              <button
-                autoFocus
-                className={button}
+              </Button>
+              <Button ref={discardKeyButton}
                 onClick={() => setCredential(null)}
               >
                 Close and discard key
-              </button>
+              </Button>
             </div>
-            <p className="mt-4 text-xs text-muted">
+            {error && <InlineFeedback tone="error">{error}</InlineFeedback>}
+            {message && <InlineFeedback tone="success">{message}</InlineFeedback>}
+            <p className="text-sm text-muted">
               Use Authorization: Bearer &lt;SOURCE_API_KEY&gt; and an
               Idempotency-Key with the ingestion endpoint. Keep the credential
               in your application's secret storage.
             </p>
           </div>
-        </div>
+        </Dialog>
       )}
     </section>
   );
