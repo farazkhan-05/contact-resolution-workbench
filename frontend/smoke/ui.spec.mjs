@@ -1,6 +1,9 @@
 /* global document, window, getComputedStyle */
 import { test, expect } from '@playwright/test';
 import { sampleDetail, sampleSummary } from '../src/test-support/cases.ts';
+import { installOfflineBoundary } from './support/offline-boundary.mjs';
+
+test.beforeEach(async ({ page }) => installOfflineBoundary(page));
 
 // These overrides are confined to the local browser test. Production auth,
 // ingestion, API code and job processing run unchanged.

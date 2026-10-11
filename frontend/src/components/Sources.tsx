@@ -24,6 +24,7 @@ export function Sources({
     {},
   );
   const [historyErrors, setHistoryErrors] = useState<Record<string, boolean>>({});
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<Source["source_type"]>("REFERENCE");
@@ -38,6 +39,7 @@ export function Sources({
   const load = useCallback(async () => {
     if (!mounted.current || inFlight.current) return;
     inFlight.current = true;
+    setHistoryLoading(true);
     const requestId = ++refreshId.current;
     const current = () => mounted.current && refreshId.current === requestId;
     try {
@@ -62,7 +64,7 @@ export function Sources({
     } catch (err) {
       if (current()) setError(err instanceof ApiError ? err.detail : "Could not load Sources.");
     } finally {
-      if (current()) setLoading(false);
+      if (current()) { setLoading(false); setHistoryLoading(false); }
       if (refreshId.current === requestId) inFlight.current = false;
     }
   }, []);
@@ -167,6 +169,7 @@ export function Sources({
         <div className="space-y-3">
           {sources.map((source) => {
             const latest = histories[source.id]?.[0];
+            const loadingHistory = historyLoading || (histories[source.id] === undefined && !historyErrors[source.id]);
             return (
               <article
                 key={source.id}
@@ -184,7 +187,7 @@ export function Sources({
                     </p>
                     <p className="text-sm">
                       Recent result:{" "}
-                      {historyErrors[source.id] ? <span role="status">History unavailable</span> : latest
+                      {loadingHistory ? <span role="status">Loading history...</span> : historyErrors[source.id] ? <span role="status">History unavailable</span> : latest
                         ? `${latest.job.status} · ${latest.job.successful_rows}/${latest.job.total_rows} succeeded · ${latest.job.rejected_rows} failed`
                         : "No ingestions received"}
                     </p>
@@ -241,6 +244,13 @@ export function Sources({
                 </div>
                 {selected === source.id && (
                   <div className="mt-4 overflow-auto">
+                    {loadingHistory ? <p role="status">Loading ingestion history...</p> : historyErrors[source.id] ?
+                      <div role="alert">
+                        <p>Could not load ingestion history.</p>
+                        <button className={button} onClick={() => void load()} aria-label={`Retry history read for ${source.name}`}>
+                          Retry history read
+                        </button>
+                      </div> : <>
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr>
@@ -288,9 +298,10 @@ export function Sources({
                         ))}
                       </tbody>
                     </table>
-                    {!histories[source.id]?.length && (
+                    {histories[source.id]?.length === 0 && (
                       <p>No ingestion history yet.</p>
                     )}
+                    </>}
                   </div>
                 )}
               </article>

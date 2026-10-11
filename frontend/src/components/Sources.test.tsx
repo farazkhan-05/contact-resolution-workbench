@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sources } from "./Sources";
 import { api } from "../api/client";
@@ -6,6 +6,147 @@ import { api } from "../api/client";
 vi.mock("../api/client", async (original) => {
   const actual = await original<typeof import("../api/client")>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
+});
+
+describe('Source authority and history fidelity', () => {
+  const article = (name: string) => screen.getByRole('heading', { name }).closest('article')!;
+  it('binds expanded history to its Source and removes previous expanded history', async () => {
+    render(<Sources owner onReview={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText(/1\/1 succeeded/)).toHaveLength(3));
+    fireEvent.click(within(article('one')).getByRole('button', { name: 'View ingestion history' }));
+    expect(within(article('one')).getByRole('cell', { name: /one-run.*one-job/ })).toBeTruthy();
+    fireEvent.click(within(article('two')).getByRole('button', { name: 'View ingestion history' }));
+    expect(screen.queryByRole('cell', { name: /one-run/ })).toBeNull();
+    expect(within(article('two')).getByRole('cell', { name: /two-run.*two-job/ })).toBeTruthy();
+  });
+
+  it('does not present expanded failed history as empty history', async () => {
+    vi.mocked(api.sourceHistory).mockImplementation(async id => {
+      if (id === 'two') throw Error('synthetic history read failure');
+      return history(id);
+    });
+    render(<Sources owner onReview={vi.fn()} />);
+    await screen.findByText('History unavailable');
+    fireEvent.click(within(article('two')).getByRole('button', { name: 'View ingestion history' }));
+    expect(within(article('two')).getByText('History unavailable')).toBeTruthy();
+    expect(within(article('two')).queryByText('No ingestion history yet.')).toBeNull();
+    expect(within(article('two')).queryByText('No ingestions received')).toBeNull();
+  });
+
+  it('shows loading until history settles, then records for the selected Source', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof api.sourceHistory>>>();
+    vi.mocked(api.sourceHistory).mockImplementation(id => id === 'one' ? pending.promise : Promise.resolve(history(id)));
+    render(<Sources owner onReview={vi.fn()} />);
+    await screen.findByRole('heading', { name: 'one' });
+    fireEvent.click(within(article('one')).getByRole('button', { name: 'View ingestion history' }));
+    expect(within(article('one')).getByText('Loading ingestion history...')).toBeTruthy();
+    expect(within(article('one')).queryByText(/No ingestion/)).toBeNull();
+    expect(within(article('one')).queryByText('History unavailable')).toBeNull();
+    await act(async () => pending.resolve(history('one')));
+    expect(within(article('one')).getByRole('cell', { name: /one-run.*one-job/ })).toBeTruthy();
+    expect(within(article('one')).queryByText(/Loading.*history/)).toBeNull();
+    expect(within(article('one')).queryByText(/No ingestion/)).toBeNull();
+  });
+
+  it('shows empty history only after a successful empty read', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof api.sourceHistory>>>();
+    vi.mocked(api.sourceHistory).mockImplementation(id => id === 'two' ? pending.promise : Promise.resolve(history(id)));
+    render(<Sources owner onReview={vi.fn()} />);
+    await screen.findByRole('heading', { name: 'two' });
+    fireEvent.click(within(article('two')).getByRole('button', { name: 'View ingestion history' }));
+    expect(within(article('two')).queryByText('No ingestion history yet.')).toBeNull();
+    await act(async () => pending.resolve([]));
+    expect(within(article('two')).getByText('No ingestion history yet.')).toBeTruthy();
+    expect(within(article('two')).queryByText('History unavailable')).toBeNull();
+    expect(within(article('two')).queryByRole('button', { name: /Retry history read/ })).toBeNull();
+  });
+
+  it.each(['records', 'empty'] as const)('retries failed history using reads only and recovers %s', async result => {
+    const pending = deferred<Awaited<ReturnType<typeof api.sourceHistory>>>(); let reads = 0;
+    vi.mocked(api.sourceHistory).mockImplementation(id => {
+      if (id !== 'two') return Promise.resolve(history(id));
+      return ++reads === 1 ? Promise.reject(Error('Synthetic history read failure')) : pending.promise;
+    });
+    render(<Sources owner={false} onReview={vi.fn()} />); await screen.findByText('History unavailable');
+    fireEvent.click(within(article('two')).getByRole('button', { name: 'View ingestion history' }));
+    expect(within(article('two')).getByRole('alert').textContent).toContain('Could not load ingestion history.');
+    const retry = within(article('two')).getByRole('button', { name: 'Retry history read for two' });
+    fireEvent.click(retry); fireEvent.click(retry);
+    await waitFor(() => expect(api.sourceHistory).toHaveBeenCalledTimes(6));
+    expect(api.listSources).toHaveBeenCalledTimes(2);
+    expect(within(article('two')).getByText('Loading ingestion history...')).toBeTruthy();
+    expect(within(article('two')).queryByText('No ingestion history yet.')).toBeNull();
+    await act(async () => pending.resolve(result === 'empty' ? [] : history('two')));
+    if (result === 'empty') expect(within(article('two')).getByText('No ingestion history yet.')).toBeTruthy();
+    else expect(within(article('two')).getByRole('cell', { name: /two-run.*two-job/ })).toBeTruthy();
+    expect(within(article('two')).queryByText('History unavailable')).toBeNull();
+    for (const action of [api.createSource, api.rotateSource, api.sourceStatus, api.ingestCsv, api.ingestUnstructured]) expect(action).not.toHaveBeenCalled();
+  });
+
+  it('keeps selected Source context when switching during a retry and a history still fails', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof api.sourceHistory>>>(); let reads = 0;
+    vi.mocked(api.sourceHistory).mockImplementation(id => {
+      if (id !== 'two') return Promise.resolve(history(id));
+      return ++reads === 1 ? Promise.reject(Error('Synthetic history failure')) : pending.promise;
+    });
+    render(<Sources owner onReview={vi.fn()} />); await screen.findByText('History unavailable');
+    fireEvent.click(within(article('two')).getByRole('button', { name: 'View ingestion history' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry history read for two' }));
+    fireEvent.click(within(article('one')).getByRole('button', { name: 'View ingestion history' }));
+    await act(async () => pending.reject(Error('Synthetic retry failure')));
+    expect(within(article('one')).getByRole('cell', { name: /one-run.*one-job/ })).toBeTruthy();
+    expect(within(article('two')).queryByRole('table')).toBeNull();
+    fireEvent.click(within(article('two')).getByRole('button', { name: 'View ingestion history' }));
+    expect(within(article('two')).getByRole('alert').textContent).toContain('Could not load ingestion history.');
+    expect(within(article('two')).queryByText('No ingestion history yet.')).toBeNull();
+  });
+
+  it('reserves management for owners while keeping reviewer history readable', async () => {
+    render(<Sources owner={false} onReview={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByText(/1\/1 succeeded/)).toHaveLength(3));
+    for (const name of ['Create Source', 'Rotate API Key', 'Disable', 'Enable']) expect(screen.queryByRole('button', { name })).toBeNull();
+    expect(screen.queryByLabelText('Source name')).toBeNull();
+    fireEvent.click(within(article('one')).getByRole('button', { name: 'View ingestion history' }));
+    expect(screen.getByRole('cell', { name: /one-run.*one-job/ })).toBeTruthy();
+    expect(api.createSource).not.toHaveBeenCalled(); expect(api.rotateSource).not.toHaveBeenCalled(); expect(api.sourceStatus).not.toHaveBeenCalled();
+  });
+
+  it('keeps disabled Source status independent of successfully empty history', async () => {
+    vi.mocked(api.listSources).mockResolvedValue([{ ...source('disabled'), status: 'DISABLED' }]);
+    vi.mocked(api.sourceHistory).mockResolvedValue([]);
+    render(<Sources owner onReview={vi.fn()} />);
+    await screen.findByText(/REFERENCE · DISABLED/);
+    expect(await screen.findByText(/No ingestions received/)).toBeTruthy(); expect(screen.queryByText('History unavailable')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
+    await waitFor(() => expect(api.sourceStatus).toHaveBeenCalledWith('disabled', 'ACTIVE'));
+  });
+
+  it('F21 keeps interval refresh locked through pending history reads', async () => {
+    vi.useFakeTimers(); const pending = deferred<Awaited<ReturnType<typeof api.sourceHistory>>>();
+    vi.mocked(api.sourceHistory).mockReturnValue(pending.promise);
+    const view = render(<Sources owner onReview={vi.fn()} />);
+    await act(async () => {});
+    expect(api.sourceHistory).toHaveBeenCalledTimes(3);
+    await act(async () => vi.advanceTimersByTimeAsync(15000));
+    expect(api.listSources).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve([]));
+    await act(async () => vi.advanceTimersByTimeAsync(5000));
+    expect(api.listSources).toHaveBeenCalledTimes(2); view.unmount();
+  });
+
+  it('ignores late former-mount history without overwriting new Source results', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof api.sourceHistory>>>();
+    vi.mocked(api.listSources).mockResolvedValueOnce([source('old')]).mockResolvedValueOnce([source('new')]);
+    vi.mocked(api.sourceHistory).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(history('new'));
+    const first = render(<Sources owner onReview={vi.fn()} />);
+    await waitFor(() => expect(api.sourceHistory).toHaveBeenCalledWith('old')); first.unmount();
+    render(<Sources owner onReview={vi.fn()} />);
+    await screen.findByText(/1\/1 succeeded/);
+    await act(async () => pending.resolve(history('old')));
+    expect(screen.queryByRole('heading', { name: 'old' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'View ingestion history' }));
+    expect(screen.getByRole('cell', { name: /new-run.*new-job/ })).toBeTruthy(); expect(screen.queryByRole('cell', { name: /old-run/ })).toBeNull();
+  });
 });
 
 const source = (id: string, name = id) => ({ id, workspace_id: "workspace", name, source_type: "REFERENCE" as const, status: "ACTIVE" as const, key_prefix: "safe", last_ingested_at: null });

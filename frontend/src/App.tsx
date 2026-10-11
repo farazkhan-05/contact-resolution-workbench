@@ -107,7 +107,7 @@ export function App() {
 
   // Fetch Cases list
   const fetchCases = useCallback(
-    async (preferredSelectedId?: string | null, canApplyReviewRefresh?: () => boolean, preserveSelection = true) => {
+    async (preferredSelectedId?: string | null, canApplyReviewRefresh?: () => boolean, preserveSelection = true, preferredCaseNumber?: string) => {
       const requestId = ++casesRequestId.current;
       const workspaceId = workspace?.id;
       const isCurrent = () => requestId === casesRequestId.current
@@ -123,8 +123,12 @@ export function App() {
         setCases(fetched);
         setHasUnfilteredQueue(activeRoutingFilter === 'ALL' && activeDecisionFilter === 'ALL' && !searchQuery.trim());
 
-        // Review refreshes only update the queue, never change the reviewer's selection.
-        if (!canApplyReviewRefresh || !preserveSelection) {
+        // An AI Case must belong to this filtered result; other guarded refreshes keep the selection.
+        const created = preferredCaseNumber === undefined ? undefined : fetched.find(item => item.case_number === preferredCaseNumber);
+        if (created) {
+          setSelectedCaseId(created.id);
+          setMobileView('detail');
+        } else if (!canApplyReviewRefresh || !preserveSelection) {
           setSelectedCaseId((currentSelectedId) => {
             const targetId = preferredSelectedId !== undefined ? preferredSelectedId : currentSelectedId;
             if (targetId && fetched.some((c) => c.id === targetId)) {
@@ -138,8 +142,11 @@ export function App() {
             lastViewedCaseRef.current = null;
           }
         }
+        return fetched;
       } catch (err) {
         if (!isCurrent() || (canApplyReviewRefresh && !canApplyReviewRefresh())) return;
+        // Keep the AI modal's existing read-recovery behavior for a current failed refresh.
+        if (preferredCaseNumber !== undefined) throw err;
         setHasUnfilteredQueue(false);
         const msg = err instanceof ApiError ? err.detail : 'Could not connect to the API. Confirm the backend is running and retry.';
         setFeedback({ type: 'error', message: msg, action: { label: 'Refresh cases', run: () => void fetchCases() } });
@@ -356,15 +363,15 @@ export function App() {
 
   const handleCaseCreatedFromAi = async (caseNumber: string, canApply: () => boolean) => {
     const session = pollingSession.current;
-    const refreshed = await api.getCases();
-    if (!canApply() || !session.active || pollingSession.current !== session) return;
+    const view = reviewView.current;
+    const fetcher = currentQueueFetcher.current;
+    const current = () => canApply() && session.active && pollingSession.current === session
+      && reviewView.current === view && view.active && currentQueueFetcher.current === fetcher;
+    if (!current()) return;
+    const refreshed = await fetcher(undefined, current, true, caseNumber);
+    if (!refreshed || !canApply() || !session.active || pollingSession.current !== session) return;
     setActivityRevision(value => value + 1);
-    setCases(refreshed);
     const created = refreshed.find((item) => item.case_number === caseNumber);
-    if (created) {
-      setSelectedCaseId(created.id);
-      setMobileView('detail');
-    }
     setFeedback({
       type: 'success',
       message: created

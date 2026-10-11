@@ -48,6 +48,44 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 describe('review case authority', () => {
+  it('candidate switching replaces conflicts, evidence, and the identity submitted for acceptance', async () => {
+    const alternate = { ...caseA.candidates[0], id: 'alternate', name: 'Synthetic Alternate',
+      contradictions: [{ id: 'suffix-conflict', contradiction_type: 'INCOMPATIBLE_NAME_SUFFIX', severity: 'SERIOUS' as const,
+        description: 'Synthetic incompatible suffix: Jr. versus Sr.', blocks_likely_match: true }], has_serious_contradiction: true,
+      evidence: [{ ...caseA.candidates[0].evidence[0], id: 'alternate-name', candidate_value: 'Synthetic Alternate', explanation: 'Alternate-specific evidence' }],
+    };
+    vi.mocked(api.getCase).mockResolvedValue({ ...caseA, candidates: [caseA.candidates[0], alternate] });
+    render(<App />); await screen.findByRole('heading', { name: caseA.raw_name });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Candidate A/ }).textContent).toContain('Active'));
+    fireEvent.click(screen.getByRole('button', { name: /Candidate B/ }));
+    expect(screen.getByText('Synthetic incompatible suffix: Jr. versus Sr.')).toBeTruthy();
+    expect(screen.getByText('Alternate-specific evidence')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Accept Candidate/ }).textContent).toContain('Synthetic Alternate');
+    fireEvent.click(screen.getByRole('button', { name: /Candidate A/ }));
+    expect(screen.queryByText('Synthetic incompatible suffix: Jr. versus Sr.')).toBeNull();
+    expect(screen.queryByText('Alternate-specific evidence')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Candidate B/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Accept Candidate/ }));
+    await waitFor(() => expect(api.submitDecision).toHaveBeenCalledExactlyOnceWith(caseA.id, {
+      decision: 'ACCEPTED', selected_candidate_id: 'alternate', notes: '',
+    }));
+  });
+
+  it('detail read-back selects the saved candidate and restores notes without changing system advice', async () => {
+    const acceptedCandidate = { ...caseA.candidates[0], id: 'saved', name: 'Saved Candidate' };
+    vi.mocked(api.getCase).mockResolvedValue({ ...caseA, routing_status: 'NEEDS_REVIEW', review_decision: 'ACCEPTED',
+      selected_candidate_id: 'saved', reviewer_notes: 'Saved synthetic note', candidates: [caseA.candidates[0], acceptedCandidate] });
+    render(<App />); await screen.findByRole('button', { name: 'Accept Candidate (Saved Candidate)' });
+    expect(screen.getByText('System: NEEDS REVIEW')).toBeTruthy();
+    expect(screen.getByText('Decision: ACCEPTED')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Reviewer Operational Note (Optional)').value).toBe('Saved synthetic note');
+    expect(api.submitDecision).not.toHaveBeenCalled();
+    vi.mocked(api.getCase).mockResolvedValue(caseB);
+    select(caseB.case_number); await screen.findByRole('heading', { name: caseB.raw_name });
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Reviewer Operational Note (Optional)').value).toBe('');
+    expect(screen.queryByText('Current Verdict: ACCEPTED (Candidate Accepted)')).toBeNull();
+  });
+
   it('keeps B displayed when slow A detail completes after B', async () => {
     const slowA = deferred<CaseDetail>();
     vi.mocked(api.getCase).mockImplementation(id => id === caseA.id ? slowA.promise : Promise.resolve(caseB));
@@ -211,6 +249,7 @@ describe('review case authority', () => {
   it.each(['ACCEPTED', 'REJECTED', 'NEED_MORE_EVIDENCE'] as ReviewDecision[])('preserves normal %s review and current-case refresh', async decision => {
     render(<App />);
     await screen.findByRole('heading', { name: caseA.raw_name });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Candidate A/ }).textContent).toContain('Active'));
     fireEvent.change(screen.getByLabelText('Reviewer Operational Note (Optional)'), { target: { value: 'Synthetic review note' } });
     const name = decision === 'ACCEPTED' ? /Accept Candidate/ : decision === 'REJECTED' ? /Reject All/ : /Need More Evidence/;
     fireEvent.click(screen.getByRole('button', { name }));

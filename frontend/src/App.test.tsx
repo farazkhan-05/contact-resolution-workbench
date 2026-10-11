@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { syntheticJob } from './test-support/jobs';
 import { api } from './api/client';
 import { sampleDetail, sampleSummary } from './test-support/cases';
+import type { CaseDetail, CaseSummary } from './types';
 
 const auth = vi.hoisted(() => ({ signOutUser: vi.fn(async () => {}), status: 'ready', workspace: { id: 'test-workspace', role: 'OWNER' } }));
 vi.mock('./auth/AuthProvider', () => ({ useAuth: () => auth }));
@@ -11,6 +12,189 @@ vi.mock('./api/telemetry', () => ({ recordUsageEvent: vi.fn() }));
 vi.mock('./api/client', async (original) => {
   const actual = await original<typeof import('./api/client')>();
   return { ...actual, api: Object.fromEntries(Object.keys(actual.api).map((key) => [key, vi.fn()])) };
+});
+
+describe('AI completion and queue authority', () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void; let reject!: (error: Error) => void;
+    const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+  }
+  const extract = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
+  };
+  function acceptedCase() {
+    const created: CaseSummary = { ...sampleSummary, id: 'ai-created', case_number: 'AI-NOT-YET-SUBMITTED', person_name: 'Synthetic AI subject' };
+    vi.mocked(api.ingestUnstructured).mockImplementation(async payload => {
+      created.case_number = payload.case_number!;
+      return syntheticJob();
+    });
+    vi.mocked(api.getJob).mockResolvedValue(syntheticJob({ status: 'SUCCEEDED', successful_rows: 1 }));
+    vi.mocked(api.getCase).mockImplementation(async id => id === created.id
+      ? { ...sampleDetail, id, case_number: created.case_number, raw_name: created.person_name,
+        ai_provenance: { source_type: 'AI_EXTRACTED', job_title: null, source_context_available: true, unverified: true } }
+      : sampleDetail);
+    return created;
+  }
+  it('successful accepted AI Job loads its Case as pending and never submits an identity decision', async () => {
+    const created = acceptedCase();
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]).mockResolvedValue([sampleSummary, created]);
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
+    fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
+    fireEvent.change(screen.getByLabelText('Unstructured Provider Evidence'), { target: { value: 'Synthetic source note with uncertain email' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
+    await screen.findByRole('heading', { name: created.person_name });
+    expect(api.ingestUnstructured).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ raw_evidence_text: 'Synthetic source note with uncertain email' }));
+    expect(screen.getByText('Decision: PENDING')).toBeTruthy();
+    expect(screen.getAllByText(/Unverified/).length).toBeGreaterThan(0);
+    expect(api.submitDecision).not.toHaveBeenCalled();
+  });
+
+  it('an older queue refresh cannot replace the AI-created Case after completion', async () => {
+    const created = acceptedCase(); let resolveOld!: (rows: CaseSummary[]) => void;
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary])
+      .mockReturnValueOnce(new Promise(resolve => { resolveOld = resolve; }))
+      .mockResolvedValue([sampleSummary, created]);
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
+    await screen.findByRole('heading', { name: created.person_name });
+    await act(async () => resolveOld([sampleSummary]));
+    expect(screen.getByRole('heading', { name: created.person_name })).toBeTruthy();
+    expect(screen.getByRole('button', { name: new RegExp(created.case_number) })).toBeTruthy();
+    expect(api.ingestUnstructured).toHaveBeenCalledTimes(1); expect(api.submitDecision).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['success', 'ready'], ['failure', 'ready'],
+    ['success', 'loading'], ['failure', 'loading'],
+    ['success', 'unavailable'], ['failure', 'unavailable'],
+  ] as const)('ignores late queue %s with newly selected AI detail %s', async (outcome, detailState) => {
+    const created = acceptedCase(); created.person_name = 'Claire Synthetic AI';
+    const old = deferred<CaseSummary[]>(); const detail = deferred<CaseDetail>();
+    const aiDetail = { ...sampleDetail, id: created.id, case_number: created.case_number, raw_name: created.person_name };
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]).mockReturnValueOnce(old.promise).mockResolvedValue([created]);
+    vi.mocked(api.getCase).mockImplementation(async id => {
+      if (id !== created.id) return sampleDetail;
+      if (detailState === 'loading') return detail.promise;
+      if (detailState === 'unavailable') throw Error('Synthetic unavailable AI detail');
+      return { ...aiDetail, case_number: created.case_number };
+    });
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2)); extract();
+    await waitFor(() => expect(api.getCase).toHaveBeenCalledWith(created.id));
+    if (detailState === 'ready') await screen.findByRole('heading', { name: created.person_name });
+    if (detailState === 'unavailable') await screen.findByText('Could not load case detail.');
+    await act(async () => {
+      if (outcome === 'success') old.resolve([sampleSummary]); else old.reject(Error('Synthetic obsolete queue failure'));
+    });
+    expect(screen.getByRole('button', { name: new RegExp(created.case_number) }).getAttribute('aria-current')).toBe('true');
+    expect(screen.queryByText('Loading cases...')).toBeNull();
+    expect(screen.queryByText('Could not connect to the API. Confirm the backend is running and retry.')).toBeNull();
+    if (detailState === 'loading') {
+      expect(screen.getByText('Loading case details...')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Reject All' })).toBeNull();
+      await act(async () => detail.resolve({ ...aiDetail, case_number: created.case_number }));
+    } else if (detailState === 'unavailable') {
+      for (const name of [/Accept Candidate/, /Reject All/, /Need More Evidence/]) expect(screen.getByRole('button', { name }).hasAttribute('disabled')).toBe(true);
+    }
+    expect(api.submitDecision).not.toHaveBeenCalled();
+    if (detailState !== 'unavailable') {
+      vi.mocked(api.submitDecision).mockResolvedValue({ ...aiDetail, review_decision: 'REJECTED' });
+      fireEvent.click(screen.getByRole('button', { name: 'Reject All' }));
+      await waitFor(() => expect(api.submitDecision).toHaveBeenCalledExactlyOnceWith(created.id, { decision: 'REJECTED', selected_candidate_id: null, notes: '' }));
+    }
+    expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([true, false])('uses active search and filters; created Case included=%s', async included => {
+    const created = acceptedCase(); created.person_name = 'Claire Synthetic AI'; created.routing_status = 'NEEDS_REVIEW';
+    const existing = { ...sampleSummary, routing_status: 'NEEDS_REVIEW' as const };
+    vi.mocked(api.getCases).mockResolvedValue([existing]);
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
+    fireEvent.click(screen.getByRole('button', { name: 'Needs Review' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Decision filter' }), { target: { value: 'PENDING' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
+    const params = { search: 'Claire', routing_status: 'NEEDS_REVIEW', review_decision: 'PENDING' };
+    await waitFor(() => expect(api.getCases).toHaveBeenLastCalledWith(params));
+    await act(async () => {});
+    const calls = vi.mocked(api.getCases).mock.calls.length;
+    vi.mocked(api.getCases).mockResolvedValue(included ? [existing, created] : [existing]); extract();
+    await screen.findByText(included ? 'AI extraction completed and case loaded into resolution workbench.' : 'AI extraction completed. The case queue was refreshed.');
+    expect(api.getCases).toHaveBeenCalledTimes(calls + 1); expect(api.getCases).toHaveBeenLastCalledWith(params);
+    expect(screen.getByRole('textbox', { name: 'Search cases' })).toHaveProperty('value', 'Claire');
+    expect(screen.getByRole('combobox', { name: 'Decision filter' })).toHaveProperty('value', 'PENDING');
+    if (included) await screen.findByRole('heading', { name: created.person_name });
+    else {
+      expect(screen.getByRole('heading', { name: sampleDetail.raw_name })).toBeTruthy();
+      expect(api.getCase).not.toHaveBeenCalledWith(created.id);
+      expect(screen.getByRole('button', { name: new RegExp(sampleSummary.case_number) }).getAttribute('aria-current')).toBe('true');
+    }
+    expect(api.ingestUnstructured).toHaveBeenCalledTimes(1); expect(api.submitDecision).not.toHaveBeenCalled();
+  });
+
+  it('keeps a newer filter response authoritative over an older AI refresh', async () => {
+    const created = acceptedCase(); const ai = deferred<CaseSummary[]>();
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]).mockReturnValueOnce(ai.promise).mockResolvedValue([]);
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name }); extract();
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'No matching subject' } });
+    await screen.findByText('No cases match your filters');
+    await act(async () => ai.resolve([sampleSummary, created]));
+    expect(screen.getByText('No cases match your filters')).toBeTruthy();
+    expect(api.getCase).not.toHaveBeenCalledWith(created.id);
+    expect(screen.queryByRole('heading', { name: created.person_name })).toBeNull();
+    expect(api.getCases).toHaveBeenCalledTimes(3); expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a manual selection made after AI selection when the earlier queue finishes', async () => {
+    const created = acceptedCase(); const old = deferred<CaseSummary[]>();
+    const other = { ...sampleSummary, id: 'other', case_number: 'SYNTHETIC-OTHER', person_name: 'Synthetic other subject' };
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary, other]).mockReturnValueOnce(old.promise).mockResolvedValue([created, other]);
+    vi.mocked(api.getCase).mockImplementation(async id => {
+      const row = id === created.id ? created : id === other.id ? other : sampleSummary;
+      return { ...sampleDetail, id, case_number: row.case_number, raw_name: row.person_name };
+    });
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Synthetic' } });
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
+    extract(); await screen.findByRole('heading', { name: created.person_name });
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(other.case_number) }));
+    await screen.findByRole('heading', { name: other.person_name });
+    await act(async () => old.resolve([sampleSummary, other]));
+    expect(screen.getByRole('heading', { name: other.person_name })).toBeTruthy();
+    expect(screen.getByRole('button', { name: new RegExp(other.case_number) }).getAttribute('aria-current')).toBe('true');
+    expect(api.getCases).toHaveBeenCalledTimes(3);
+    expect(screen.queryByText('Loading cases...')).toBeNull(); expect(api.submitDecision).not.toHaveBeenCalled();
+  });
+
+  it('a stale completion cannot clear the loading state of the newer AI queue read', async () => {
+    const created = acceptedCase(); const old = deferred<CaseSummary[]>(); const ai = deferred<CaseSummary[]>();
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]).mockReturnValueOnce(old.promise).mockReturnValueOnce(ai.promise);
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2)); extract();
+    await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(3));
+    await act(async () => old.resolve([]));
+    expect(screen.getByText('Loading cases...')).toBeTruthy();
+    await act(async () => ai.resolve([created]));
+    await screen.findByRole('heading', { name: created.person_name });
+    expect(screen.queryByText('Loading cases...')).toBeNull(); expect(api.getCases).toHaveBeenCalledTimes(3);
+  });
+
+  it('a current failed AI queue read preserves the existing modal recovery without another submission', async () => {
+    acceptedCase();
+    vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]).mockRejectedValueOnce(Error('Synthetic AI queue read failure'));
+    render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name }); extract();
+    await screen.findByText('Extraction completed. Could not refresh cases. Close this dialog and refresh cases.');
+    expect(screen.getByRole('heading', { name: sampleDetail.raw_name })).toBeTruthy();
+    expect(screen.queryByText('Loading cases...')).toBeNull(); expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
+    expect(api.submitDecision).not.toHaveBeenCalled(); expect(api.getCases).toHaveBeenCalledTimes(2);
+  });
 });
 beforeEach(() => {
   auth.status = 'ready';
