@@ -108,7 +108,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     });
     expect(disclosureStyle.bottom).toBeLessThanOrEqual(height);
     expect(disclosureStyle.paddingLeft).toBe(width <= 767 ? '16px' : '24px');
-    expect(disclosureStyle.fontSize).toBe('11px');
+    expect(disclosureStyle.fontSize).toBe('12px');
     expect(disclosureStyle.fontWeight).toBe('400');
     expect(disclosureStyle.position).not.toBe('fixed');
     expect(disclosureStyle.background).toBe('rgba(0, 0, 0, 0)');
@@ -127,7 +127,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     await sourcesHelp.press('Tab');
     await expect(page.getByRole('tooltip')).toHaveCount(0);
 
-    if (width < 900) await page.getByRole('button', { name: 'More case actions' }).click();
+    if (width < 1200) await page.getByRole('button', { name: 'More case actions' }).click();
     await expect(page.getByRole('button', { name: 'AI Evidence Extraction', exact: true })).toHaveCount(1);
     for (const [label, text] of [
       ['AI Evidence Extraction', 'Use AI to pull useful details from notes or documents.'],
@@ -141,7 +141,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       await page.screenshot({ path: info.outputPath(`${label.startsWith('AI') ? 'ai' : 'export'}-help-${width}.png`) });
     }
-    if (width < 900) await page.getByRole('button', { name: 'Export Reviewed help' }).press('Escape');
+    if (width < 1200) await page.getByRole('button', { name: 'Export Reviewed help' }).press('Escape');
     await page.getByRole('button', { name: 'Account menu' }).focus();
     const uploadHelp = page.getByRole('button', { name: 'CSV format help' });
     let fileChooserOpened = false;
@@ -285,9 +285,12 @@ test('authentication branding and favicon remain consistent at desktop and mobil
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await expect(page.getByText('Contact Resolution Workbench', { exact: true })).toBeVisible();
-    await expect(page.getByText('Continue to Contact Resolution Workbench', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sign in to continue reviewing cases.', { exact: true })).toBeVisible();
     expect(await page.locator('.auth-brand-icon').getAttribute('src')).toBe(await page.locator('link[rel="icon"]').getAttribute('href'));
     await page.screenshot({ path: info.outputPath(`auth-${width}.png`) });
-    await noOverflow(page);
+    // Auth pages reflow vertically; the primary form fits while supporting copy can scroll.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const demo = await page.getByRole('button', { name: 'Explore demo workspace' }).boundingBox();
+    expect(demo.y + demo.height).toBeLessThanOrEqual(height);
   }
 });

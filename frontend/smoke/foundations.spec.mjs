@@ -97,7 +97,7 @@ for (const width of [1440, 1024, 390, 320]) {
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`ai-input-${width}.png`) });
     await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole('button', { name: width < 900 ? 'More case actions' : 'AI Evidence Extraction', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: width < 1200 ? 'More case actions' : 'AI Evidence Extraction', exact: true })).toBeFocused();
     const csvTrigger = page.getByRole('button', { name: 'CSV format help' }); await csvTrigger.click();
     const csv = page.getByRole('dialog', { name: 'CSV format' });
     await expect(csv.getByRole('button', { name: 'Close CSV format help' })).toBeFocused(); await modalBoundary(page, csv);

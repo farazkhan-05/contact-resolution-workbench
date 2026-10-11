@@ -1,5 +1,5 @@
 import React, { useRef, useState, useSyncExternalStore } from 'react';
-import { ChevronDown, Download, HelpCircle, Loader2, MoreHorizontal, RefreshCw, Sparkles, Upload, UserRound, X } from 'lucide-react';
+import { ChevronDown, Download, HelpCircle, MoreHorizontal, RefreshCw, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import { ProductLogo } from './ProductLogo';
 import { HelpTooltip } from './HelpTooltip';
 import { ActionMenu } from './ActionMenu';
@@ -9,6 +9,7 @@ import { InlineFeedback } from '../ui/Feedback';
 import './AppShell.css';
 
 interface AppShellProps {
+  workspaceName?: string;
   activePage: 'cases' | 'sources';
   onNavigate: (page: 'cases' | 'sources') => void;
   onLoadSample: () => Promise<void>;
@@ -25,7 +26,7 @@ interface AppShellProps {
   onSignOut: () => Promise<void>;
   children: React.ReactNode;
 }
-const compactQuery = '(max-width: 899px)';
+const compactQuery = '(max-width: 1199px)';
 const subscribe = (callback: () => void) => {
   const query = window.matchMedia(compactQuery);
   query.addEventListener('change', callback);
@@ -34,6 +35,7 @@ const subscribe = (callback: () => void) => {
 const getCompact = () => window.matchMedia(compactQuery).matches;
 
 export const AppShell: React.FC<AppShellProps> = ({
+  workspaceName,
   activePage, onNavigate, onLoadSample, onUploadCsv, onExportCsv, onOpenAiModal, activity,
   isLoadingSample, isUploadingCsv, isExportingCsv, exportDisabled, feedback, onClearFeedback, onSignOut, children,
 }) => {
@@ -62,22 +64,22 @@ export const AppShell: React.FC<AppShellProps> = ({
     }
   };
   const aiAction = <div className="workflow-action">
-    <button type="button" className="shell-button" onClick={onOpenAiModal}><Sparkles size={14} aria-hidden="true" />AI Evidence Extraction</button>
+    <Button variant="quiet" className="shell-button" onClick={onOpenAiModal}><Sparkles size={16} aria-hidden="true" />AI Evidence Extraction</Button>
     <HelpTooltip label="AI Evidence Extraction" text="Use AI to pull useful details from notes or documents." />
   </div>;
-  const sampleAction = <button type="button" className="shell-button" onClick={() => void onLoadSample()} disabled={isLoadingSample || isUploadingCsv}>
-    {isLoadingSample ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}Load Sample Cases
-  </button>;
+  const sampleAction = <Button variant="quiet" className="shell-button" onClick={() => void onLoadSample()} disabled={isLoadingSample || isUploadingCsv} loading={isLoadingSample}>
+    {!isLoadingSample && <RefreshCw size={16} aria-hidden="true" />}Load Sample Cases
+  </Button>;
   const uploadAction = <div className="workflow-action upload-action">
-    <button type="button" className="shell-button shell-button-bordered" onClick={() => fileInputRef.current?.click()} disabled={isLoadingSample || isUploadingCsv}>
-      {isUploadingCsv ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Upload size={14} aria-hidden="true" />}Upload CSV
-    </button>
+    <Button className="shell-button shell-button-bordered" onClick={() => fileInputRef.current?.click()} disabled={isLoadingSample || isUploadingCsv} loading={isUploadingCsv}>
+      {!isUploadingCsv && <Upload size={16} aria-hidden="true" />}Upload CSV
+    </Button>
     <button ref={csvHelpTriggerRef} type="button" className="help-trigger" aria-label="CSV format help" aria-haspopup="dialog" onClick={() => setCsvHelpOpen(true)}><HelpCircle size={14} aria-hidden="true" /></button>
   </div>;
   const exportAction = <div className="workflow-action">
-    <button type="button" className="shell-button" onClick={() => void onExportCsv()} disabled={isExportingCsv || exportDisabled}>
-      {isExportingCsv ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Download size={14} aria-hidden="true" />}Export Reviewed
-    </button>
+    <Button variant="quiet" className="shell-button" onClick={() => void onExportCsv()} disabled={isExportingCsv || exportDisabled} loading={isExportingCsv}>
+      {!isExportingCsv && <Download size={16} aria-hidden="true" />}Export Reviewed
+    </Button>
     <HelpTooltip label="Export Reviewed" text="Download cases that already have a review decision." />
   </div>;
   return <div className="app-shell">
@@ -87,17 +89,19 @@ export const AppShell: React.FC<AppShellProps> = ({
         <button type="button" aria-current={activePage === 'cases' ? 'page' : undefined} onClick={() => onNavigate('cases')}>Cases</button>
         <div className="sources-nav"><button type="button" aria-current={activePage === 'sources' ? 'page' : undefined} onClick={() => onNavigate('sources')}>Sources</button><HelpTooltip label="Sources" text="Manage where your records come from." /></div>
       </nav>
-      <div className="account-control"><ActionMenu label="Account menu" trigger={<><UserRound size={18} aria-hidden="true" /><ChevronDown size={12} aria-hidden="true" /></>}>
-        <p className="menu-label">Account</p><button type="button" className="shell-button" onClick={() => void onSignOut()}>Sign out</button>
+      <div className="account-control">
+        {workspaceName && <p className="workspace-context"><span>Workspace</span>{workspaceName}</p>}
+        <ActionMenu label="Account menu" trigger={<><UserRound size={18} aria-hidden="true" /><span>Account</span><ChevronDown size={14} aria-hidden="true" /></>}>
+        <p className="menu-label">{workspaceName || 'Account'}</p><Button variant="quiet" className="shell-button" onClick={() => void onSignOut()}>Sign out</Button>
       </ActionMenu></div>
     </header>
     <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" id="csv-upload-input" aria-label="Upload CSV file" />
-    {activePage === 'cases' && <section className="workspace-toolbar" aria-label="Cases workspace actions">
-      <h1>Cases</h1>
-      <div className="workflow-actions">
-        {compact ? <>{uploadAction}<ActionMenu label="More case actions" trigger={<><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></>}>{aiAction}{sampleAction}{exportAction}</ActionMenu></> : <>{aiAction}{sampleAction}{uploadAction}<span className="toolbar-divider" />{exportAction}</>}
-      </div>
-    </section>}
+    <section className="workspace-toolbar" aria-label={`${activePage === 'cases' ? 'Cases' : 'Sources'} workspace actions`}>
+      <h1>{activePage === 'cases' ? 'Cases' : 'Sources'}</h1>
+      {activePage === 'cases' && <div className="workflow-actions">
+        {compact ? <>{uploadAction}<ActionMenu label="More case actions" trigger={<><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></>}><p className="menu-label">Add records</p>{aiAction}{sampleAction}<p className="menu-label">Review output</p>{exportAction}</ActionMenu></> : <>{aiAction}{sampleAction}{uploadAction}<span className="toolbar-divider" />{exportAction}</>}
+      </div>}
+    </section>
     <Dialog open={csvHelpOpen} onDismiss={closeCsvHelp} labelledBy="csv-help-title" describedBy="csv-help-intro"
       initialFocusRef={csvHelpCloseRef} returnFocusRef={csvHelpTriggerRef} className="csv-help-content">
         <div className="ui-dialog-header"><h2 id="csv-help-title" className="ui-dialog-title">CSV format</h2><Button ref={csvHelpCloseRef} variant="quiet" iconOnly onClick={closeCsvHelp} aria-label="Close CSV format help"><X size={18} aria-hidden="true" /></Button></div>

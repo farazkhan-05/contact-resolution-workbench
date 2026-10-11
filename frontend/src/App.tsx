@@ -18,7 +18,7 @@ import type {
 } from './types';
 
 export function App() {
-  const { status, workspace, signOutUser } = useAuth();
+  const { status, workspace, signOutUser, operation } = useAuth();
   const [page, setPage] = useState<'cases' | 'sources'>('cases');
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [hasUnfilteredQueue, setHasUnfilteredQueue] = useState(false);
@@ -380,10 +380,7 @@ export function App() {
     });
   };
 
-  if (status === 'loading' || status === 'bootstrapping') {
-    return <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted">Starting your workspace…</main>;
-  }
-  if (status !== 'ready') return <AuthScreen />;
+  if (status !== 'ready' || operation === 'sign_out') return <AuthScreen />;
 
   // The queue is filtered server side; use only unfiltered results for
   // the first use state and workspace-wide export availability.
@@ -394,6 +391,7 @@ export function App() {
   return (
     <>
       <AppShell
+        workspaceName={workspace?.name}
         onNavigate={setPage}
         activePage={page}
         exportDisabled={exportDisabled}
