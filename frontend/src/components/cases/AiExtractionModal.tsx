@@ -1,9 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import {
-  Info,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { X } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import type { Job } from '../../types';
 import { JobStatus } from '../jobs/JobStatus';
@@ -12,6 +8,7 @@ import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { Field, Textarea } from '../ui/Field';
 import { InlineFeedback } from '../ui/Feedback';
+import '../ingestion/Ingestion.css';
 
 interface AiExtractionModalProps {
   isOpen: boolean;
@@ -95,107 +92,64 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
     }
   };
 
+  const activeJob = currentJob?.status === 'PENDING' || currentJob?.status === 'RUNNING';
+  const jobDate = (value: string | null | undefined, missing: string) => value ? new Date(value).toLocaleString() : missing;
   return (
     <Dialog open={isOpen} onDismiss={onClose} dismissible={!isExtracting}
-      labelledBy="ai-modal-title" describedBy="ai-modal-description" initialFocusRef={evidenceInput}>
-        {/* Modal Header */}
-        <div className="ui-dialog-header">
-          <div className="flex items-center space-x-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-accent-muted text-accent">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 id="ai-modal-title" className="ui-dialog-title">
-                Try AI Evidence Extraction
-              </h2>
-              <span className="text-xs text-muted">Powered by gemini-3.1-flash-lite</span>
-            </div>
-          </div>
-          <Button variant="quiet" iconOnly
-            onClick={onClose}
-            disabled={isExtracting}
-            aria-label="Close dialog"
-          >
-            <X className="h-4 w-4" />
+      labelledBy="ai-modal-title" describedBy="ai-modal-description" initialFocusRef={evidenceInput} className="ai-ingestion">
+      <div className="ui-dialog-header">
+        <div><p className="ingestion-eyebrow">Add records</p><h2 id="ai-modal-title" className="ui-dialog-title">AI evidence extraction</h2></div>
+        <Button variant="quiet" iconOnly onClick={onClose} disabled={isExtracting} aria-label="Close dialog"><X size={18} aria-hidden="true" /></Button>
+      </div>
+      <div className="ui-dialog-body">
+        <p id="ai-modal-description">AI extracts contact details from a source note. Extracted evidence is unverified; you make the final identity decision.</p>
+        {!job ? <>
+          <Field id="unstructured-evidence-input" label="Source note" hint="Include the contact details and any uncertainty in the original note." action={
+            <Button variant="quiet" disabled={isExtracting} onClick={() => setEvidenceText(DEFAULT_SYNTHETIC_EVIDENCE)}>Reset to example</Button>
+          }>{accessibility => <Textarea {...accessibility} ref={evidenceInput} rows={7} value={evidenceText}
+            onChange={(e) => setEvidenceText(e.target.value)} disabled={isExtracting || job !== null}
+            aria-invalid={error && !submissionUnknown ? true : undefined}
+            aria-errormessage={error && !submissionUnknown ? 'ai-submission-feedback' : undefined}
+            placeholder="Paste a synthetic source note, call transcript or directory snippet." />}</Field>
+          <p className="ingestion-muted">Demo only — use synthetic information. Do not enter real personal data.</p>
+          {isExtracting && <InlineFeedback>Submitting your note. Waiting for confirmation; extraction is not yet confirmed.</InlineFeedback>}
+          {error && <div id="ai-submission-feedback"><InlineFeedback tone="error">
+            <p className="ingestion-feedback-title">{submissionUnknown ? 'Submission outcome unknown' : 'Input was not accepted'}</p><p>{error}</p>
+          </InlineFeedback></div>}
+          {submissionUnknown && <p className="ingestion-muted">An unknown outcome is not a confirmed failure. Close this dialog to check Recent activity. Another extraction is blocked in this view.</p>}
+        </> : currentJob ? <section className="ai-job-result" aria-label="Extraction Job result">
+          <h3>{activeJob ? 'Extraction accepted' : 'Extraction result'}</h3>
+          {activeJob && <p className="ingestion-muted">The Job was accepted. Wait for its result before reviewing the extracted evidence.</p>}
+          <div className="ai-job-status"><JobStatus job={currentJob} error={tracking.error} checking={tracking.checking} onCheck={tracking.checkAgain} /></div>
+          <dl className="ingestion-job-facts">
+            <div><dt>Job reference</dt><dd>{currentJob.id}</dd></div>
+            <div><dt>Created</dt><dd>{jobDate(currentJob.created_at, 'Unavailable')}</dd></div>
+            <div><dt>Started</dt><dd>{jobDate(currentJob.started_at, 'Not started')}</dd></div>
+            {currentJob.completed_at && <div><dt>Completed</dt><dd>{jobDate(currentJob.completed_at, 'Not completed')}</dd></div>}
+          </dl>
+          {typeof currentJob.processed_rows === 'number' && typeof currentJob.total_rows === 'number' && <p className="ingestion-muted">{tracking.error ? 'Last reported records' : 'Records processed'}: {currentJob.processed_rows} of {currentJob.total_rows}.
+            {currentJob.rejected_rows > 0 && <> Rejected: {currentJob.rejected_rows}.</>}</p>}
+          {tracking.error && <p className="ingestion-muted">Check again reads this Job's status. It does not submit another extraction.</p>}
+          {currentJob.status === 'FAILED' && !tracking.error && <p className="ingestion-muted">Try again returns to your note. Edit it before explicitly submitting a new attempt.</p>}
+          {currentJob.status === 'SUCCEEDED' && !refreshError && <p className="ingestion-muted">Close this dialog to return to Cases and review the available evidence. Extracted evidence still needs human verification.</p>}
+          <p className="ingestion-muted">Closing this dialog does not cancel accepted work. You can also check its status in Recent activity.</p>
+        </section> : null}
+        {refreshError && <InlineFeedback tone="error">Extraction completed. Could not refresh cases. Close this dialog and refresh cases.</InlineFeedback>}
+      </div>
+      <div className="ui-dialog-footer">
+        {!job ? <>
+          <Button onClick={onClose} disabled={isExtracting}>Cancel</Button>
+          <Button variant="primary" loading={isExtracting} onClick={handleExtractAndResolve} disabled={isExtracting || submissionUnknown || !evidenceText.trim()}>
+            {isExtracting ? 'Submitting\u2026' : 'Extract evidence'}
           </Button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="ui-dialog-body">
-          <p id="ai-modal-description">Paste a synthetic source note. AI extracts contact evidence; matching uses points. You make the final identity decision.</p>
-            {!job ? (
-            <>
-              {/* Textarea Input */}
-              <Field id="unstructured-evidence-input" label="Unstructured Provider Evidence" action={
-                  <Button variant="quiet"
-                    onClick={() => setEvidenceText(DEFAULT_SYNTHETIC_EVIDENCE)}
-                  >
-                    Reset to example
-                  </Button>
-                }>{accessibility => <Textarea {...accessibility} ref={evidenceInput}
-                  rows={4}
-                  value={evidenceText}
-                  onChange={(e) => setEvidenceText(e.target.value)}
-                  disabled={isExtracting || job !== null}
-                  placeholder="Paste unstructured synthetic notes, call transcripts, or directory snippets..."
-                />}</Field>
-
-              {/* Privacy Note */}
-              <div className="flex items-center space-x-2 text-sm text-muted">
-                <Info className="h-3.5 w-3.5 shrink-0 text-muted" />
-                <span>Demo only — use synthetic information. Do not enter real personal data.</span>
-              </div>
-
-              {/* Error Feedback */}
-              {error && (
-                <InlineFeedback tone="error">
-                    <p className="font-semibold">Could not start extraction</p>
-                    <p>{error}</p>
-                </InlineFeedback>
-              )}
-            </>
-          ) : currentJob ? (
-            <JobStatus job={currentJob} error={tracking.error} checking={tracking.checking} onCheck={tracking.checkAgain} />
-          ) : null}
-          {refreshError && <InlineFeedback tone="error">Extraction completed. Could not refresh cases. Close this dialog and refresh cases.</InlineFeedback>}
-        </div>
-
-        {/* Modal Footer Actions */}
-        <div className="ui-dialog-footer">
-          {!job ? (
-            <>
-              <Button
-                onClick={onClose}
-                disabled={isExtracting}
-              >
-                Cancel
-              </Button>
-              <Button variant="primary" loading={isExtracting}
-                onClick={handleExtractAndResolve}
-                disabled={isExtracting || submissionUnknown || !evidenceText.trim()}
-              >
-                {isExtracting ? (
-                  <>
-                    <span>Extracting…</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>Extract & Resolve</span>
-                  </>
-                )}
-              </Button>
-            </>
-          ) : (
-            <>
-              {currentJob?.status === 'FAILED' && !tracking.error && <Button onClick={() => {
-                ++generation.current;
-                setJob(null); setError(null); setRefreshError(false); notified.current = null;
-              }}>Try again</Button>}
-              <Button onClick={onClose}>Close</Button>
-            </>
-          )}
-        </div>
+        </> : <>
+          {currentJob?.status === 'FAILED' && !tracking.error && <Button onClick={() => {
+            ++generation.current;
+            setJob(null); setError(null); setRefreshError(false); notified.current = null;
+          }}>Try again</Button>}
+          <Button onClick={onClose}>Close</Button>
+        </>}
+      </div>
     </Dialog>
   );
 };

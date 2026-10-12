@@ -24,7 +24,7 @@ async function openAI(page) {
   const action = page.getByRole('button', { name: 'AI Evidence Extraction', exact: true });
   if (!await action.isVisible()) await page.getByRole('button', { name: 'More case actions' }).click();
   await action.click();
-  return page.getByRole('dialog', { name: 'Try AI Evidence Extraction' });
+  return page.getByRole('dialog', { name: 'AI evidence extraction' });
 }
 
 async function modalBoundary(page, dialog) {
@@ -82,7 +82,7 @@ for (const width of [1440, 1024, 390, 320]) {
     await page.goto('/'); const dialog = await openAI(page);
     await expect(dialog.getByRole('textbox')).toBeFocused(); await modalBoundary(page, dialog);
     await expect(dialog).toHaveAttribute('aria-describedby', 'ai-modal-description');
-    const primary = dialog.getByRole('button', { name:'Extract & Resolve' });
+    const primary = dialog.getByRole('button', { name:'Extract evidence' });
     await checkTextContrast(primary); await primary.hover(); await checkTextContrast(primary);
     await checkTextContrast(dialog.getByRole('textbox'));
     const fieldBorder = await dialog.getByRole('textbox').evaluate(el => ({ border:getComputedStyle(el).borderColor, background:getComputedStyle(el).backgroundColor }));
@@ -91,7 +91,7 @@ for (const width of [1440, 1024, 390, 320]) {
     // Re-enter keyboard modality after testing a blocked background pointer click.
     await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
     expect(await dialog.evaluate(el => getComputedStyle(el).fontSize)).toBe('14px');
-    expect(await dialog.getByRole('button', { name: 'Extract & Resolve' }).evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(width < 600 ? 44 : 40);
+    expect(await dialog.getByRole('button', { name: 'Extract evidence' }).evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(width < 600 ? 44 : 40);
     const focus = await dialog.getByRole('button', { name: 'Close dialog' }).evaluate(el => ({ color: getComputedStyle(el).outlineColor, width: getComputedStyle(el).outlineWidth }));
     expect(focus).toEqual({ color: 'rgb(29, 78, 216)', width: '2px' });
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -120,17 +120,17 @@ test('pending AI acknowledgement cannot dismiss; accepted Job survives closure a
   });
   await page.route('**/api/v1/jobs/*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(syntheticJob()) }));
   try {
-    await page.goto('/'); const dialog = await openAI(page); await dialog.getByRole('button', { name: 'Extract & Resolve' }).click();
+    await page.goto('/'); const dialog = await openAI(page); await dialog.getByRole('button', { name: 'Extract evidence' }).click();
     await expect(dialog.getByRole('button', { name: 'Close dialog' })).toBeDisabled(); await page.keyboard.press('Escape'); await expect(dialog).toBeVisible();
-    await checkTextContrast(dialog.getByRole('button', { name:'Extracting…' }));
-    expect(await dialog.getByRole('button', { name: 'Extracting…' }).locator('.ui-spinner').evaluate(el => getComputedStyle(el).animationName)).toBe('ui-spin');
+    await checkTextContrast(dialog.getByRole('button', { name:'Submitting…' }));
+    expect(await dialog.getByRole('button', { name: 'Submitting…' }).locator('.ui-spinner').evaluate(el => getComputedStyle(el).animationName)).toBe('ui-spin');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     expect(await dialog.locator('.ui-spinner').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
     await page.screenshot({ path: info.outputPath('ai-pending-disabled.png') });
     resolve(); await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
     await modalBoundary(page, dialog); await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
     const reopened = await openAI(page); await expect(reopened.getByText('Queued', { exact: true })).toBeVisible();
-    await expect(reopened.getByRole('button', { name: 'Extract & Resolve' })).toHaveCount(0);
+    await expect(reopened.getByRole('button', { name: 'Extract evidence' })).toHaveCount(0);
     expect(submissions).toBe(1);
   } finally { resolve(); }
 });
@@ -185,7 +185,7 @@ for (const width of [1440, 1024, 390, 320]) {
     await page.route('**/api/v1/ingest/unstructured', route => route.abort());
     await page.goto('/'); const dialog = await openAI(page);
     const evidence = 'Synthetic evidence with a qualified, unverified email and a long source note. '.repeat(40);
-    await dialog.getByRole('textbox').fill(evidence); await dialog.getByRole('button', { name:'Extract & Resolve' }).click();
+    await dialog.getByRole('textbox').fill(evidence); await dialog.getByRole('button', { name:'Extract evidence' }).click();
     await expect(dialog.getByRole('alert')).toContainText('could not confirm whether');
     expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true);
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -193,6 +193,6 @@ for (const width of [1440, 1024, 390, 320]) {
     await page.screenshot({ path:info.outputPath(`ai-long-error-${width}.png`) });
     await page.keyboard.press('Escape'); const reopened = await openAI(page);
     await expect(reopened.getByRole('textbox')).toHaveValue(evidence);
-    await expect(reopened.getByRole('button', { name:'Extract & Resolve' })).toBeDisabled();
+    await expect(reopened.getByRole('button', { name:'Extract evidence' })).toBeDisabled();
   });
 }

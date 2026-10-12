@@ -92,7 +92,7 @@ for (const outcome of ['success', 'failure']) {
       await page.goto('/'); await expect(page.getByRole('heading', { name:sampleDetail.raw_name, exact:true })).toBeVisible();
       await page.getByLabel('Search cases').fill('Claire'); await requested.promise;
       await page.getByRole('button', { name:'AI Evidence Extraction', exact:true }).click();
-      await page.getByRole('button', { name:'Extract & Resolve', exact:true }).click();
+      await page.getByRole('button', { name:'Extract evidence', exact:true }).click();
       await expect(page.getByRole('heading', { name:'Claire Synthetic AI', exact:true })).toBeVisible();
       const delivered = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/cases');
       old.release(); await delivered;
@@ -163,12 +163,12 @@ test('F01 candidate switching binds evidence and acceptance to the displayed Cas
 test('unknown AI submission cannot be repeated when the modal closes and reopens', async ({ page }) => {
   const state = await fixture(page); state.unknownAI = true; await page.goto('/');
   await page.getByRole('button', { name:'AI Evidence Extraction', exact:true }).click();
-  await page.getByRole('button', { name:'Extract & Resolve' }).click();
+  await page.getByRole('button', { name:'Extract evidence' }).click();
   await expect(page.getByText(/could not confirm whether/)).toBeVisible();
-  await expect(page.getByRole('button', { name:'Extract & Resolve' })).toBeDisabled();
+  await expect(page.getByRole('button', { name:'Extract evidence' })).toBeDisabled();
   await page.getByRole('button', { name:'Close dialog', exact:true }).click();
   await page.getByRole('button', { name:'AI Evidence Extraction', exact:true }).click();
-  await expect(page.getByRole('button', { name:'Extract & Resolve' })).toBeDisabled();
+  await expect(page.getByRole('button', { name:'Extract evidence' })).toBeDisabled();
   expect(state.aiSubmissions).toBe(1); expect(state.decisions).toHaveLength(0);
 });
 

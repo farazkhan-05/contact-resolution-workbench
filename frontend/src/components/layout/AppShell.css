@@ -28,11 +28,6 @@
 .help-tooltip { position: relative; display: inline-flex; flex-shrink: 0; }
 .help-trigger { width: 32px; height: 40px; display: grid; place-items: center; color: var(--muted); border-radius: var(--radius-control); }
 .help-trigger:hover { color: var(--foreground); background: var(--surface-muted); }
-.csv-help-content h3 { font-size: var(--text-body); font-weight: 600; }
-.csv-help-content p code { overflow-wrap: anywhere; font-size: var(--text-body); }
-.csv-help-limits { padding: 9px 10px; border-radius: 6px; background: var(--surface-muted); }
-.csv-help-example { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-muted); padding: var(--space-3); font-family: var(--font-mono); font-size: var(--text-body); line-height: var(--leading-body); white-space: pre; }
-.csv-help-note { color: var(--muted); font-size: var(--text-metadata); }
 .help-text { position: absolute; top: calc(100% + 6px); right: 0; width: max-content; max-width: min(240px, calc(100vw - 32px)); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--foreground); padding: 9px 11px; font-size: 12px; font-weight: 400; line-height: 1.5; z-index: 60; pointer-events: none; white-space: normal; }
 .sources-nav .help-text { left: 0; right: auto; }
 .action-menu { position: relative; }

@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.resetAllMocks(); });
 const flush = async (action?: () => void) => act(async () => { action?.(); });
-const extract = () => flush(() => fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' })));
+const extract = () => flush(() => fireEvent.click(screen.getByRole('button', { name: 'Extract evidence' })));
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(yes => { resolve = yes; }); return { resolve, promise }; }
 function Tracker({ initial }: { initial: Job }) {
   const tracking = useJobStatus(initial, true);
@@ -208,13 +208,13 @@ it('an uncertain submission blocks another Extract; definite validation rejectio
   const view = render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
   expect(screen.getByText(/could not confirm whether/)).toBeTruthy();
-  expect(screen.getByText('Extract & Resolve').closest('button')?.disabled).toBe(true);
+  expect(screen.getByText('Extract evidence').closest('button')?.disabled).toBe(true);
   expect(screen.queryByText('Try again')).toBeNull();
   view.unmount();
   vi.mocked(api.ingestUnstructured).mockRejectedValueOnce(new ApiError(422, 'unsafe detail'));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
-  expect(screen.getByText('Extract & Resolve').closest('button')?.disabled).toBe(false);
+  expect(screen.getByText('Extract evidence').closest('button')?.disabled).toBe(false);
 });
 
 it('focus enters dialog, Escape closes, and focus returns to the trigger', async () => {
@@ -251,7 +251,7 @@ it('allows dismissal after an unknown acknowledgement without allowing another s
   expect(props.onClose).toHaveBeenCalledTimes(1);
   view.rerender(<AiExtractionModal isOpen={false} {...props} />);
   view.rerender(<AiExtractionModal isOpen {...props} />);
-  expect(screen.getByRole('button', { name: 'Extract & Resolve' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Extract evidence' }).hasAttribute('disabled')).toBe(true);
   expect(screen.getByRole('alert').textContent).toContain('could not confirm whether');
   expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });

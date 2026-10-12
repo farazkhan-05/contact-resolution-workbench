@@ -22,7 +22,7 @@ describe('AI completion and queue authority', () => {
   }
   const extract = () => {
     fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Extract evidence' }));
   };
   function acceptedCase() {
     const created: CaseSummary = { ...sampleSummary, id: 'ai-created', case_number: 'AI-NOT-YET-SUBMITTED', person_name: 'Synthetic AI subject' };
@@ -42,8 +42,8 @@ describe('AI completion and queue authority', () => {
     vi.mocked(api.getCases).mockResolvedValueOnce([sampleSummary]).mockResolvedValue([sampleSummary, created]);
     render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
     fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
-    fireEvent.change(screen.getByLabelText('Unstructured Provider Evidence'), { target: { value: 'Synthetic source note with uncertain email' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
+    fireEvent.change(screen.getByLabelText('Source note'), { target: { value: 'Synthetic source note with uncertain email' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Extract evidence' }));
     await screen.findByRole('heading', { name: created.person_name });
     expect(api.ingestUnstructured).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ raw_evidence_text: 'Synthetic source note with uncertain email' }));
     expect(within(screen.getByRole('region', { name: 'Recommendation and human decision' })).getByText('Not reviewed')).toBeTruthy();
@@ -60,7 +60,7 @@ describe('AI completion and queue authority', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
     await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Extract evidence' }));
     await screen.findByRole('heading', { name: created.person_name });
     await act(async () => resolveOld([sampleSummary]));
     expect(screen.getByRole('heading', { name: created.person_name })).toBeTruthy();
@@ -311,7 +311,8 @@ describe('authenticated workbench shell', () => {
     expect(chooser).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close CSV format help' }));
     expect(within(dialog).getByText('Required columns')).toBeTruthy();
-    expect(dialog.querySelectorAll('p')[1].textContent).toBe('case_number, full_name');
+    expect(within(dialog).getByRole('region', { name: 'Required columns' }).textContent).toContain('case_number');
+    expect(within(dialog).getByRole('region', { name: 'Required columns' }).textContent).toContain('full_name');
     for (const field of ['source_identifier', 'old_email', 'old_phone', 'employer', 'location']) expect(within(dialog).getByText(field)).toBeTruthy();
     expect(dialog.querySelector('.csv-help-limits')?.textContent).toBe('Up to 100 recordsMaximum file size 256 KB');
     expect(within(dialog).getByText('If the file has an invalid row or column, nothing will be imported.')).toBeTruthy();
@@ -383,6 +384,32 @@ describe('authenticated workbench shell', () => {
     expect(api.getJob).toHaveBeenCalledTimes(2);
   });
 
+  it('CSV acknowledgement uncertainty survives help opening and closure without another upload or an invented result', async () => {
+    await mountEmpty();
+    vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Synthetic acknowledgement lost'));
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name'], 'records.csv')] } });
+    await screen.findByText('Could not confirm the CSV import. Check Recent activity before uploading again.');
+    fireEvent.click(screen.getByRole('button', { name: 'CSV format help' }));
+    expect(screen.getByText(/If the outcome is unknown/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close CSV format help' }));
+    expect(screen.queryByText(/No records were imported/)).toBeNull();
+    expect(screen.queryByText(/records imported\./)).toBeNull();
+    expect(api.ingestCsv).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirmed CSV validation failure keeps guidance available and a corrected file requires explicit selection', async () => {
+    await mountEmpty();
+    vi.mocked(api.getJob).mockResolvedValueOnce(syntheticJob({ status: 'FAILED', failure_message: 'Required full_name column is missing.' }));
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number'], 'records.csv')] } });
+    await screen.findByText('No records were imported. Required full_name column is missing.');
+    fireEvent.click(screen.getByRole('button', { name: 'CSV format help' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close CSV format help' }));
+    expect(api.ingestCsv).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [new File(['case_number,full_name\nCSV-1,Synthetic Person'], 'corrected.csv')] } });
+    await screen.findByText('1 record imported.');
+    expect(api.ingestCsv).toHaveBeenCalledTimes(2);
+  });
+
   it('queue read recovery is accurately named Refresh cases', async () => {
     vi.mocked(api.getCases).mockRejectedValueOnce(Error('synthetic read failure'));
     render(<App />);
@@ -448,7 +475,7 @@ describe('authenticated workbench shell', () => {
     vi.mocked(api.ingestUnstructured).mockResolvedValue(syntheticJob());
     vi.mocked(api.getJob).mockResolvedValue(syntheticJob({ status: 'SUCCEEDED', successful_rows: 1 }));
     fireEvent.click(screen.getByRole('button', { name: 'AI Evidence Extraction' }));
-    fireEvent.click(screen.getByText('Extract & Resolve'));
+    fireEvent.click(screen.getByText('Extract evidence'));
     await screen.findByText('Completed');
     await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));

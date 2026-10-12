@@ -259,12 +259,12 @@ test('AI status recovery reads only and completed activity survives reload', asy
   await page.goto('/');
   await page.getByRole('button', { name: 'AI Evidence Extraction', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await expect(page.getByLabel('Unstructured Provider Evidence')).toBeFocused();
-  await dialog.getByRole('button', { name: 'Extract & Resolve' }).click();
+  await expect(page.getByLabel('Source note')).toBeFocused();
+  await dialog.getByRole('button', { name: 'Extract evidence' }).click();
   await expect(dialog.getByText('Could not check the latest status. The outcome is unknown.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Try again' })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Check again' }).click();
-  await expect(dialog.getByText('Completed', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('status')).toHaveText('Completed');
   expect(submissions).toBe(1); expect(checks).toBe(2);
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await page.reload();

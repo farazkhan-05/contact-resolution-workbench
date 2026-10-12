@@ -3,7 +3,7 @@ import { ChevronDown, Download, HelpCircle, MoreHorizontal, RefreshCw, Sparkles,
 import { ProductLogo } from './ProductLogo';
 import { HelpTooltip } from './HelpTooltip';
 import { ActionMenu } from './ActionMenu';
-import { Dialog } from '../ui/Dialog';
+import { CsvFormatHelp } from '../ingestion/CsvFormatHelp';
 import { Button } from '../ui/Button';
 import { InlineFeedback } from '../ui/Feedback';
 import './AppShell.css';
@@ -41,20 +41,10 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvHelpTriggerRef = useRef<HTMLButtonElement>(null);
-  const csvHelpCloseRef = useRef<HTMLButtonElement>(null);
   const [csvHelpOpen, setCsvHelpOpen] = useState(false);
   const compact = useSyncExternalStore(subscribe, getCompact, () => false);
   const closeCsvHelp = () => {
     setCsvHelpOpen(false);
-  };
-  const downloadCsvTemplate = () => {
-    const template = 'case_number,full_name,source_identifier,old_email,old_phone,employer,location\r\n';
-    const url = URL.createObjectURL(new Blob([template], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'case-import-template.csv';
-    link.click();
-    URL.revokeObjectURL(url);
   };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,21 +92,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         {compact ? <>{uploadAction}<ActionMenu label="More case actions" trigger={<><MoreHorizontal size={16} aria-hidden="true" /><span>More</span></>}><p className="menu-label">Add records</p>{aiAction}{sampleAction}<p className="menu-label">Review output</p>{exportAction}</ActionMenu></> : <>{aiAction}{sampleAction}{uploadAction}<span className="toolbar-divider" />{exportAction}</>}
       </div>}
     </section>
-    <Dialog open={csvHelpOpen} onDismiss={closeCsvHelp} labelledBy="csv-help-title" describedBy="csv-help-intro"
-      initialFocusRef={csvHelpCloseRef} returnFocusRef={csvHelpTriggerRef} className="csv-help-content">
-        <div className="ui-dialog-header"><h2 id="csv-help-title" className="ui-dialog-title">CSV format</h2><Button ref={csvHelpCloseRef} variant="quiet" iconOnly onClick={closeCsvHelp} aria-label="Close CSV format help"><X size={18} aria-hidden="true" /></Button></div>
-        <div className="ui-dialog-body">
-        <p id="csv-help-intro">Upload a CSV file with records you want to review.</p>
-        <h3>Required columns</h3><p><code>case_number</code>, <code>full_name</code></p>
-        <h3>Optional columns</h3><p><code>source_identifier</code>, <code>old_email</code>, <code>old_phone</code>, <code>employer</code>, <code>location</code></p>
-        <p className="csv-help-limits">Up to 100 records<br />Maximum file size 256 KB</p>
-        <p>If the file has an invalid row or column, nothing will be imported.</p>
-        <h3>Example</h3>
-        <pre className="csv-help-example"><code>{'case_number,full_name,source_identifier,old_email,old_phone,employer,location\nDEMO-001,Emre Demo Yılmaz,SRC-001,emre@demo.example,905550000101,Demo Anadolu Teknoloji,İstanbul\nDEMO-002,Leyla Demo Karaca,SRC-002,leyla@demo.example,,Mavişehir Teknoloji,İzmir'}</code></pre>
-        <p className="csv-help-note">This is synthetic demo data.</p>
-        </div>
-        <div className="ui-dialog-footer"><Button onClick={downloadCsvTemplate}>Download CSV template</Button><Button variant="quiet" onClick={closeCsvHelp}>Close</Button></div>
-    </Dialog>
+    <CsvFormatHelp open={csvHelpOpen} onClose={closeCsvHelp} submitting={isUploadingCsv} returnFocusRef={csvHelpTriggerRef} />
       {/* Inline Feedback Banner */}
       {feedback && (
         <InlineFeedback tone={feedback.type} className="ui-feedback-row">
