@@ -94,12 +94,8 @@
 .case-score-summary p { max-width: 600px; color: var(--muted); }
 .case-score-summary > div { flex: 1; min-width: 0; }
 .case-score-summary > p { flex-shrink: 0; white-space: nowrap; }
-.case-score-summary strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.case-review-area .review-guardrail-label { flex-shrink: 0; white-space: nowrap; }
+.case-score-summary > p strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .case-review-area { margin-top: var(--space-6); }
-.case-review-unavailable { padding: var(--space-3); background: var(--warning-bg); color: var(--warning-text); }
-.case-review-area.has-serious-conflict .review-accept { background: var(--surface); color: var(--foreground); border: 1px solid var(--field-border); box-shadow: none; }
-.case-review-area.has-serious-conflict .review-accept:hover:not(:disabled) { background: var(--surface-muted); }
 .case-operational { margin-top: var(--space-6); display: grid; gap: var(--space-4); }
 .case-detail-state { display: flex; align-items: flex-start; flex-direction: column; gap: var(--space-4); }
 .case-detail-state h2 { font-size: var(--text-section); font-weight: 600; }
@@ -117,10 +113,10 @@
   .evidence-table tbody td { display: block; border: 0; min-width: 0; }
   .evidence-table tbody td:nth-last-child(-n+2) { grid-column: 1 / -1; }
   .evidence-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: var(--text-metadata); margin-bottom: var(--space-1); }
-  .case-review-area .review-actions { flex-wrap: wrap; }
 }
 @container (max-width: 420px) {
   .record-fields { grid-template-columns: minmax(0, 1fr); }
+  .case-score-summary { flex-direction: column; gap: var(--space-2); }
 }
 @media (max-width: 767px) {
   .case-queue-controls { padding: var(--space-3) var(--space-4); }
@@ -145,9 +141,4 @@
   .case-selected-candidate span { display: block; font-size: var(--text-metadata); color: var(--muted); }
   .case-selected-candidate > div > p:last-child { color: var(--muted); font-size: var(--text-metadata); }
   .case-candidate-disclosure .candidate-grid { padding-top: var(--space-2); }
-  .case-review-area .review-actions { flex-direction: column; }
-  .case-review-area button { min-height: 44px; font-size: var(--text-body); }
-  .case-review-area textarea { font-size: var(--text-reading); }
-  .case-review-area :is(.text-xs, .text-\[11px\], .text-\[10px\]) { font-size: var(--text-metadata); }
-  .case-review-area > div > div:first-child { flex-wrap: wrap; gap: var(--space-2); }
 }

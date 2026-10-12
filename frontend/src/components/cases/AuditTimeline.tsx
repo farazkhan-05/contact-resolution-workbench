@@ -25,12 +25,14 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ auditLogs }) => {
   };
 
   return (
-    <div className="rounded border border-border bg-surface p-4">
+    <div className="case-history rounded border border-border bg-surface p-4">
       <button
         type="button"
+        id="case-history-toggle"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded p-1"
         aria-expanded={isExpanded}
+        aria-controls="case-history-events"
       >
         <div className="flex items-center space-x-2">
           <History className="h-3.5 w-3.5 text-muted" />
@@ -44,8 +46,8 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ auditLogs }) => {
         </div>
       </button>
 
-      {isExpanded && (
-        <div className="mt-3 space-y-2 border-t border-border pt-3">
+        <div id="case-history-events" hidden={!isExpanded} className="mt-3 space-y-2 border-t border-border pt-3">
+          {auditLogs.length === 0 && <p>No Case history is available.</p>}
           {auditLogs.map((log) => {
             const formattedTime = new Date(log.created_at).toLocaleString();
 
@@ -115,7 +117,7 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ auditLogs }) => {
             return (
               <div
                 key={log.id}
-                className="flex items-start justify-between rounded border border-border/60 bg-background/60 p-2.5 text-xs"
+                className="case-history-event flex items-start justify-between rounded border border-border/60 bg-background/60 p-2.5 text-xs"
               >
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
@@ -131,14 +133,13 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ auditLogs }) => {
                   {renderPayloadDetails()}
                 </div>
 
-                <span className="text-[10px] text-slate-400 whitespace-nowrap font-mono">
+                <span className="case-history-time text-[10px] text-slate-400 whitespace-nowrap font-mono">
                   {formattedTime}
                 </span>
               </div>
             );
           })}
         </div>
-      )}
     </div>
   );
 };

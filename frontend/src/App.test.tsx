@@ -285,7 +285,7 @@ describe('authenticated workbench shell', () => {
     expect(screen.getByRole('textbox', { name: 'Search cases' })).toBeTruthy();
     for (const name of ['All recommendations', 'Likely Match', 'Needs Review', 'No Match']) expect(screen.getByRole('option', { name })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Evidence Comparison & Scoring' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Reviewer Decision Console' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Your review' })).toBeTruthy();
   });
 
   it('uses the same file input and ingestion action from the empty workspace', async () => {

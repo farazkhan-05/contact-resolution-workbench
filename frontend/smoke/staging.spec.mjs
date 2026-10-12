@@ -65,14 +65,14 @@ test('public staging: authenticated CSV, review persistence and isolation', asyn
   expect(caseDetail.candidates[0].evidence.length).toBeGreaterThan(0);
 
   const note = 'Synthetic E3 browser smoke: request additional evidence.';
-  await page.getByLabel('Reviewer Operational Note (Optional)').fill(note);
+  await page.getByLabel('Reviewer note (optional)').fill(note);
   const decisionResponse = page.waitForResponse((res) => res.url().endsWith(`/cases/${createdCase.id}/decision`));
   await page.getByRole('button', { name: 'Need More Evidence', exact: true }).click();
   expect((await decisionResponse).status()).toBe(200);
-  await expect(page.getByText('Current Verdict: NEED_MORE_EVIDENCE', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Your review' }).getByText('More evidence needed', { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Current Verdict: NEED_MORE_EVIDENCE', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Reviewer Operational Note (Optional)')).toHaveValue(note);
+  await expect(page.getByRole('region', { name: 'Your review' }).getByText('More evidence needed', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Reviewer note (optional)')).toHaveValue(note);
   expect((await request.get(`${backend}/api/v1/cases/${createdCase.id}`, { headers: sessionA })).status()).toBe(200);
 
   // Test auth and tenancy at the same public API boundary used by the browser.

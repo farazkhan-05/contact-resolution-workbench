@@ -4,12 +4,13 @@ import { mkdirSync } from 'node:fs';
 import { workspaceDetail, emptyCandidateDetail, longDetail, summaryFor } from '../src/test-support/case-workspace.ts';
 import { installOfflineBoundary } from './support/offline-boundary.mjs';
 
-const captureDir = '.system_generated/phase3d1/captures';
+const captureDir = process.env.CRW_VALIDATION_CAPTURE_ROOT || '.system_generated/phase3d1/captures';
 mkdirSync(captureDir, { recursive: true });
 async function fixture(page, options = {}) {
   await installOfflineBoundary(page);
   const state = { detail: structuredClone(workspaceDetail), failed: false, reads: [], writes: [], sourceReads: 0 };
-  if (options.conflict) state.detail.selected_candidate_id = state.detail.candidates[1].id;
+  if (options.conflict) state.detail = { ...state.detail, selected_candidate_id: state.detail.candidates[1].id,
+    review_decision: 'ACCEPTED', reviewer_notes: 'Synthetic previous suffix review', reviewed_at: '2026-10-03T09:00:00Z' };
   if (options.ai) state.detail.ai_provenance = { source_type: 'AI_EXTRACTED', job_title: 'Synthetic coordinator', source_context_available: true, unverified: true };
   await page.route('**/src/auth/AuthProvider.tsx', route => route.fulfill({ contentType: 'text/javascript', body: `
     import { setAuthenticatedApiSession } from '/src/api/client.ts';
@@ -84,7 +85,7 @@ for (const [width, height] of [[1440, 900], [1024, 900], [768, 1024], [390, 844]
     await expect(page.getByRole('button', { name: /Candidate B/ })).toHaveAttribute('aria-pressed', 'true');
     if (width < 768) { await page.locator('.case-evidence-disclosure > summary').focus(); await page.keyboard.press('Enter'); }
     await expect(page.getByText('Record: alumni-002')).toBeVisible();
-    await expect(page.getByText('Names are similar, but the suffix conflict needs human review.')).toBeVisible();
+    await expect(page.getByText('Base name matches with suffix variation.')).toBeVisible();
     await page.locator('.case-evidence-disclosure').scrollIntoViewIfNeeded();
     await noOverflow(page); await capture(page, 'expanded-evidence', width);
     await page.locator('.case-score-summary').scrollIntoViewIfNeeded();
@@ -92,10 +93,10 @@ for (const [width, height] of [[1440, 900], [1024, 900], [768, 1024], [390, 844]
     await capture(page, 'expanded-evidence-bottom', width);
     await page.getByRole('button', { name: /Candidate A/ }).click();
     await expect(conflict).toHaveCount(0); await expect(page.getByText('Record: alumni-002')).toHaveCount(0);
-    await expect(page.getByText('Names are similar, but the suffix conflict needs human review.')).toHaveCount(0);
+    await expect(page.getByText('Base name matches with suffix variation.')).toHaveCount(0);
     await detailTop(page); await capture(page, 'candidate-switched', width);
     await page.getByRole('button', { name: 'Go to review options' }).click();
-    await expect(page.getByRole('heading', { name: 'Reviewer Decision Console' })).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'Your review' })).toBeFocused();
     const accept = page.getByRole('button', { name: /Accept Candidate/ });
     await expect(accept).toBeEnabled(); await accept.scrollIntoViewIfNeeded();
     if (width < 768) expect((await accept.boundingBox()).height).toBeGreaterThanOrEqual(44);
@@ -168,8 +169,9 @@ for (const width of [390, 320]) {
     await expect(accept).toBeEnabled();
     expect(await accept.evaluate(element => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
     await accept.scrollIntoViewIfNeeded(); await capture(page, 'mobile-conflict-review', width);
-    await page.getByLabel('Reviewer Operational Note (Optional)').fill('Synthetic review of suffix evidence');
+    await page.getByLabel('Reviewer note (optional)').fill('Synthetic review of suffix evidence');
     await accept.focus(); await page.keyboard.press('Enter');
+    await expect(page.getByRole('status').filter({ hasText: 'Recorded decision: Accepted' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Recommendation and human decision' })).toContainText('Accepted');
     expect(state.writes).toEqual([{ path: `/api/v1/cases/${workspaceDetail.id}/decision`, body: { decision: 'ACCEPTED', selected_candidate_id: 'candidate-alternate', notes: 'Synthetic review of suffix evidence' } }]);
   });

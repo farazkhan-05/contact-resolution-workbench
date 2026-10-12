@@ -9,6 +9,7 @@ import { AiExtractionModal } from './components/cases/AiExtractionModal';
 import { RecentActivity } from './components/jobs/RecentActivity';
 import { isLongRunning } from './components/jobs/jobPresentation';
 import { CaseDetail } from './components/cases/CaseDetail';
+import { decisionLabel } from './components/cases/casePresentation';
 import { CaseQueue } from './components/cases/CaseQueue';
 import type {
   CaseDetail as CaseDetailType,
@@ -314,6 +315,27 @@ export function App() {
       || view.caseId !== renderedCaseId || selectedCaseDetail?.id !== renderedCaseId) return;
     const isCurrentView = () => reviewView.current === view && view.active;
     const isCurrentRefresh = () => isCurrentView() && currentQueueFetcher.current === fetchCases;
+    const isCurrentCase = () => {
+      const current = reviewView.current;
+      return current.active && current.workspaceId === view.workspaceId && current.caseId === renderedCaseId;
+    };
+    const checkSavedDecision = () => {
+      if (!isCurrentCase()) return;
+      const current = reviewView.current;
+      const fetcher = currentQueueFetcher.current;
+      void fetchCaseDetail(renderedCaseId);
+      void fetcher(undefined, () => reviewView.current === current && current.active && currentQueueFetcher.current === fetcher);
+    };
+    const requireSavedDecisionCheck = () => {
+      const current = reviewView.current;
+      // A -> B -> A is a new view, but the uncertain write still belongs to A.
+      // Do not let a read begun before that uncertainty clear the recovery lock.
+      if (!isCurrentCase()) return;
+      current.ready = false;
+      detailRequestId.current += 1;
+      setIsLoadingDetail(false);
+      setReviewNeedsCheck(renderedCaseId);
+    };
     reviewInFlight.current = true;
     detailRequestId.current += 1;
     setIsSubmittingDecision(true);
@@ -325,9 +347,9 @@ export function App() {
         notes,
       });
       if (updated.id !== renderedCaseId) {
-        if (isCurrentView()) {
-          setReviewNeedsCheck(renderedCaseId);
-          setFeedback({ type: 'error', message: 'Could not confirm the review decision. Refresh this case to check the saved decision.', action: { label: 'Refresh case', run: () => { if (isCurrentView()) void fetchCaseDetail(renderedCaseId); } } });
+        requireSavedDecisionCheck();
+        if (isCurrentCase()) {
+          setFeedback({ type: 'error', message: 'Could not confirm the review decision. Refresh this case to check the saved decision.', action: { label: 'Refresh case', run: checkSavedDecision } });
         }
         return;
       }
@@ -342,18 +364,17 @@ export function App() {
       setSelectedCaseDetail(updated);
       setFeedback({
         type: 'success',
-        message: `Recorded decision: ${decision.replace('_', ' ')}`,
+        message: `Recorded decision: ${decisionLabel[updated.review_decision]}`,
       });
       // Refresh summaries in queue
       await fetchCases(undefined, isCurrentRefresh);
-    } catch {
-      if (!isCurrentView()) return;
-      setReviewNeedsCheck(renderedCaseId);
-      setFeedback({ type: 'error', message: 'Could not confirm the review decision. Refresh this case to check the saved decision before submitting again.', action: { label: 'Refresh case', run: () => {
-        if (!isCurrentView()) return;
-        void fetchCaseDetail(renderedCaseId);
-        void fetchCases(undefined, isCurrentRefresh);
-      } } });
+    } catch (err) {
+      requireSavedDecisionCheck();
+      if (!isCurrentCase()) return;
+      const message = err instanceof ApiError && (err.status === 401 || err.status === 403)
+        ? 'Your session or workspace access could not be verified. Refresh this Case to check access and its saved decision.'
+        : 'Could not confirm the review decision. Refresh this case to check the saved decision before submitting again.';
+      setFeedback({ type: 'error', message, action: { label: 'Refresh case', run: checkSavedDecision } });
     } finally {
       reviewInFlight.current = false;
       setIsSubmittingDecision(false);
@@ -466,6 +487,7 @@ export function App() {
               onSubmitDecision={handleSubmitDecision}
               isSubmittingDecision={isSubmittingDecision}
               isReviewReady={isReviewReady}
+              reviewReadbackRequired={reviewNeedsCheck === selectedCaseId}
             />}
           </div>
           </>}

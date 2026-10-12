@@ -144,11 +144,11 @@ test('F01 candidate switching binds evidence and acceptance to the displayed Cas
   const state = await fixture(page); await page.goto('/');
   await expect(page.getByRole('button', { name:/Candidate A/ })).toContainText('Active');
   await page.getByRole('button', { name:/Candidate B/ }).click();
-  await expect(page.getByText('Synthetic suffix conflict: Jr. versus Sr.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Selected candidate conflicts' }).getByText('Synthetic suffix conflict: Jr. versus Sr.')).toBeVisible();
   await page.getByRole('button', { name:/Candidate A/ }).click();
-  await expect(page.getByText('Synthetic suffix conflict: Jr. versus Sr.')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Selected candidate conflicts' }).getByText('Synthetic suffix conflict: Jr. versus Sr.')).toHaveCount(0);
   await page.getByRole('button', { name:/Candidate B/ }).click();
-  await page.getByLabel('Reviewer Operational Note (Optional)').fill('Synthetic manual verification note');
+  await page.getByLabel('Reviewer note (optional)').fill('Synthetic manual verification note');
   await page.getByRole('button', { name:/Accept Candidate/ }).click();
   await expect(page.getByRole('region', { name: 'Recommendation and human decision' }).getByText('Accepted', { exact: true })).toBeVisible();
   expect(state.decisions).toEqual([{ id:'case-1', decision:'ACCEPTED', selected_candidate_id:'candidate-alt', notes:'Synthetic manual verification note' }]);

@@ -25,6 +25,7 @@ interface CaseDetailProps {
   onSubmitDecision: (caseId: string, decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmittingDecision: boolean;
   isReviewReady: boolean;
+  reviewReadbackRequired?: boolean;
   onRefresh: () => void;
   onRetry?: () => void;
 }
@@ -76,7 +77,8 @@ export function CaseDetail(props: CaseDetailProps) {
 }
 
 function LoadedCase({
-  caseDetail, onSubmitDecision, isSubmittingDecision, isReviewReady, onRefresh, back, mobileDetailActive = true,
+  caseDetail, onSubmitDecision, isSubmittingDecision, isReviewReady, onRefresh, back,
+  mobileDetailActive = true, reviewReadbackRequired = false,
 }: CaseDetailProps & { caseDetail: CaseDetailType; back: ReactNode }) {
   const initialCandidateId = caseDetail.selected_candidate_id || caseDetail.candidates[0]?.id || null;
   const [selectedCandidateId, setSelectedCandidateId] = useState(initialCandidateId);
@@ -103,6 +105,24 @@ function LoadedCase({
     || activeCandidate.contradictions.some(conflict => conflict.severity === 'SERIOUS'));
   const gotoReview = () => {
     const target = rootRef.current?.querySelector<HTMLElement>('#case-review-heading');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
+  const gotoEvidence = () => {
+    setEvidenceExpanded(true);
+    const target = rootRef.current?.querySelector<HTMLElement>('.case-evidence-title');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
+  const gotoCandidates = () => {
+    setCandidatesExpanded(true);
+    const selector = compact ? '.case-candidate-disclosure > summary' : '.case-candidate-option[aria-pressed="true"]';
+    const target = rootRef.current?.querySelector<HTMLElement>(selector);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
+  const gotoHistory = () => {
+    const target = rootRef.current?.querySelector<HTMLElement>('#case-history-toggle');
     target?.focus({ preventScroll: true });
     target?.scrollIntoView({ block: 'start' });
   };
@@ -189,7 +209,7 @@ function LoadedCase({
           onToggle={event => setEvidenceExpanded(event.currentTarget.open)}>
           <summary>
             <span>
-              <span role="heading" aria-level={3} className="case-evidence-title">Evidence Comparison &amp; Scoring</span>
+              <span role="heading" aria-level={3} tabIndex={-1} className="case-evidence-title">Evidence Comparison &amp; Scoring</span>
               <span className="case-metadata">{activeCandidate.evidence.length} fields · Original record, {activeCandidate.name}, explanations and points</span>
             </span>
             <span aria-hidden="true">{evidenceExpanded ? '−' : '+'}</span>
@@ -198,11 +218,10 @@ function LoadedCase({
         </details>
       )}
       <div className={`case-review-area${serious ? ' has-serious-conflict' : ''}`}>
-        {!isReviewReady && (
-          <p className="case-review-unavailable" role="status">Review is unavailable until this Case is refreshed successfully.</p>
-        )}
         <ReviewConsole caseDetail={caseDetail} activeCandidate={activeCandidate} onSubmitDecision={onSubmitDecision}
-          isSubmitting={isSubmittingDecision} isReviewReady={isReviewReady} />
+          isSubmitting={isSubmittingDecision} isReviewReady={isReviewReady} readbackRequired={reviewReadbackRequired}
+          onCheckSavedDecision={onRefresh} onViewEvidence={gotoEvidence}
+          onChangeCandidate={gotoCandidates} onViewHistory={gotoHistory} />
       </div>
       <div className="case-operational">
         <InvestigationPanel key={caseDetail.id} caseId={caseDetail.id}

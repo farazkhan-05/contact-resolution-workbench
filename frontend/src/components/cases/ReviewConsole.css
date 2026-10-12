@@ -1,0 +1,47 @@
+.case-review { border-top: 1px solid var(--border); padding-top: var(--space-6); display: grid; gap: var(--space-4); font-size: var(--text-body); overflow-wrap: anywhere; }
+.review-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.review-heading h3 { font-size: var(--text-section); font-weight: 600; margin-bottom: var(--space-1); }
+.review-heading > div { min-width: 0; }
+.review-heading p:last-child { margin-top: var(--space-1); color: var(--muted); }
+.review-history-link { flex-shrink: 0; }
+.review-label { display: block; color: var(--muted); font-size: var(--text-metadata); margin-bottom: var(--space-1); }
+.review-saved-decision { border-bottom: 1px solid var(--border); padding-bottom: var(--space-4); }
+.review-saved-decision > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.review-saved-decision .review-label { margin: 0; }
+.review-saved-decision > p { margin-top: var(--space-2); }
+.review-candidate-context { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.review-candidate-context > div { min-width: 0; }
+.review-candidate-name { font-size: var(--text-reading); font-weight: 600; margin-bottom: var(--space-1); }
+.review-candidate-context .case-metadata { margin-top: var(--space-1); }
+.review-context-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1); }
+.review-evidence-guidance, .review-action-help { color: var(--muted); }
+.case-review .ui-field-label { flex-wrap: wrap; }
+.case-review textarea { min-height: 92px; }
+.review-conflict-reminder { display: flex; align-items: flex-start; gap: var(--space-3); border: 1px solid; border-radius: var(--radius-control); padding: var(--space-3) var(--space-4); }
+.review-conflict-reminder > svg { flex-shrink: 0; margin-top: 2px; }
+.review-conflict-reminder h4 { font-weight: 600; }
+.review-conflict-reminder p, .review-conflict-reminder li { margin-top: var(--space-1); }
+.review-conflict-reminder li + li { margin-top: var(--space-2); }
+.review-conflict-serious { color: var(--danger-text); background: var(--danger-bg); border-color: var(--danger-border); }
+.review-conflict-moderate, .review-unavailable { color: var(--warning-text); background: var(--warning-bg); border-color: var(--warning-border); }
+.review-unavailable { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-left: 3px solid; }
+.case-review .review-actions { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.case-review .review-actions > button { min-width: 0; width: 100%; }
+.case-review .review-actions > button > span { min-width: 0; overflow-wrap: anywhere; }
+.case-review .ui-feedback { min-width: 0; }
+.case-history { border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: var(--space-4) 0; }
+.case-history > button { min-height: 40px; gap: var(--space-3); }
+.case-history > button h3 { text-transform: none; letter-spacing: normal; font-size: var(--text-body); }
+.case-history-time { color: var(--muted); font-size: var(--text-metadata); white-space: normal; }
+@container (max-width: 720px) {
+  .review-heading, .review-candidate-context { flex-direction: column; }
+  .review-context-actions { justify-content: flex-start; }
+  .case-review .review-actions { grid-template-columns: minmax(0, 1fr); }
+  .case-history-event { flex-direction: column; gap: var(--space-2); }
+}
+@media (max-width: 767px) {
+  .case-review { padding-top: var(--space-4); }
+  .case-review .ui-button, .case-history > button { min-height: 44px; }
+  .case-review textarea { font-size: var(--text-reading); }
+  .case-history > button { flex-wrap: wrap; }
+}

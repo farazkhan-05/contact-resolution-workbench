@@ -21,7 +21,7 @@ it('separates system recommendation from an actual accepted human decision', () 
   render(<CaseDetail {...detailProps()} caseDetail={{ ...workspaceDetail, review_decision: 'ACCEPTED' }} />);
   const decisions = within(screen.getByRole('region', { name: 'Recommendation and human decision' }));
   expect(decisions.getByRole('heading', { name: 'System recommendation' })).toBeTruthy();
-  expect(decisions.getByText('Needs review')).toBeTruthy();
+  expect(decisions.getByText('Likely match')).toBeTruthy();
   expect(decisions.getByRole('heading', { name: 'Human decision' })).toBeTruthy();
   expect(decisions.getByText('Accepted')).toBeTruthy();
 });
@@ -48,7 +48,7 @@ it('replaces evidence, provenance, conflicts, score and review candidate togethe
   const props = detailProps(); render(<CaseDetail {...props} />);
   fireEvent.click(screen.getByRole('button', { name: /Candidate B/ }));
   expect(screen.getByText('Record: alumni-002')).toBeTruthy();
-  expect(screen.getByText('Names are similar, but the suffix conflict needs human review.')).toBeTruthy();
+  expect(screen.getByText('Base name matches with suffix variation.')).toBeTruthy();
   expect(screen.getByRole('region', { name: 'Selected candidate conflicts' })).toBeTruthy();
   expect(screen.getByRole('button', { name: /Candidate B/ }).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('button', { name: /Accept Candidate/ }).hasAttribute('disabled')).toBe(false);
@@ -57,7 +57,7 @@ it('replaces evidence, provenance, conflicts, score and review candidate togethe
   fireEvent.click(screen.getByRole('button', { name: /Candidate A/ }));
   expect(screen.queryByText('Record: alumni-002')).toBeNull();
   expect(screen.queryByRole('region', { name: 'Selected candidate conflicts' })).toBeNull();
-  expect(screen.queryByText('Names are similar, but the suffix conflict needs human review.')).toBeNull();
+  expect(screen.queryByText('Base name matches with suffix variation.')).toBeNull();
 });
 it('resets candidate selection synchronously when Cases reuse candidate identifiers', () => {
   const props = detailProps(); const view = render(<CaseDetail {...props} />);

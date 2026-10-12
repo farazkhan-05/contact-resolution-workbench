@@ -174,7 +174,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     if (width < 768) await page.getByRole('button').filter({ hasText: 'SAMPLE-001' }).click();
     await expect(page.getByRole('heading', { name: 'Claire Reynolds', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Evidence Comparison & Scoring' })).toHaveCount(1);
-    await expect(page.getByRole('heading', { name: 'Reviewer Decision Console' })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Your review' })).toHaveCount(1);
     await noOverflow(page);
     await page.screenshot({ path: info.outputPath(`loaded-detail-${width}.png`) });
     if (width === 1024 || width === 390) {
@@ -186,7 +186,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
       await page.getByRole('heading', { name: 'Evidence Comparison & Scoring' }).scrollIntoViewIfNeeded();
       expect(await page.locator('.evidence-scroll').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
       await page.screenshot({ path: info.outputPath(`loaded-evidence-${width}.png`) });
-      await page.getByRole('heading', { name: 'Reviewer Decision Console' }).scrollIntoViewIfNeeded();
+      await page.getByRole('heading', { name: 'Your review' }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath(`loaded-review-${width}.png`) });
       await noOverflow(page);
     }
@@ -223,7 +223,7 @@ test('workflow actions, CSV chooser, filters, review export and Sources remain f
   await page.getByLabel('Decision filter').selectOption('ALL');
   await expect(page.getByRole('heading', { name: 'Claire Reynolds', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Reject All', exact: true }).click();
-  await expect(page.getByText('Recorded decision: REJECTED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Recorded decision: Rejected', { exact: true })).toBeVisible();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export Reviewed', exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/^reviewed_cases_.*\.csv$/);

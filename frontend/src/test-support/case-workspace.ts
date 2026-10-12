@@ -10,18 +10,18 @@ const primary = {
 const alternate = {
   ...primary, id: 'candidate-alternate', name: 'Claire Reynolds Sr.', name_suffix: 'Sr.',
   provider_source: 'Synthetic alumni directory', provider_record_id: 'alumni-002',
-  provenance_summary: 'Synthetic alumni directory · Imported record', total_score: 60, name_score: 15,
+  provenance_summary: 'Synthetic alumni directory · Imported record', total_score: 65, name_score: 20,
   has_serious_contradiction: true,
   contradictions: [{ id: 'suffix-conflict', contradiction_type: 'INCOMPATIBLE_NAME_SUFFIX', severity: 'SERIOUS' as const,
     description: 'The original record has suffix Jr.; this candidate has suffix Sr. Similar details do not resolve this conflict.', blocks_likely_match: true }],
   evidence: primary.evidence.map(field => field.field_name === 'name'
-    ? { ...field, id: 'alternate-name', candidate_value: 'Claire Reynolds Sr.', points_awarded: 15, match_method: 'PARTIAL_MATCH', explanation: 'Names are similar, but the suffix conflict needs human review.' } : { ...field, id: `alternate-${field.id}` }),
+    ? { ...field, id: 'alternate-name', candidate_value: 'Claire Reynolds Sr.', points_awarded: 20, match_method: 'HIGH_SIMILARITY', explanation: 'Base name matches with suffix variation.' } : { ...field, id: `alternate-${field.id}` }),
 };
 export const workspaceDetail: CaseDetail = {
-  ...sampleDetail, raw_name: primary.name, name_suffix: 'Jr.', normalized_name: 'claire reynolds jr',
+  ...sampleDetail, raw_name: primary.name, name_suffix: 'Jr.', normalized_name: 'claire reynolds jr.',
   ingestion_mechanism: 'CSV_UPLOAD', received_at: '2026-10-03T07:55:00Z',
   source_id: 'synthetic-source', ingestion_id: 'synthetic-import', external_record_id: 'original-001',
-  routing_status: 'NEEDS_REVIEW', routing_explanation: 'Candidate records include conflicting suffix evidence. Review the selected record before deciding.',
+  routing_status: 'LIKELY_MATCH', routing_explanation: 'Strong evidence score with no blocking contradiction.',
   candidates: [primary, alternate],
 };
 export const emptyCandidateDetail: CaseDetail = {
@@ -52,5 +52,5 @@ export function summaryFor(detail: CaseDetail): CaseSummary {
     employer: detail.raw_employer, location: detail.raw_location, routing_status: detail.routing_status,
     review_decision: detail.review_decision, candidate_count: detail.candidates.length,
     top_score: detail.candidates[0]?.total_score ?? 0, top_candidate_name: detail.candidates[0]?.name ?? null,
-    has_serious_contradiction: detail.candidates.some(candidate => candidate.has_serious_contradiction) };
+    has_serious_contradiction: detail.candidates[0]?.has_serious_contradiction ?? false };
 }
