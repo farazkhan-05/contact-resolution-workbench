@@ -45,7 +45,7 @@ export const ReviewConsole: React.FC<ReviewConsoleProps> = ({
   return (
     <div className="rounded border border-border bg-surface p-4 space-y-3.5">
       <div className="flex items-center justify-between pb-2.5 border-b border-border">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+        <h3 id="case-review-heading" tabIndex={-1} className="text-xs font-semibold uppercase tracking-wider text-muted">
           Reviewer Decision Console
         </h3>
         {isReviewed && (
@@ -106,7 +106,7 @@ export const ReviewConsole: React.FC<ReviewConsoleProps> = ({
       {/* Serious Contradiction Decision Guardrail */}
       {activeCandidate?.has_serious_contradiction && (
         <div className="rounded border border-rose-200 bg-rose-50/70 p-2 text-xs text-rose-900 flex items-center space-x-2">
-          <span className="font-bold text-[10px] bg-rose-200 text-rose-800 px-1 py-0.5 rounded uppercase">Guardrail</span>
+          <span className="review-guardrail-label font-bold text-[10px] bg-rose-200 text-rose-800 px-1 py-0.5 rounded uppercase">Guardrail</span>
           <span className="text-[11px]">Active candidate has a serious contradiction. Accepting requires manual verification.</span>
         </div>
       )}
@@ -117,7 +117,7 @@ export const ReviewConsole: React.FC<ReviewConsoleProps> = ({
           type="button"
           onClick={() => handleDecision('ACCEPTED')}
           disabled={!isReviewReady || isSubmitting || !activeCandidate}
-          className="flex-1 inline-flex items-center justify-center space-x-1.5 rounded bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+          className="review-accept flex-1 inline-flex items-center justify-center space-x-1.5 rounded bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

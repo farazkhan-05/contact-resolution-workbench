@@ -150,9 +150,9 @@ test('F01 candidate switching binds evidence and acceptance to the displayed Cas
   await page.getByRole('button', { name:/Candidate B/ }).click();
   await page.getByLabel('Reviewer Operational Note (Optional)').fill('Synthetic manual verification note');
   await page.getByRole('button', { name:/Accept Candidate/ }).click();
-  await expect(page.getByText('Decision: ACCEPTED', { exact:true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recommendation and human decision' }).getByText('Accepted', { exact: true })).toBeVisible();
   expect(state.decisions).toEqual([{ id:'case-1', decision:'ACCEPTED', selected_candidate_id:'candidate-alt', notes:'Synthetic manual verification note' }]);
-  await expect(page.getByText('System: NEEDS REVIEW', { exact:true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recommendation and human decision' }).getByText('Needs review', { exact: true })).toBeVisible();
   state.failedCase = true;
   await page.getByRole('button').filter({ hasText: second.case_number }).click();
   await expect(page.getByText('Synthetic detail unavailable', { exact:true })).toBeVisible();

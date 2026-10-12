@@ -418,6 +418,7 @@ export function App() {
             <CaseQueue
               cases={cases}
               selectedCaseId={selectedCaseId}
+              mobileQueueActive={mobileView === 'queue'}
               onSelectCase={handleSelectCase}
               activeRoutingFilter={activeRoutingFilter}
               onRoutingFilterChange={setActiveRoutingFilter}
@@ -445,6 +446,10 @@ export function App() {
               </div>
             </div></div> : <CaseDetail
               key={workspace?.id}
+              onRetry={() => {
+                const view = reviewView.current;
+                if (view.active && selectedCaseId === view.caseId && view.caseId) void fetchCaseDetail(view.caseId);
+              }}
               onRefresh={() => {
                 const view = reviewView.current;
                 if (view.active && selectedCaseDetail?.id === view.caseId && view.caseId) {
@@ -453,6 +458,9 @@ export function App() {
                 }
               }}
               caseDetail={selectedCaseDetail}
+              selectedCaseId={selectedCaseId}
+              selectedCase={cases.find(item => item.id === selectedCaseId)}
+              mobileDetailActive={mobileView === 'detail'}
               isLoading={isLoadingDetail}
               onBackMobile={() => setMobileView('queue')}
               onSubmitDecision={handleSubmitDecision}

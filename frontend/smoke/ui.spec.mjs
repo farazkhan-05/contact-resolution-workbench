@@ -81,7 +81,7 @@ test('AI source note supports keyboard disclosure and reload without changing fi
   await section.locator('summary').focus();
   await page.keyboard.press('Enter');
   await expect(section.locator('pre')).toContainText('appears to be');
-  await expect(page.getByText('Decision: PENDING', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recommendation and human decision' }).getByText('Not reviewed', { exact: true })).toBeVisible();
   expect(requests.some(r => r.path.endsWith('/decision'))).toBe(false);
 });
 
@@ -118,7 +118,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     await expect(page.getByLabel('Search cases')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);
     await noOverflow(page);
-    if (width >= 768) expect(await page.locator('.case-queue').evaluate(el => el.getBoundingClientRect().width)).toBe(360);
+    if (width >= 768) expect(await page.locator('.case-queue').evaluate(el => el.getBoundingClientRect().width)).toBe(290);
     await page.screenshot({ path: info.outputPath(`empty-${width}.png`) });
 
     const sourcesHelp = page.getByRole('button', { name: 'Sources help' });
@@ -178,6 +178,10 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     await noOverflow(page);
     await page.screenshot({ path: info.outputPath(`loaded-detail-${width}.png`) });
     if (width === 1024 || width === 390) {
+      if (width === 390) {
+        await page.locator('.case-original-disclosure > summary').click();
+        await page.locator('.case-evidence-disclosure > summary').click();
+      }
       expect(await page.locator('.record-fields').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(width === 1024 ? 2 : 1);
       await page.getByRole('heading', { name: 'Evidence Comparison & Scoring' }).scrollIntoViewIfNeeded();
       expect(await page.locator('.evidence-scroll').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -205,15 +209,15 @@ test('workflow actions, CSV chooser, filters, review export and Sources remain f
   await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible();
   expect(requests.some(r => r.path.endsWith('/ingest/csv') && r.method === 'POST')).toBe(true);
   await page.getByRole('button', { name: 'Load Sample Cases', exact: true }).click();
-  await expect(page.getByText('3 total', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 cases shown', { exact: true })).toBeVisible();
   await page.getByLabel('Search cases').fill('missing');
   await expect(page.getByText('No cases match your filters', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'All Cases', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Recommendation', { exact: true })).toBeVisible();
   await page.getByLabel('Search cases').fill('');
-  await page.getByRole('button', { name: 'Needs Review', exact: true }).click();
-  await expect(page.getByText('1 total', { exact: true })).toBeVisible();
+  await page.getByLabel('Recommendation', { exact: true }).selectOption('NEEDS_REVIEW');
+  await expect(page.getByText('1 results shown', { exact: true })).toBeVisible();
   expect(requests.some(r => r.search.includes('routing_status=NEEDS_REVIEW'))).toBe(true);
-  await page.getByRole('button', { name: 'All Cases', exact: true }).click();
+  await page.getByLabel('Recommendation', { exact: true }).selectOption('ALL');
   await page.getByLabel('Decision filter').selectOption('ACCEPTED');
   await expect(page.getByText('No cases match your filters', { exact: true })).toBeVisible();
   await page.getByLabel('Decision filter').selectOption('ALL');

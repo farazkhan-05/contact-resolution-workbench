@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { installOfflineBoundary } from './support/offline-boundary.mjs';
 import { sampleDetail, sampleSummary } from '../src/test-support/cases.ts';
 
-const captureRoot = '.system_generated/phase3c/captures';
+const captureRoot = process.env.CRW_VALIDATION_CAPTURE_ROOT || '.system_generated/phase3c/captures';
 mkdirSync(captureRoot, { recursive: true });
 const pause = () => { let release; const promise = new Promise(resolve => { release = resolve; }); return { promise, release }; };
 

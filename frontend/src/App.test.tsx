@@ -46,7 +46,7 @@ describe('AI completion and queue authority', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' }));
     await screen.findByRole('heading', { name: created.person_name });
     expect(api.ingestUnstructured).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ raw_evidence_text: 'Synthetic source note with uncertain email' }));
-    expect(screen.getByText('Decision: PENDING')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Recommendation and human decision' })).getByText('Not reviewed')).toBeTruthy();
     expect(screen.getAllByText(/Unverified/).length).toBeGreaterThan(0);
     expect(api.submitDecision).not.toHaveBeenCalled();
   });
@@ -116,7 +116,7 @@ describe('AI completion and queue authority', () => {
     const existing = { ...sampleSummary, routing_status: 'NEEDS_REVIEW' as const };
     vi.mocked(api.getCases).mockResolvedValue([existing]);
     render(<App />); await screen.findByRole('heading', { name: sampleDetail.raw_name });
-    fireEvent.click(screen.getByRole('button', { name: 'Needs Review' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Recommendation' }), { target: { value: 'NEEDS_REVIEW' } });
     fireEvent.change(screen.getByRole('combobox', { name: 'Decision filter' }), { target: { value: 'PENDING' } });
     fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: 'Claire' } });
     const params = { search: 'Claire', routing_status: 'NEEDS_REVIEW', review_decision: 'PENDING' };
@@ -283,7 +283,7 @@ describe('authenticated workbench shell', () => {
     await screen.findByRole('heading', { name: 'Claire Reynolds' });
     expect(api.ingestSample).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('textbox', { name: 'Search cases' })).toBeTruthy();
-    for (const name of ['All Cases', 'Likely Match', 'Needs Review', 'No Match']) expect(screen.getByRole('button', { name })).toBeTruthy();
+    for (const name of ['All recommendations', 'Likely Match', 'Needs Review', 'No Match']) expect(screen.getByRole('option', { name })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Evidence Comparison & Scoring' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Reviewer Decision Console' })).toBeTruthy();
   });
@@ -467,7 +467,7 @@ describe('authenticated workbench shell', () => {
     await screen.findByText('No cases match your filters');
     expect(api.getCases).toHaveBeenLastCalledWith({ search: 'unmatched', routing_status: undefined, review_decision: undefined });
     expect(screen.queryByRole('heading', { name: 'Start reviewing cases' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Needs Review' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Recommendation' }), { target: { value: 'NEEDS_REVIEW' } });
     fireEvent.change(screen.getByRole('combobox', { name: 'Decision filter' }), { target: { value: 'ACCEPTED' } });
     await waitFor(() => expect(api.getCases).toHaveBeenLastCalledWith({ search: 'unmatched', routing_status: 'NEEDS_REVIEW', review_decision: 'ACCEPTED' }));
     expect(within(toolbar()).getByRole('button', { name: 'Export Reviewed' }).hasAttribute('disabled')).toBe(false);
