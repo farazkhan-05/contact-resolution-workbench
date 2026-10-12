@@ -163,6 +163,7 @@ test(`credential modal at ${width}px announces copy errors and discards without 
   });
   page.on('dialog', dialog => dialog.accept());
   await page.goto('/'); await page.getByRole('navigation').getByRole('button', { name:'Sources', exact:true }).click();
+  await page.getByRole('button', { name:`View Source ${source.name}` }).click();
   const trigger = page.getByRole('button', { name:'Rotate API Key' }); await trigger.click();
   const dialog = page.getByRole('dialog', { name:'API key for Synthetic source' });
   await expect(dialog.getByRole('button', { name:'Close and discard key' })).toBeFocused(); await modalBoundary(page, dialog);

@@ -124,8 +124,8 @@ test('Source history distinguishes loading, failure, read-only retry, and succes
   });
   try {
     await page.goto('/'); await page.getByRole('navigation').getByRole('button', { name:'Sources', exact:true }).click();
-    const article = page.getByRole('article').filter({ hasText:source.name });
-    await article.getByRole('button', { name:'View ingestion history' }).click();
+    await page.getByRole('button', { name:`View Source ${source.name}` }).click();
+    const article = page.getByRole('region', { name:source.name, exact:true });
     await expect(article.getByText('Loading ingestion history...', { exact:true })).toBeVisible();
     await expect(article.getByText('No ingestion history yet.', { exact:true })).toHaveCount(0);
     initial.release(); await expect(article.getByRole('alert')).toContainText('Could not load ingestion history.');

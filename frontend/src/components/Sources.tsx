@@ -3,11 +3,10 @@ import { api, ApiError, sourceIngestionUrl } from "../api/client";
 import type { Source, SourceCredential, SourceIngestion } from "../api/client";
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
-import { TextInput } from './ui/Field';
-import { InlineFeedback } from './ui/Feedback';
+import { Field, TextInput } from './ui/Field';
+import { InlineFeedback, StatusIndicator } from './ui/Feedback';
+import './Sources.css';
 
-const button =
-  "rounded border border-border bg-surface px-3 py-2 text-sm hover:bg-surface-muted disabled:opacity-50";
 const date = (value: string | null) =>
   value ? new Date(value).toLocaleString() : "Never";
 const example = String.raw`curl -X POST ${sourceIngestionUrl} \
@@ -42,6 +41,11 @@ export function Sources({
   const mounted = useRef(false);
   const discardKeyButton = useRef<HTMLButtonElement>(null);
   const credentialTrigger = useRef<HTMLElement | null>(null);
+  const detailHeading = useRef<HTMLHeadingElement>(null);
+  const selectionTrigger = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (selected) detailHeading.current?.focus();
+  }, [selected]);
   const load = useCallback(async () => {
     if (!mounted.current || inFlight.current) return;
     inFlight.current = true;
@@ -100,234 +104,99 @@ export function Sources({
       setBusy(false);
     }
   };
+  const source = sources.find((row) => row.id === selected);
+  const loadingHistory = (id: string) => historyLoading || (histories[id] === undefined && !historyErrors[id]);
+  const returnToList = () => {
+    setSelected(null);
+    // The list becomes visible after this state update, before focus is restored.
+    requestAnimationFrame(() => selectionTrigger.current?.focus());
+  };
   return (
-    <section className="w-full overflow-auto p-6 text-foreground">
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Sources / Integrations</h2>
-          <p className="text-sm text-muted">
-            Sources → Recent ingestions → Cases needing review
-          </p>
-        </div>
-        <button className={button} onClick={onReview}>
-          Open review queue
-        </button>
+    <section className={`sources-workspace${selected ? ' sources-has-selection' : ''}`} aria-label="Sources workspace">
+      <header className="sources-heading">
+        <div><p className="sources-eyebrow">Workspace records</p><h2>Sources / Integrations</h2>
+          <p className="sources-muted">See where records come from and what happened to each ingestion.</p></div>
+        <Button onClick={onReview}>Open review queue</Button>
+      </header>
+      <div className="sources-guide">
+        <p><strong>Reference Sources</strong> maintain master records used for comparison.</p>
+        <p><strong>Incoming Sources</strong> send records for resolution and human review.</p>
       </div>
-      <p className="mb-4 text-sm text-muted">
-        Use CSV for onboarding and one-off incoming imports. Use the Source API
-        for ongoing ingestion. Reference Sources maintain master records;
-        Incoming Sources send records for resolution.
-      </p>
-      {error && !credential && (
-        <p role="alert" className="mb-3 text-rose-700">
-          {error}
-        </p>
-      )}
-      {message && !credential && (
-        <p role="status" className="mb-3 text-emerald-700">
-          {message}
-        </p>
-      )}
-      {owner && (
-        <form
-          className="mb-5 flex flex-wrap gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            credentialTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            void action(async () => {
-              setCredential(await api.createSource(name.trim(), type));
-              setName("");
-            });
-          }}
-        >
-          <TextInput
-            aria-label="Source name"
-            required
-            maxLength={100}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="CRM Feed"
-            style={{ width: 'auto' }}
-          />
-          <select
-            aria-label="Source type"
-            className={button}
-            value={type}
-            onChange={(e) => setType(e.target.value as Source["source_type"])}
-          >
-            <option value="REFERENCE">REFERENCE - master data</option>
-            <option value="INCOMING">INCOMING - resolution</option>
-          </select>
-          <button className={button} disabled={busy || !name.trim()}>
-            Create Source
-          </button>
+      {error && !credential && <InlineFeedback tone="error">{error}</InlineFeedback>}
+      {message && !credential && <InlineFeedback tone="success">{message}</InlineFeedback>}
+      {loading ? <p role="status" className="sources-state">Loading Sources...</p> : sources.length === 0 && !error && !selected ?
+        <div className="sources-state"><h3>No Sources yet.</h3><p className="sources-muted">{owner
+          ? "Create a Reference Source, ingest master data, then connect an Incoming Source."
+          : "Ask your workspace owner to create a Source."}</p></div> : sources.length === 0 && !selected ?
+        <div className="sources-state"><p>Sources are unavailable.</p><Button onClick={() => void load()}>Retry Sources read</Button></div> :
+        <div className="sources-master-detail">
+          <section className="sources-list" aria-labelledby="sources-list-title">
+            <div className="sources-section-heading"><h3 id="sources-list-title">Sources in this workspace</h3><span className="sources-muted">{sources.length}</span></div>
+            {sources.map((row) => {
+              const latest = histories[row.id]?.[0];
+              return <article key={row.id} className="sources-row" data-selected={selected === row.id}>
+                <button className="sources-select" aria-pressed={selected === row.id} onClick={(event) => {
+                  selectionTrigger.current = event.currentTarget;
+                  setSelected(row.id);
+                  if (selected === row.id) detailHeading.current?.focus();
+                }} aria-label={`View Source ${row.name}`}>
+                  <div className="sources-row-heading"><h4>{row.name}</h4><StatusIndicator tone={row.status === 'ACTIVE' ? 'success' : 'neutral'}>{row.status === 'ACTIVE' ? 'Enabled' : 'Disabled'}</StatusIndicator></div>
+                  <span className="sources-muted">{row.source_type === 'REFERENCE' ? 'Reference' : 'Incoming'} · {row.key_prefix}...</span>
+                  <span className="sources-muted">Last received: {date(row.last_ingested_at)}</span>
+                  <span className="sources-recent">Recent result: {loadingHistory(row.id) ? <span>Loading history...</span> : historyErrors[row.id] ? <span>History unavailable</span> : latest
+                    ? `${latest.job.status} · ${latest.job.successful_rows}/${latest.job.total_rows} succeeded · ${latest.job.rejected_rows} failed`
+                    : 'No ingestions received'}</span>
+                  <span className="sources-select-label">{selected === row.id ? 'Viewing Source' : 'View Source →'}</span>
+                </button>
+              </article>;
+            })}
+          </section>
+          <section className="sources-detail" aria-labelledby="source-detail-title">
+            <Button className="sources-back" variant="quiet" onClick={returnToList}>← Back to Sources</Button>
+            {!selected ? <div className="sources-state"><h3 id="source-detail-title">Select a Source</h3><p className="sources-muted">View its details, ingestion history and available actions.</p></div> : !source ?
+              <div className="sources-state"><h3 id="source-detail-title" ref={detailHeading} tabIndex={-1}>Source unavailable</h3><p className="sources-muted">This Source is no longer in the workspace list. Select another Source or retry the read.</p><Button onClick={() => void load()}>Retry Sources read</Button></div> : <>
+                <div className="sources-detail-heading"><div><p className="sources-eyebrow">Selected Source · {source.source_type === 'REFERENCE' ? 'Reference' : 'Incoming'}</p>
+                  <h3 id="source-detail-title" tabIndex={-1} ref={detailHeading}>{source.name}</h3></div>
+                  <StatusIndicator tone={source.status === 'ACTIVE' ? 'success' : 'neutral'}>{source.status === 'ACTIVE' ? 'Enabled' : 'Disabled'}</StatusIndicator></div>
+                <p className="sources-muted">{source.source_type === 'REFERENCE' ? 'Reference records maintain master data used for comparison.' : 'Incoming records create Cases for resolution.'}</p>
+                <dl className="sources-metadata"><div><dt>Source ID</dt><dd>{source.id}</dd></div><div><dt>Key prefix</dt><dd>{source.key_prefix}...</dd></div><div><dt>Last received</dt><dd>{date(source.last_ingested_at)}</dd></div></dl>
+                <div className="sources-section-heading"><h4>Ingestion history</h4><span className="sources-muted">Most recent first</span></div>
+                {loadingHistory(source.id) ? <p role="status" className="sources-state">Loading ingestion history...</p> : historyErrors[source.id] ?
+                  <div className="sources-history-failure"><InlineFeedback tone="error">Could not load ingestion history.</InlineFeedback><p className="sources-muted">History is unavailable. Retry reads existing history only.</p><Button onClick={() => void load()} aria-label={`Retry history read for ${source.name}`}>Retry history read</Button></div> : histories[source.id]?.length === 0 ?
+                  <p className="sources-state">No ingestion history yet.</p> : <SourceHistory runs={histories[source.id] || []} />}
+                {owner && <section className="sources-management" aria-label="Source management">
+                  <div className="sources-section-heading"><h4>Manage Source</h4><span className="sources-muted">Owner only</span></div>
+                  <div className="sources-management-row"><div><h5>API credentials</h5><p className="sources-muted">New keys are shown once. Rotating stops the current key immediately.</p></div>
+                    <Button disabled={busy} onClick={(event) => {
+                      credentialTrigger.current = event.currentTarget;
+                      if (window.confirm("Rotate the API key? The current key will stop working immediately."))
+                        void action(async () => setCredential(await api.rotateSource(source.id)));
+                    }}>Rotate API Key</Button></div>
+                  <div className="sources-management-row"><div><h5>Receive new records</h5><p className="sources-muted">Disabling stops new ingestion. Existing records and history remain available.</p></div>
+                    <Button disabled={busy} onClick={() => void action(async () => {
+                      await api.sourceStatus(source.id, source.status === "ACTIVE" ? "DISABLED" : "ACTIVE");
+                      setMessage("Source status updated.");
+                    })}>{source.status === 'ACTIVE' ? 'Disable' : 'Enable'}</Button></div>
+                </section>}
+              </>}
+          </section>
+        </div>}
+      {owner && <section className="sources-create" aria-labelledby="create-source-title"><h3 id="create-source-title">Create a Source</h3><p className="sources-muted">Name the feed and choose how its records will be used.</p>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          credentialTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          void action(async () => { setCredential(await api.createSource(name.trim(), type)); setName(""); });
+        }}>
+          <Field id="source-name" label="Source name">{(props) => <TextInput {...props} required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name your Source" />}</Field>
+          <Field id="source-type" label="Source type">{(props) => <select {...props} className="ui-field-control" value={type} onChange={(e) => setType(e.target.value as Source["source_type"])}><option value="REFERENCE">Reference — master data</option><option value="INCOMING">Incoming — resolution</option></select>}</Field>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>Create Source</Button>
         </form>
-      )}
-      {loading ? (
-        <p role="status">Loading Sources...</p>
-      ) : sources.length === 0 ? (
-        <p className="rounded border border-border p-6">
-          No Sources yet.{" "}
-          {owner
-            ? "Create a Reference Source, ingest master data, then connect an Incoming Source."
-            : "Ask your workspace owner to create a Source."}
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {sources.map((source) => {
-            const latest = histories[source.id]?.[0];
-            const loadingHistory = historyLoading || (histories[source.id] === undefined && !historyErrors[source.id]);
-            return (
-              <article
-                key={source.id}
-                className="rounded border border-border bg-surface p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold">{source.name}</h3>
-                    <p className="text-sm text-muted">
-                      {source.source_type} · {source.status} ·{" "}
-                      {source.key_prefix}...
-                    </p>
-                    <p className="text-xs text-muted">
-                      Last received: {date(source.last_ingested_at)}
-                    </p>
-                    <p className="text-sm">
-                      Recent result:{" "}
-                      {loadingHistory ? <span role="status">Loading history...</span> : historyErrors[source.id] ? <span role="status">History unavailable</span> : latest
-                        ? `${latest.job.status} · ${latest.job.successful_rows}/${latest.job.total_rows} succeeded · ${latest.job.rejected_rows} failed`
-                        : "No ingestions received"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className={button}
-                      onClick={() =>
-                        setSelected(selected === source.id ? null : source.id)
-                      }
-                    >
-                      View ingestion history
-                    </button>
-                    {owner && (
-                      <>
-                        <button
-                          disabled={busy}
-                          className={button}
-                          onClick={(event) => {
-                            credentialTrigger.current = event.currentTarget;
-                            if (
-                              window.confirm(
-                                "Rotate the API key? The current key will stop working immediately.",
-                              )
-                            )
-                              void action(async () =>
-                                setCredential(
-                                  await api.rotateSource(source.id),
-                                ),
-                              );
-                          }}
-                        >
-                          Rotate API Key
-                        </button>
-                        <button
-                          disabled={busy}
-                          className={button}
-                          onClick={() =>
-                            void action(async () => {
-                              await api.sourceStatus(
-                                source.id,
-                                source.status === "ACTIVE"
-                                  ? "DISABLED"
-                                  : "ACTIVE",
-                              );
-                              setMessage("Source status updated.");
-                            })
-                          }
-                        >
-                          {source.status === "ACTIVE" ? "Disable" : "Enable"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {selected === source.id && (
-                  <div className="mt-4 overflow-auto">
-                    {loadingHistory ? <p role="status">Loading ingestion history...</p> : historyErrors[source.id] ?
-                      <div role="alert">
-                        <p>Could not load ingestion history.</p>
-                        <button className={button} onClick={() => void load()} aria-label={`Retry history read for ${source.name}`}>
-                          Retry history read
-                        </button>
-                      </div> : <>
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr>
-                          {[
-                            "Ingestion / Job",
-                            "Received",
-                            "Status",
-                            "Records",
-                            "Processed",
-                            "Succeeded",
-                            "Failed",
-                            "Completed",
-                          ].map((label) => (
-                            <th key={label} className="p-2">
-                              {label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {histories[source.id]?.map((run) => (
-                          <tr key={run.id} className="border-t border-border">
-                            <td className="p-2">
-                              {run.id}
-                              <br />
-                              {run.job.id}
-                            </td>
-                            <td className="p-2">{date(run.created_at)}</td>
-                            <td className="p-2">
-                              {run.job.status}
-                              <br />
-                              {run.job.failure_code}
-                              {run.job.failure_message && (
-                                <p>{run.job.failure_message}</p>
-                              )}
-                            </td>
-                            <td className="p-2">{run.job.total_rows}</td>
-                            <td className="p-2">{run.job.processed_rows}</td>
-                            <td className="p-2">{run.job.successful_rows}</td>
-                            <td className="p-2">{run.job.rejected_rows}</td>
-                            <td className="p-2">
-                              {date(run.job.completed_at)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {histories[source.id]?.length === 0 && (
-                      <p>No ingestion history yet.</p>
-                    )}
-                    </>}
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      )}
-      <details className="mt-6 rounded border border-border p-4">
+      </section>}
+      <details className="sources-instructions">
         <summary>Integration instructions</summary>
-        <p className="my-2 text-sm">
-          Send 1-100 canonical records (maximum 256 KB). Use a new
-          Idempotency-Key per batch; repeat it only with the same records.
-          Reference external IDs update within their Source. Incoming batches
-          create Cases. No vendor connectors are installed.
-        </p>
-        <pre className="overflow-auto rounded bg-surface-muted p-3 text-xs">
-          {example}
-        </pre>
+        <p>Use CSV for onboarding and one-off incoming imports. Use the Source API for ongoing ingestion.</p>
+        <p>Send 1-100 canonical records (maximum 256 KB). Use a new Idempotency-Key per batch; repeat it only with the same records. Reference external IDs update within their Source. Incoming batches create Cases. No vendor connectors are installed.</p>
+        <pre>{example}</pre>
       </details>
       {credential && (
         <Dialog open onDismiss={() => setCredential(null)} labelledBy="key-title" describedBy="key-description" initialFocusRef={discardKeyButton} returnFocusRef={credentialTrigger}>
@@ -373,4 +242,21 @@ export function Sources({
       )}
     </section>
   );
+}
+
+
+function SourceHistory({ runs }: { runs: SourceIngestion[] }) {
+  const labels = ['Ingestion / Job', 'Received', 'Status', 'Records', 'Processed', 'Succeeded', 'Failed', 'Completed'];
+  return <table className="sources-history" aria-label="Ingestion history">
+    <thead><tr>{labels.map((label) => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+    <tbody>{runs.map((run) => <tr key={run.id}>
+      <td data-label={labels[0]}><span>{run.id}</span><span className="sources-muted">{run.job.id}</span></td>
+      <td data-label={labels[1]}>{date(run.created_at)}</td>
+      <td data-label={labels[2]}><StatusIndicator tone={run.job.status === 'SUCCEEDED' ? 'success' : run.job.status === 'FAILED' ? 'error' : 'neutral'}>{run.job.status}</StatusIndicator>
+        {run.job.failure_code && <p>{run.job.failure_code}</p>}{run.job.failure_message && <p>{run.job.failure_message}</p>}</td>
+      <td data-label={labels[3]}>{run.job.total_rows}</td><td data-label={labels[4]}>{run.job.processed_rows}</td>
+      <td data-label={labels[5]}>{run.job.successful_rows}</td><td data-label={labels[6]}>{run.job.rejected_rows}</td>
+      <td data-label={labels[7]}>{run.job.completed_at ? date(run.job.completed_at) : 'Not completed'}</td>
+    </tr>)}</tbody>
+  </table>;
 }
