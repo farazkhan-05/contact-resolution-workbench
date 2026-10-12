@@ -120,7 +120,7 @@ for (const width of [1440, 390, 320]) {
 test('Accepted AI Job with unavailable readback recovers by reading, survives closure, and selects its actual resulting Case', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 }); const state = await fixture(page); state.aiReadFailed = true;
   const dialog = await openAI(page); await dialog.getByRole('button', { name: 'Extract evidence' }).click();
-  await expect(dialog.getByRole('alert')).toContainText('The outcome is unknown.');
+  await expect(dialog.getByRole('alert')).toContainText('The Job was accepted, but its latest processing status could not be confirmed.');
   await expect(dialog.getByText('synthetic-ai-job')).toBeVisible(); await expect(dialog.getByRole('link')).toHaveCount(0);
   await capture(page, 'ai-accepted-unknown-desktop-1440.png');
   state.aiReadFailed = false; state.aiStatus = 'RUNNING';

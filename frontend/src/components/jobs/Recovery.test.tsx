@@ -52,7 +52,7 @@ it('status error is visible and Check again only reads status, then resumes pend
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('secret HTTP 504'));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
-  expect(screen.getByText(/Could not check the latest status/)).toBeTruthy();
+  expect(screen.getByText(/latest processing status could not be confirmed/)).toBeTruthy();
   expect(screen.queryByText('Try again')).toBeNull();
   expect(screen.queryByText(/HTTP 504/)).toBeNull();
   await act(async () => vi.advanceTimersByTimeAsync(10000));
@@ -106,7 +106,8 @@ it('slow Job A response cannot overwrite tracking Job B', async () => {
   const view = render(<Tracker initial={syntheticJob({ id: 'job-a' })} />);
   await flush(() => view.rerender(<Tracker initial={syntheticJob({ id: 'job-b' })} />));
   await flush(() => slow.resolve(syntheticJob({ id: 'job-a', status: 'FAILED' })));
-  expect(screen.getByText('job-b')).toBeTruthy();
+  expect(screen.getAllByText('job-b').length).toBeGreaterThan(0);
+  expect(screen.queryByText('job-a')).toBeNull();
   expect(screen.getByText('Running')).toBeTruthy();
   expect(screen.queryByText('Failed')).toBeNull();
 });

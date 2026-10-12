@@ -93,7 +93,6 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
   };
 
   const activeJob = currentJob?.status === 'PENDING' || currentJob?.status === 'RUNNING';
-  const jobDate = (value: string | null | undefined, missing: string) => value ? new Date(value).toLocaleString() : missing;
   return (
     <Dialog open={isOpen} onDismiss={onClose} dismissible={!isExtracting}
       labelledBy="ai-modal-title" describedBy="ai-modal-description" initialFocusRef={evidenceInput} className="ai-ingestion">
@@ -119,17 +118,7 @@ export const AiExtractionModal: React.FC<AiExtractionModalProps> = ({
           {submissionUnknown && <p className="ingestion-muted">An unknown outcome is not a confirmed failure. Close this dialog to check Recent activity. Another extraction is blocked in this view.</p>}
         </> : currentJob ? <section className="ai-job-result" aria-label="Extraction Job result">
           <h3>{activeJob ? 'Extraction accepted' : 'Extraction result'}</h3>
-          {activeJob && <p className="ingestion-muted">The Job was accepted. Wait for its result before reviewing the extracted evidence.</p>}
           <div className="ai-job-status"><JobStatus job={currentJob} error={tracking.error} checking={tracking.checking} onCheck={tracking.checkAgain} /></div>
-          <dl className="ingestion-job-facts">
-            <div><dt>Job reference</dt><dd>{currentJob.id}</dd></div>
-            <div><dt>Created</dt><dd>{jobDate(currentJob.created_at, 'Unavailable')}</dd></div>
-            <div><dt>Started</dt><dd>{jobDate(currentJob.started_at, 'Not started')}</dd></div>
-            {currentJob.completed_at && <div><dt>Completed</dt><dd>{jobDate(currentJob.completed_at, 'Not completed')}</dd></div>}
-          </dl>
-          {typeof currentJob.processed_rows === 'number' && typeof currentJob.total_rows === 'number' && <p className="ingestion-muted">{tracking.error ? 'Last reported records' : 'Records processed'}: {currentJob.processed_rows} of {currentJob.total_rows}.
-            {currentJob.rejected_rows > 0 && <> Rejected: {currentJob.rejected_rows}.</>}</p>}
-          {tracking.error && <p className="ingestion-muted">Check again reads this Job's status. It does not submit another extraction.</p>}
           {currentJob.status === 'FAILED' && !tracking.error && <p className="ingestion-muted">Try again returns to your note. Edit it before explicitly submitting a new attempt.</p>}
           {currentJob.status === 'SUCCEEDED' && !refreshError && <p className="ingestion-muted">Close this dialog to return to Cases and review the available evidence. Extracted evidence still needs human verification.</p>}
           <p className="ingestion-muted">Closing this dialog does not cancel accepted work. You can also check its status in Recent activity.</p>
