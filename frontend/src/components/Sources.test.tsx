@@ -183,7 +183,7 @@ describe('Source authority and history fidelity', () => {
 });
 
 const select = (name: string) => fireEvent.click(screen.getByRole('button', { name: `View Source ${name}` }));
-const source = (id: string, name = id) => ({ id, workspace_id: "workspace", name, source_type: "REFERENCE" as const, status: "ACTIVE" as const, key_prefix: "safe", last_ingested_at: null });
+const source = (id: string, name = id) => ({ id, workspace_id: "workspace", name, source_type: "REFERENCE" as const, status: "ACTIVE" as const, key_prefix: "safe", last_ingested_at: '2026-10-04T00:00:00Z' });
 const history = (id: string) => [{ id: `${id}-run`, source_id: id, created_at: "2026-10-04T00:00:00Z", job: { id: `${id}-job`, status: "SUCCEEDED", successful_rows: 1, total_rows: 1, rejected_rows: 0 } } as never];
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -309,4 +309,32 @@ describe("Sources refresh", () => {
     await waitFor(() => expect(api.listSources).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("button", { name: "Open review queue" }));
   });
+});
+
+it('provides an owner creation entry point and protects a pending form submission from repeated Enter events', async () => {
+  const pending = deferred<Awaited<ReturnType<typeof api.createSource>>>();
+  vi.mocked(api.createSource).mockReturnValue(pending.promise);
+  render(<Sources owner onReview={vi.fn()} />); await screen.findByRole('button', { name: 'View Source one' });
+  const input = screen.getByLabelText('Source name');
+  input.scrollIntoView = vi.fn();
+  fireEvent.click(screen.getByRole('button', { name: 'Add Source' }));
+  expect(document.activeElement).toBe(input); expect(input.scrollIntoView).toHaveBeenCalled();
+  fireEvent.change(input, { target: { value: 'Synthetic new feed' } });
+  const form = input.closest('form')!;
+  fireEvent.submit(form); fireEvent.submit(form);
+  expect(api.createSource).toHaveBeenCalledExactlyOnceWith('Synthetic new feed', 'REFERENCE');
+  await act(async () => pending.resolve({ ...source('new'), api_key: 'SYNTHETIC-ONE-TIME' }));
+  expect(screen.getByRole('dialog', { name: 'API key for new' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close and discard key' }));
+  expect(screen.queryByText('SYNTHETIC-ONE-TIME')).toBeNull();
+});
+
+it('hides creation entry points from non-owners and keeps Never tied to a null received timestamp', async () => {
+  vi.mocked(api.listSources).mockResolvedValue([{ ...source('one'), last_ingested_at: null }]);
+  vi.mocked(api.sourceHistory).mockResolvedValue([]);
+  render(<Sources owner={false} onReview={vi.fn()} />); await screen.findByRole('button', { name: 'View Source one' });
+  select('one'); await screen.findByText('No ingestion history yet.');
+  expect(screen.getByText('Never', { exact: true })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Add Source' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create Source' })).toBeNull();
 });

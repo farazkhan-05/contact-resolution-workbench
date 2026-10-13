@@ -16,7 +16,7 @@ export function JobStatus({ job, error, checking, onCheck, compact = false }: { 
   return <div className={`job-status${compact ? ' job-status-compact' : ''}`}>
     <div className="job-status-line">
       <StatusIndicator role="status" tone={error ? 'warning' : job.status === 'SUCCEEDED' ? 'success' : job.status === 'FAILED' ? 'error' : 'info'}>{error ? `Last known status: ${jobLabels[job.status]}` : jobLabels[job.status]}</StatusIndicator>
-      {(active || error) && <Button loading={checking} onClick={onCheck} aria-describedby={`${referenceId}${error ? ` ${recoveryId}` : ''}`}>{checking ? 'Checking status…' : 'Check again'}</Button>}
+      {(active || error) && <Button loading={checking} onClick={onCheck} aria-describedby={`${referenceId}${error ? ` ${recoveryId}` : ''}`}>{checking ? 'Checking status…' : 'Check Job status'}</Button>}
     </div>
     {active && !error && (!compact || job.status === 'PENDING') && <p>{job.status === 'PENDING' ? 'Accepted and waiting to start.' : 'Processing records. Waiting for the result.'}</p>}
     {job.status === 'SUCCEEDED' && <p>{error && 'Last confirmed result: '}{jobName(job)} completed.{typeof job.successful_rows === 'number' && <> {job.successful_rows} {job.successful_rows === 1 ? 'record' : 'records'} imported.</>}</p>}
@@ -24,7 +24,7 @@ export function JobStatus({ job, error, checking, onCheck, compact = false }: { 
     {active && !error && isLongRunning(job) && <p className="job-muted">This is taking longer than expected.</p>}
     {error && <div className="job-read-error">
       <InlineFeedback tone="error">{active ? 'The Job was accepted, but its latest processing status could not be confirmed.' : 'Could not check the latest status. The last confirmed result is shown.'}</InlineFeedback>
-      <p id={recoveryId} className="job-muted">Check again reads this Job's status. It does not submit another import or extraction.</p>
+      <p id={recoveryId} className="job-muted">Check Job status reads this Job only. It does not submit another import or extraction.</p>
     </div>}
     {typeof job.processed_rows === 'number' && <p className="job-counts">{error ? 'Last reported records' : 'Records processed'}: {job.processed_rows}{typeof job.total_rows === 'number' && <> of {job.total_rows}</>}.
       {job.rejected_rows > 0 && <> Rejected: {job.rejected_rows}.</>}</p>}

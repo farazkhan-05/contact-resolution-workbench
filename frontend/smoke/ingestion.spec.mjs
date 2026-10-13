@@ -124,7 +124,7 @@ test('Accepted AI Job with unavailable readback recovers by reading, survives cl
   await expect(dialog.getByText('synthetic-ai-job')).toBeVisible(); await expect(dialog.getByRole('link')).toHaveCount(0);
   await capture(page, 'ai-accepted-unknown-desktop-1440.png');
   state.aiReadFailed = false; state.aiStatus = 'RUNNING';
-  await dialog.getByRole('button', { name: 'Check again' }).click(); await expect(dialog.getByText('Running', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Check Job status' }).click(); await expect(dialog.getByText('Running', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   const reopened = await openAI(page); state.aiStatus = 'SUCCEEDED';
   await expect(reopened.getByText('Completed', { exact: true })).toBeVisible();

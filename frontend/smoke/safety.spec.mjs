@@ -48,7 +48,7 @@ async function fixture(page) {
     }
     if (url.pathname.endsWith('/investigations/run-a')) {
       state.run = { ...state.run, status: state.resumes.length ? 'SUCCEEDED' : 'WAITING_FOR_HUMAN',
-        outcome: state.resumes.length ? 'EVIDENCE_COMPLETE' : null,
+        outcome: state.resumes.length ? 'EVIDENCE_READY' : null,
         interrupt: state.resumes.length ? null : { reason:'More evidence needed', evidence_gap:'PHONE', allowed_actions:['STOP','RETRIEVE_SYNTHETIC_NOTES'] } };
       return reply(state.run);
     }
@@ -183,7 +183,7 @@ test('investigation restores the same checkpoint and completes after a single re
   await expect(region.getByRole('button', { name:'Start evidence investigation' })).toHaveCount(0);
   await region.getByRole('button', { name:'Retrieve synthetic notes and resume' }).click();
   await expect(region.getByRole('status')).toHaveText('Completed');
-  await expect(region).toContainText('EVIDENCE COMPLETE');
+  await expect(region).toContainText('Evidence ready');
   await expect(region).toContainText('Completion does not mean a human has accepted an identity match.');
   expect(state.resumes).toEqual([{ action:'RETRIEVE_SYNTHETIC_NOTES' }]);
   await page.reload(); await expect(region.getByRole('status')).toHaveText('Completed');

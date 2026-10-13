@@ -6,6 +6,7 @@
 .sources-heading h2 { font-size: var(--text-page); letter-spacing: -.025em; margin-bottom: var(--space-2); }
 .sources-heading > div, .sources-detail-heading > div, .sources-row-heading h4 { min-width: 0; }
 .sources-heading > button { flex-shrink: 0; }
+.sources-heading-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .sources-eyebrow { font-size: var(--text-metadata); color: var(--muted); margin-bottom: var(--space-1); }
 .sources-muted { color: var(--muted); font-size: var(--text-support); }
 .sources-guide { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6); padding-bottom: var(--space-4); margin-bottom: var(--space-4); border-bottom: 1px solid var(--border); color: var(--muted); }

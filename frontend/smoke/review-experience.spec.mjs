@@ -187,7 +187,7 @@ for (const mode of ['failure', 'unknown', 'denied']) {
 test('Cases, candidates and active filters keep the intended acceptance target', async ({ page }) => {
   const state = await fixture(page, { role: 'REVIEWER' }); await page.goto('/');
   await openCase(page, secondReviewDetail.case_number); await gotoReview(page);
-  await page.getByLabel('Search cases').fill('Jordan'); await expect(page.getByText('1 results shown', { exact: true })).toBeVisible();
+  await page.getByLabel('Search cases').fill('Jordan'); await expect(page.getByText('1 result shown', { exact: true })).toBeVisible();
   await page.getByLabel('Decision filter').selectOption('PENDING');
   await page.getByLabel('Reviewer note (optional)').fill('Synthetic Jordan review'); await accept(page).click();
   await expect(review(page)).toContainText('Saved candidate: Jordan Vale');

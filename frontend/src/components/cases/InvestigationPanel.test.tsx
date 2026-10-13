@@ -68,7 +68,7 @@ it.each(['STOP', 'RETRIEVE_SYNTHETIC_NOTES'] as const)('continues once with %s a
 });
 
 it.each(['PENDING', 'RUNNING', 'WAITING_FOR_HUMAN', 'SUCCEEDED', 'FAILED'] as const)('restores durable %s without writing', async status => {
-  const saved = status === 'WAITING_FOR_HUMAN' ? waiting : run({ status, outcome: status === 'SUCCEEDED' ? 'EVIDENCE_COMPLETE' : null });
+  const saved = status === 'WAITING_FOR_HUMAN' ? waiting : run({ status, outcome: status === 'SUCCEEDED' ? 'EVIDENCE_READY' : null });
   vi.mocked(api.listInvestigations).mockResolvedValue([saved]);
   const p = props(); const view = render(<InvestigationPanel {...p} />); await flush(); view.unmount();
   render(<InvestigationPanel {...p} />); await flush();
@@ -158,6 +158,20 @@ it('rejects another Case response without exposing evidence or permitting writes
   expect(screen.getByRole('button', { name: 'Start evidence investigation' }).hasAttribute('disabled')).toBe(true);
 });
 
+it('labels a new investigation after completion and formats the actual reported outcome without making a decision', async () => {
+  vi.mocked(api.listInvestigations).mockResolvedValue([run({ status: 'SUCCEEDED', outcome: 'HUMAN_REVIEW_REQUIRED' })]);
+  vi.mocked(api.startInvestigation).mockResolvedValue(run({ id: 'run-b', status: 'PENDING' }));
+  vi.mocked(api.getInvestigation).mockResolvedValue(run({ id: 'run-b', status: 'RUNNING' }));
+  render(<InvestigationPanel {...props()} />); await flush();
+  expect(screen.getByText('Human review required')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Start evidence investigation' })).toBeNull();
+  await flush(() => fireEvent.click(screen.getByRole('button', { name: 'Start another investigation' })));
+  expect(api.startInvestigation).toHaveBeenCalledExactlyOnceWith('case-a');
+  expect(api.resumeInvestigation).not.toHaveBeenCalled(); await tick();
+  expect(api.getInvestigation).toHaveBeenCalledExactlyOnceWith('run-b');
+  expect(screen.getByRole('status').textContent).toBe('Running');
+});
+
 it.each(['case', 'workspace', 'unmount'])('ignores an in-flight status result after %s changes', async change => {
   const slow = deferred<InvestigationRun>();
   vi.mocked(api.listInvestigations).mockResolvedValueOnce([run()]).mockResolvedValue([]);
@@ -168,7 +182,7 @@ it.each(['case', 'workspace', 'unmount'])('ignores an in-flight status result af
     if (change === 'workspace') auth.workspace = { id: 'other-status-workspace' };
     view.rerender(<InvestigationPanel {...p} caseId={change === 'case' ? 'case-b' : 'case-a'} />); await flush();
   }
-  await flush(() => slow.resolve(run({ status: 'SUCCEEDED', outcome: 'EVIDENCE_COMPLETE' })));
-  expect(screen.queryByText('Completed')).toBeNull(); expect(screen.queryByText('EVIDENCE COMPLETE')).toBeNull();
+  await flush(() => slow.resolve(run({ status: 'SUCCEEDED', outcome: 'EVIDENCE_READY' })));
+  expect(screen.queryByText('Completed')).toBeNull(); expect(screen.queryByText('Evidence ready')).toBeNull();
   expect(p.onComplete).not.toHaveBeenCalled(); expect(api.startInvestigation).not.toHaveBeenCalled(); expect(api.resumeInvestigation).not.toHaveBeenCalled();
 });

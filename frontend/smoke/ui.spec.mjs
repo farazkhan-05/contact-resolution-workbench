@@ -215,7 +215,7 @@ test('workflow actions, CSV chooser, filters, review export and Sources remain f
   await expect(page.getByLabel('Recommendation', { exact: true })).toBeVisible();
   await page.getByLabel('Search cases').fill('');
   await page.getByLabel('Recommendation', { exact: true }).selectOption('NEEDS_REVIEW');
-  await expect(page.getByText('1 results shown', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 result shown', { exact: true })).toBeVisible();
   expect(requests.some(r => r.search.includes('routing_status=NEEDS_REVIEW'))).toBe(true);
   await page.getByLabel('Recommendation', { exact: true }).selectOption('ALL');
   await page.getByLabel('Decision filter').selectOption('ACCEPTED');
@@ -263,7 +263,7 @@ test('AI status recovery reads only and completed activity survives reload', asy
   await dialog.getByRole('button', { name: 'Extract evidence' }).click();
   await expect(dialog.getByText('The Job was accepted, but its latest processing status could not be confirmed.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Try again' })).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Check again' }).click();
+  await dialog.getByRole('button', { name: 'Check Job status' }).click();
   await expect(dialog.getByRole('status')).toHaveText('Completed');
   expect(submissions).toBe(1); expect(checks).toBe(2);
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
@@ -271,7 +271,7 @@ test('AI status recovery reads only and completed activity survives reload', asy
   await expect(page.getByText('No cases yet', { exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Recent activity', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Recent activity' }).getByText('Completed', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recent activity', exact: true }).getByText('Completed', { exact: true })).toBeVisible();
   expect(submissions).toBe(1);
   expect(errors).toEqual([]);
   await page.screenshot({ path: info.outputPath('activity-desktop.png') });

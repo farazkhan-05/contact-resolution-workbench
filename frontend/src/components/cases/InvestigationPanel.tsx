@@ -18,7 +18,7 @@ function updateOperation(key: string, value?: Operation) {
   listeners.forEach(listener => listener());
 }
 const labels = { PENDING: 'Queued', RUNNING: 'Running', WAITING_FOR_HUMAN: 'Waiting for your input', SUCCEEDED: 'Completed', FAILED: 'Failed' };
-const readable = (value: string) => value.replaceAll('_', ' ');
+const readable = (value: string) => value.replaceAll('_', ' ').toLowerCase().replace(/^./, character => character.toUpperCase());
 const terminal = (run: InvestigationRun) => ['SUCCEEDED', 'WAITING_FOR_HUMAN', 'FAILED'].includes(run.status);
 
 export function InvestigationPanel({ caseId, eligible, onComplete }: {
@@ -151,7 +151,7 @@ export function InvestigationPanel({ caseId, eligible, onComplete }: {
     {!ready && <p>Investigation actions require an active, authorized workspace session.</p>}
     {ready && !eligible && !active && <p>Starting an investigation requires an unresolved Case that needs review.</p>}
     <div className="investigation-actions">
-      {eligible && !active && <Button disabled={disabled} loading={operation?.phase === 'pending' && !operation.action} onClick={() => submit()}>Start evidence investigation</Button>}
+      {eligible && !active && <Button disabled={disabled} loading={operation?.phase === 'pending' && !operation.action} onClick={() => submit()}>{displayed ? 'Start another investigation' : 'Start evidence investigation'}</Button>}
       <Button variant="quiet" loading={loading} disabled={!ready || loading || operation?.phase === 'pending'} onClick={() => {
         title.current?.focus({ preventScroll: true });
         void readRef.current(epoch.current, operation?.phase === 'unknown' && !operation.action ? null : displayed, true);

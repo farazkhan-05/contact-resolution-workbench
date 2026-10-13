@@ -5,7 +5,7 @@ import { installOfflineBoundary } from './support/offline-boundary.mjs';
 import { syntheticJob } from '../src/test-support/jobs.ts';
 
 const source = (id, name, overrides = {}) => ({ id, workspace_id: 'test-workspace', name, source_type: 'REFERENCE', status: 'ACTIVE', key_prefix: 'safe-prefix', last_ingested_at: '2026-10-10T09:45:00Z', ...overrides });
-const sources = [source('reference', 'Reference directory'), source('incoming', 'Incoming contact feed', { source_type: 'INCOMING' }), source('disabled', 'Disabled import', { status: 'DISABLED', last_ingested_at: null })];
+const sources = [source('reference', 'Reference directory'), source('incoming', 'Incoming contact feed', { source_type: 'INCOMING' }), source('disabled', 'Disabled import', { status: 'DISABLED' })];
 const run = id => ({ id: `${id}-ingestion`, source_id: id, created_at: '2026-10-10T09:45:00Z', job: syntheticJob({ id: `${id}-job`, status: 'SUCCEEDED', total_rows: 24, processed_rows: 24, successful_rows: 24, rejected_rows: 0, completed_at: '2026-10-10T09:46:00Z' }) });
 
 async function fixture(page, { owner = true, rows = sources, failed = false } = {}) {

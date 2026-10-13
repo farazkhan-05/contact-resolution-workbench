@@ -48,7 +48,7 @@ it('failed AI -> close/reopen -> Try again preserves editable input and requires
   expect(screen.queryByText('Try again')).toBeNull();
 });
 
-it('status error is visible and Check again only reads status, then resumes pending tracking', async () => {
+it('status error is visible and Check Job status only reads status, then resumes pending tracking', async () => {
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('secret HTTP 504'));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
@@ -57,18 +57,18 @@ it('status error is visible and Check again only reads status, then resumes pend
   expect(screen.queryByText(/HTTP 504/)).toBeNull();
   await act(async () => vi.advanceTimersByTimeAsync(10000));
   expect(api.getJob).toHaveBeenCalledTimes(1);
-  await flush(() => fireEvent.click(screen.getByText('Check again')));
+  await flush(() => fireEvent.click(screen.getByText('Check Job status')));
   expect(api.getJob).toHaveBeenCalledTimes(2);
   await act(async () => vi.advanceTimersByTimeAsync(1800));
   expect(api.getJob).toHaveBeenCalledTimes(3);
   expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });
 
-it.each(['SUCCEEDED', 'FAILED'] as const)('Check again reads the durable %s outcome', async status => {
+it.each(['SUCCEEDED', 'FAILED'] as const)('Check Job status reads the durable %s outcome', async status => {
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('read')).mockResolvedValueOnce(syntheticJob({ status }));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
-  await flush(() => fireEvent.click(screen.getByText('Check again')));
+  await flush(() => fireEvent.click(screen.getByText('Check Job status')));
   expect(screen.getByText(status === 'SUCCEEDED' ? 'Completed' : 'Failed')).toBeTruthy();
   expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });
@@ -149,7 +149,7 @@ it.each(['PENDING', 'RUNNING'] as const)('old %s Job shows neutral delay message
   render(<Tracker initial={job} />); await flush();
   expect(screen.getByText('This is taking longer than expected.')).toBeTruthy();
   expect(screen.getByText(status === 'PENDING' ? 'Queued' : 'Running')).toBeTruthy();
-  expect(screen.getByText('Check again')).toBeTruthy();
+  expect(screen.getByText('Check Job status')).toBeTruthy();
   expect(job.status).toBe(status);
 });
 
@@ -185,7 +185,7 @@ it('activity completion clears the active count and does not keep polling a term
   vi.mocked(api.listJobs).mockResolvedValue([syntheticJob()]);
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('read')).mockResolvedValue(syntheticJob({ status: 'SUCCEEDED', successful_rows: 1 }));
   render(<RecentActivity workspaceId="test-workspace" revision={0} expanded onToggle={vi.fn()} />); await flush();
-  const checks = screen.getAllByRole('button', { name: 'Check again' });
+  const checks = screen.getAllByRole('button', { name: 'Check Job status' });
   await flush(() => fireEvent.click(checks[checks.length - 1]));
   expect(screen.getByText('Completed')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Recent activity' })).toBeTruthy();

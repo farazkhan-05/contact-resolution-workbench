@@ -13,6 +13,7 @@ interface ReviewConsoleProps {
   onSubmitDecision: (caseId: string, decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmitting: boolean;
   isReviewReady: boolean;
+  compact?: boolean;
   readbackRequired?: boolean;
   onCheckSavedDecision?: () => void;
   onViewEvidence?: () => void;
@@ -31,7 +32,7 @@ const actionLabel: Record<SubmittedDecision, string> = {
 };
 
 export function ReviewConsole({ caseDetail, activeCandidate, onSubmitDecision, isSubmitting, isReviewReady,
-  readbackRequired = false, onCheckSavedDecision, onViewEvidence, onChangeCandidate, onViewHistory }: ReviewConsoleProps) {
+  compact = false, readbackRequired = false, onCheckSavedDecision, onViewEvidence, onChangeCandidate, onViewHistory }: ReviewConsoleProps) {
   const [notes, setNotes] = useState(caseDetail.reviewer_notes || '');
   const [intent, setIntent] = useState<SubmissionIntent | null>(null);
   const submissionLocked = useRef(false);
@@ -60,6 +61,9 @@ export function ReviewConsole({ caseDetail, activeCandidate, onSubmitDecision, i
   };
   const disabledDescription = busy ? 'review-progress' : !isReviewReady ? 'review-unavailable' : undefined;
   const conflictDescription = serious ? 'review-conflict-reminder' : undefined;
+  // DOM order follows the visible mobile order, including keyboard navigation.
+  const decisions: SubmittedDecision[] = serious && compact
+    ? ['NEED_MORE_EVIDENCE', 'ACCEPTED', 'REJECTED'] : ['ACCEPTED', 'REJECTED', 'NEED_MORE_EVIDENCE'];
 
   return (
     <section className="case-review" aria-labelledby="case-review-heading">
@@ -123,19 +127,15 @@ export function ReviewConsole({ caseDetail, activeCandidate, onSubmitDecision, i
         {readbackRequired && onCheckSavedDecision && <Button onClick={onCheckSavedDecision} disabled={busy}>Check saved decision</Button>}
       </div>}
       <div className="review-actions">
-        <Button variant="secondary" className="review-accept" onClick={() => void handleDecision('ACCEPTED')}
-          disabled={!isReviewReady || busy || !candidate} loading={intent?.decision === 'ACCEPTED' && intent.candidateId === candidate?.id}
-          aria-describedby={disabledDescription || (!candidate ? 'review-no-candidate' : conflictDescription)}>
-          <Check size={16} aria-hidden="true" /><span>Accept Candidate{candidate ? ` (${candidate.name})` : ''}</span>
-        </Button>
-        <Button variant="secondary" onClick={() => void handleDecision('REJECTED')} disabled={!isReviewReady || busy}
-          loading={intent?.decision === 'REJECTED'} aria-describedby={disabledDescription || conflictDescription}>
-          <X size={16} aria-hidden="true" />Reject All
-        </Button>
-        <Button variant={serious ? 'primary' : 'secondary'} className="review-more-evidence" onClick={() => void handleDecision('NEED_MORE_EVIDENCE')}
-          disabled={!isReviewReady || busy} loading={intent?.decision === 'NEED_MORE_EVIDENCE'} aria-describedby={disabledDescription || conflictDescription}>
-          <HelpCircle size={16} aria-hidden="true" />Need More Evidence
-        </Button>
+        {decisions.map(decision => <Button key={decision}
+          variant={decision === 'NEED_MORE_EVIDENCE' && serious ? 'primary' : 'secondary'}
+          className={decision === 'ACCEPTED' ? 'review-accept' : decision === 'NEED_MORE_EVIDENCE' ? 'review-more-evidence' : undefined}
+          onClick={() => void handleDecision(decision)} disabled={!isReviewReady || busy || (decision === 'ACCEPTED' && !candidate)}
+          loading={intent?.decision === decision && (decision !== 'ACCEPTED' || intent.candidateId === candidate?.id)}
+          aria-describedby={disabledDescription || (decision === 'ACCEPTED' && !candidate ? 'review-no-candidate' : conflictDescription)}>
+          {decision === 'ACCEPTED' ? <Check size={16} aria-hidden="true" /> : decision === 'REJECTED' ? <X size={16} aria-hidden="true" /> : <HelpCircle size={16} aria-hidden="true" />}
+          <span>{actionLabel[decision]}{decision === 'ACCEPTED' && candidate ? ` (${candidate.name})` : ''}</span>
+        </Button>)}
       </div>
       <p className="review-action-help">Accept saves the selected candidate. Reject all records a rejection for this Case. Need more evidence records that further review is needed.</p>
       {busy && <InlineFeedback><span id="review-progress">{intent

@@ -108,7 +108,7 @@ it('explains unavailable evidence and a serious flag without inventing a conflic
 });
 it('labels counts as displayed results and retains exact filter values and selected semantics', () => {
   const props = queueProps(); render(<CaseQueue {...props} activeRoutingFilter="NEEDS_REVIEW" />);
-  expect(screen.getByText('1 results shown')).toBeTruthy();
+  expect(screen.getByText('1 result shown')).toBeTruthy();
   const row = screen.getByRole('button', { name: /SAMPLE-001/ });
   expect(row.getAttribute('aria-current')).toBe('true'); fireEvent.click(row);
   expect(props.onSelectCase).toHaveBeenCalledWith(workspaceDetail.id);
@@ -123,4 +123,12 @@ it('distinguishes loading queue from an empty filtered result', () => {
   view.rerender(<CaseQueue {...props} cases={[]} searchQuery="missing" />);
   expect(screen.getByText('0 results shown')).toBeTruthy();
   expect(screen.getByText('No cases match your filters')).toBeTruthy();
+});
+
+it.each([0, 1, 2])('uses singular and plural displayed queue counts for %s Cases', count => {
+  const props = queueProps(); const cases = Array.from({ length: count }, (_, index) => ({ ...props.cases[0], id: `case-${index}` }));
+  const view = render(<CaseQueue {...props} cases={cases} />);
+  expect(screen.getByText(`${count} ${count === 1 ? 'case' : 'cases'} shown`)).toBeTruthy();
+  view.rerender(<CaseQueue {...props} cases={cases} searchQuery="synthetic" />);
+  expect(screen.getByText(`${count} ${count === 1 ? 'result' : 'results'} shown`)).toBeTruthy();
 });

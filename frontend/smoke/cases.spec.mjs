@@ -202,7 +202,7 @@ test('AI source provenance remains unverified and lazily exposes the exact origi
 test('filtered results describe the displayed count and keep filtering request semantics', async ({ page }) => {
   const state = await fixture(page); await page.goto('/');
   await page.getByLabel('Recommendation', { exact: true }).selectOption('NO_RELIABLE_MATCH');
-  await expect(page.getByText('1 results shown', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 result shown', { exact: true })).toBeVisible();
   await expect(page.getByRole('complementary').getByRole('button')).toHaveCount(1);
   await page.getByLabel('Search cases').fill('absent');
   await expect(page.getByText('0 results shown', { exact: true })).toBeVisible();

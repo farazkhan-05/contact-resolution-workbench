@@ -10,7 +10,7 @@ const panel = page => page.getByRole('region', { name: 'Evidence investigation' 
 const waiting = { id: 'run-a', case_id: 'case-1', status: 'WAITING_FOR_HUMAN', current_step: 'human_input', outcome: null, last_error_message: null,
   interrupt: { reason: 'The existing records do not provide enough phone evidence.', evidence_gap: 'missing_phone', allowed_actions: ['STOP', 'RETRIEVE_SYNTHETIC_NOTES'] } };
 const running = { ...waiting, status: 'PENDING', current_step: null, interrupt: null };
-const completed = { ...waiting, status: 'SUCCEEDED', current_step: 'complete', outcome: 'EVIDENCE_COMPLETE', interrupt: null };
+const completed = { ...waiting, status: 'SUCCEEDED', current_step: 'complete', outcome: 'EVIDENCE_READY', interrupt: null };
 function gate() { let release; const promise = new Promise(resolve => { release = resolve; }); return { promise, release }; }
 async function fixture(page, initial = waiting) {
   await installOfflineBoundary(page);
@@ -78,7 +78,7 @@ for (const width of [1440, 390, 320]) {
     await expect(panel(page)).not.toContainText('Investigation completed.');
     state.run = completed; state.readHold.release();
     await expect(panel(page).getByRole('status')).toHaveText('Completed');
-    await expect(panel(page)).toContainText('EVIDENCE COMPLETE');
+    await expect(panel(page)).toContainText('Evidence ready');
     await expect(panel(page)).toContainText('Completion does not mean a human has accepted an identity match.');
     await expect(page.getByRole('region', { name: 'Your review', exact: true })).toContainText('Not reviewed');
     expect(state.decisions).toEqual([]); expect(state.starts).toBe(0); expect(state.resumes).toHaveLength(1);

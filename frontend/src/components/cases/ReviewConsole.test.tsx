@@ -36,6 +36,18 @@ it('uses balanced secondary actions when no serious conflict is reported', () =>
   for (const label of [/Accept Candidate/, /Reject All/, /Need More Evidence/]) expect(review().getByRole('button', { name: label }).className).toContain('ui-button-secondary');
   expect(review().queryByRole('note')).toBeNull();
 });
+
+it('puts evidence first in mobile DOM order only for a serious conflict without changing actions', () => {
+  const value = props(); const view = render(<ReviewConsole {...value} compact activeCandidate={workspaceDetail.candidates[1]} />);
+  const buttons = () => Array.from(document.querySelectorAll('.review-actions button')).map(button => button.textContent);
+  expect(buttons()[0]).toBe('Need More Evidence');
+  expect(accept().hasAttribute('disabled')).toBe(false);
+  expect(value.onSubmitDecision).not.toHaveBeenCalled();
+  view.rerender(<ReviewConsole {...value} compact />);
+  expect(buttons()[0]).toContain('Accept Candidate');
+  view.rerender(<ReviewConsole {...value} activeCandidate={workspaceDetail.candidates[1]} />);
+  expect(buttons()[0]).toContain('Accept Candidate');
+});
 it('retains the draft note across candidate changes and binds acceptance to the new candidate', async () => {
   const value = props(); const view = render(<ReviewConsole {...value} />);
   fireEvent.change(screen.getByLabelText('Reviewer note (optional)'), { target: { value: '  Synthetic evidence note  ' } });

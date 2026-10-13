@@ -219,7 +219,7 @@ function LoadedCase({
       )}
       <div className={`case-review-area${serious ? ' has-serious-conflict' : ''}`}>
         <ReviewConsole caseDetail={caseDetail} activeCandidate={activeCandidate} onSubmitDecision={onSubmitDecision}
-          isSubmitting={isSubmittingDecision} isReviewReady={isReviewReady} readbackRequired={reviewReadbackRequired}
+          isSubmitting={isSubmittingDecision} isReviewReady={isReviewReady} compact={compact} readbackRequired={reviewReadbackRequired}
           onCheckSavedDecision={onRefresh} onViewEvidence={gotoEvidence}
           onChangeCandidate={gotoCandidates} onViewHistory={gotoHistory} />
       </div>

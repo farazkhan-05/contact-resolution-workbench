@@ -45,7 +45,7 @@ async function fixture(page, rows = jobs) {
 }
 
 async function openActivity(page) {
-  const section = page.getByRole('region', { name: 'Recent activity' });
+  const section = page.getByRole('region', { name: 'Recent activity', exact: true });
   await section.getByRole('button', { name: /^Recent activity/ }).click();
   await expect(section.getByRole('group', { name: 'Activity reads' })).toBeVisible(); return section;
 }
@@ -85,7 +85,7 @@ for (const width of [1440, 390, 320]) {
     const casesBefore = state.caseReads;
     await section.getByRole('button', { name: 'Refresh cases' }).click();
     await expect.poll(() => state.caseReads).toBe(casesBefore + 1);
-    const read = section.getByRole('group', { name: 'Activity reads' }).getByRole('button', { name: 'Check again' });
+    const read = section.getByRole('group', { name: 'Activity reads' }).getByRole('button', { name: 'Refresh activity' });
     const listsBefore = state.lists; await read.click(); await expect.poll(() => state.lists).toBe(listsBefore + 1);
     await expect(read).toBeEnabled(); await fits(page, section);
     const toggle = section.getByRole('button', { name: /^Recent activity/ });
@@ -108,7 +108,7 @@ test('Unavailable latest Job status retains accepted work and its reported count
   await capture(page, 'job-status-unavailable-desktop-1440.png');
   state.failedJob = null;
   state.rows = [{ ...queued, status: 'RUNNING', total_rows: 4, processed_rows: 2 }];
-  await item.getByRole('button', { name: 'Check again' }).click();
+  await item.getByRole('button', { name: 'Check Job status' }).click();
   await expect(item.getByRole('status')).toHaveText('Running');
   await expect(item.getByText('Records processed: 2 of 4.')).toBeVisible();
   expect(state.jobReads.every(id => id === queued.id)).toBe(true); expect(state.writes).toEqual([]);
@@ -122,13 +122,13 @@ test('Recent Activity distinguishes loading, failed history, successful empty re
   const checks = section.getByRole('group', { name: 'Activity reads' });
   state.listHold = gate(); state.failList = false;
   try {
-    await checks.getByRole('button', { name: 'Check again' }).click();
+    await checks.getByRole('button', { name: 'Refresh activity' }).click();
     await expect(section.getByText('Loading recent activity...')).toBeVisible();
     await expect(section.getByText('No recent imports.')).toHaveCount(0);
     state.listHold.release(); await expect(section.getByText('No recent imports.')).toBeVisible();
     state.listHold = null; state.rows = [jobs[1]];
-    await checks.getByRole('button', { name: 'Check again' }).click(); await expect(section.getByText('ai-completed')).toBeVisible();
-    state.failList = true; await checks.getByRole('button', { name: 'Check again' }).click();
+    await checks.getByRole('button', { name: 'Refresh activity' }).click(); await expect(section.getByText('ai-completed')).toBeVisible();
+    state.failList = true; await checks.getByRole('button', { name: 'Refresh activity' }).click();
     await expect(section.getByText('Showing the last loaded activity.')).toBeVisible();
     await expect(section.getByText('ai-completed')).toBeVisible(); await expect(section.getByText('No recent imports.')).toHaveCount(0);
     expect(state.writes).toEqual([]);
@@ -140,7 +140,7 @@ test('320px long Job references and unavailable reads keep the safe status check
   const long = { ...jobs[0], id: 'long-job-reference-'.repeat(10) }; const state = await fixture(page, [long]); state.failedJob = long.id;
   const section = await openActivity(page); const item = section.getByRole('listitem');
   await expect(item.getByRole('alert')).toBeVisible(); await fits(page, section);
-  const check = item.getByRole('button', { name: 'Check again' });
+  const check = item.getByRole('button', { name: 'Check Job status' });
   await page.keyboard.press('Tab'); await check.focus();
   expect(await check.evaluate(el => getComputedStyle(el).outlineStyle)).toBe('solid');
   state.failedJob = null; await page.keyboard.press('Enter'); await expect(item.getByRole('status')).toHaveText('Running');
@@ -153,6 +153,6 @@ test('A collapsed history failure remains retryable on mobile without opening or
   await expect(section.getByRole('alert')).toBeVisible();
   await section.getByRole('button', { name: /^Recent activity/ }).click();
   await expect(section.getByRole('alert')).toBeVisible(); state.failList = false;
-  await section.getByRole('button', { name: 'Check again' }).click(); await expect(section.getByRole('alert')).toHaveCount(0);
+  await section.getByRole('button', { name: 'Refresh activity' }).click(); await expect(section.getByRole('alert')).toHaveCount(0);
   expect(state.writes).toEqual([]);
 });

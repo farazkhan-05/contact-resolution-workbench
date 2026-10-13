@@ -98,7 +98,7 @@ it('labels last reported counts on read failure and recovers actual completed/re
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={created} />); await submit();
   expect(screen.getByText('Last reported records: 0 of 2.')).toBeTruthy();
   expect(screen.queryByText('Try again')).toBeNull();
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check again' })); });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check Job status' })); });
   expect(screen.getByText('Records processed: 2 of 2. Rejected: 1.')).toBeTruthy();
   expect(screen.getByText(/1 record imported/)).toBeTruthy();
   expect(created).toHaveBeenCalledTimes(1);

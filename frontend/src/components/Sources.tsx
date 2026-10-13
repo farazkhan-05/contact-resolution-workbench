@@ -38,11 +38,13 @@ export function Sources({
   const [error, setError] = useState("");
   const refreshId = useRef(0);
   const inFlight = useRef(false);
+  const writeInFlight = useRef(false);
   const mounted = useRef(false);
   const discardKeyButton = useRef<HTMLButtonElement>(null);
   const credentialTrigger = useRef<HTMLElement | null>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const selectionTrigger = useRef<HTMLButtonElement | null>(null);
+  const createName = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (selected) detailHeading.current?.focus();
   }, [selected]);
@@ -90,6 +92,8 @@ export function Sources({
     };
   }, [load]);
   const action = async (work: () => Promise<void>) => {
+    if (!mounted.current || writeInFlight.current) return;
+    writeInFlight.current = true;
     setBusy(true);
     setError("");
     setMessage("");
@@ -101,6 +105,7 @@ export function Sources({
         err instanceof ApiError ? err.detail : "Source operation failed.",
       );
     } finally {
+      writeInFlight.current = false;
       setBusy(false);
     }
   };
@@ -116,7 +121,10 @@ export function Sources({
       <header className="sources-heading">
         <div><p className="sources-eyebrow">Workspace records</p><h2>Sources / Integrations</h2>
           <p className="sources-muted">See where records come from and what happened to each ingestion.</p></div>
-        <Button onClick={onReview}>Open review queue</Button>
+        <div className="sources-heading-actions">
+          {owner && <Button onClick={() => { createName.current?.focus(); createName.current?.scrollIntoView({ block: 'center' }); }}>Add Source</Button>}
+          <Button onClick={onReview}>Open review queue</Button>
+        </div>
       </header>
       <div className="sources-guide">
         <p><strong>Reference Sources</strong> maintain master records used for comparison.</p>
@@ -187,7 +195,7 @@ export function Sources({
           credentialTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           void action(async () => { setCredential(await api.createSource(name.trim(), type)); setName(""); });
         }}>
-          <Field id="source-name" label="Source name">{(props) => <TextInput {...props} required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name your Source" />}</Field>
+          <Field id="source-name" label="Source name">{(props) => <TextInput {...props} ref={createName} required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name your Source" />}</Field>
           <Field id="source-type" label="Source type">{(props) => <select {...props} className="ui-field-control" value={type} onChange={(e) => setType(e.target.value as Source["source_type"])}><option value="REFERENCE">Reference — master data</option><option value="INCOMING">Incoming — resolution</option></select>}</Field>
           <Button type="submit" variant="primary" disabled={busy || !name.trim()}>Create Source</Button>
         </form>

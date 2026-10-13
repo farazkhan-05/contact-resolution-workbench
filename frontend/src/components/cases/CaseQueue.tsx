@@ -36,7 +36,7 @@ export function CaseQueue({ cases, selectedCaseId, onSelectCase, activeRoutingFi
   const filtered = activeRoutingFilter !== 'ALL' || activeDecisionFilter !== 'ALL' || !!searchQuery.trim();
   return <aside ref={rootRef} tabIndex={-1} className="case-queue" aria-label="Cases queue">
     <div className="case-queue-controls">
-      <div className="case-section-heading"><h2>Review queue</h2><span className="case-metadata" role="status">{isLoading ? 'Updating…' : `${cases.length} ${filtered ? 'results shown' : 'cases shown'}`}</span></div>
+      <div className="case-section-heading"><h2>Review queue</h2><span className="case-metadata" role="status">{isLoading ? 'Updating…' : `${cases.length} ${filtered ? cases.length === 1 ? 'result' : 'results' : cases.length === 1 ? 'case' : 'cases'} shown`}</span></div>
       {showFilters && <>
         <div className="case-search"><Search size={16} aria-hidden="true" /><TextInput type="text" aria-label="Search cases" placeholder="Search cases…" value={searchQuery} onChange={event => onSearchChange(event.target.value)} /></div>
         <div className="case-filters">

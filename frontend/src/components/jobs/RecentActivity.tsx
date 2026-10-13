@@ -46,16 +46,16 @@ export function RecentActivity({ workspaceId, revision, expanded, onToggle, onRe
   const unavailable = <div className="activity-read-error">
     <InlineFeedback tone="error"><p>Recent activity unavailable.</p><p>Could not read the latest Job history. Existing work may still be running.</p></InlineFeedback>
     {jobs.length > 0 && <p className="job-muted">Showing the last loaded activity.</p>}
-    {!expanded && <Button disabled={loading} onClick={() => setRefresh(value => value + 1)}>Check again</Button>}
+    {!expanded && <Button disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh activity</Button>}
   </div>;
   return <section className="recent-activity" aria-label="Recent activity">
     <Button variant="quiet" className="activity-toggle" aria-expanded={expanded} aria-controls={expanded ? 'recent-activity-content' : undefined} onClick={onToggle}>
       Recent activity{active.length ? ` (${active.length} active)` : ''}<ChevronDown size={16} aria-hidden="true" />
     </Button>
     {error && !expanded && unavailable}
-    {expanded && <div id="recent-activity-content" className="activity-content">
+    {expanded && <div id="recent-activity-content" className="activity-content" role="region" aria-label="Recent activity history" tabIndex={0}>
       <div className="activity-toolbar"><p className="job-muted">CSV imports and AI evidence extraction. Active Jobs and the latest 20 completed or failed imports. Completed Cases appear in Cases.</p>
-        <div className="activity-actions" role="group" aria-label="Activity reads"><Button disabled={loading} loading={loading} onClick={() => setRefresh(value => value + 1)}>{loading ? 'Checking activity\u2026' : 'Check again'}</Button>
+        <div className="activity-actions" role="group" aria-label="Activity reads"><Button disabled={loading} loading={loading} onClick={() => setRefresh(value => value + 1)}>{loading ? 'Checking activity\u2026' : 'Refresh activity'}</Button>
           {onRefreshCases && <Button variant="quiet" onClick={onRefreshCases}>Refresh cases</Button>}</div>
       </div>
       {loading && <p role="status" className="activity-state">Loading recent activity...</p>}

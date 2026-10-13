@@ -34,7 +34,7 @@ it.each(['records', 'empty'] as const)('retries an unavailable activity read usi
   render(<RecentActivity {...props()} />);
   await screen.findByText('Recent activity unavailable.');
   expect(screen.queryByText('No recent imports.')).toBeNull();
-  fireEvent.click(reads().getByRole('button', { name: 'Check again' }));
+  fireEvent.click(reads().getByRole('button', { name: 'Refresh activity' }));
   if (outcome === 'records') await screen.findByText('recovered-job');
   else await screen.findByText('No recent imports.');
   expect(screen.queryByRole('alert')).toBeNull(); expect(api.listJobs).toHaveBeenCalledTimes(2);
@@ -44,7 +44,7 @@ it.each(['records', 'empty'] as const)('retries an unavailable activity read usi
 it('labels retained activity when the next history read fails and never calls it empty', async () => {
   vi.mocked(api.listJobs).mockResolvedValueOnce([completed('last-loaded-job')]).mockRejectedValueOnce(Error('Synthetic subsequent read failure'));
   render(<RecentActivity {...props()} />); await screen.findByText('last-loaded-job');
-  fireEvent.click(reads().getByRole('button', { name: 'Check again' }));
+  fireEvent.click(reads().getByRole('button', { name: 'Refresh activity' }));
   await screen.findByText('Showing the last loaded activity.');
   expect(screen.getByText('last-loaded-job')).toBeTruthy(); expect(screen.queryByText('No recent imports.')).toBeNull();
 });
@@ -73,9 +73,16 @@ it('keeps collapsed read recovery available and preserves the existing toggle an
   vi.mocked(api.listJobs).mockRejectedValueOnce(Error('Synthetic collapsed read failure')).mockResolvedValueOnce([]);
   const actions = props(); const view = render(<RecentActivity {...actions} expanded={false} />);
   await screen.findByRole('alert');
-  fireEvent.click(screen.getByRole('button', { name: 'Check again' })); await screen.findByRole('button', { name: 'Recent activity' });
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh activity' })); await screen.findByRole('button', { name: 'Recent activity' });
   fireEvent.click(screen.getByRole('button', { name: 'Recent activity' })); expect(actions.onToggle).toHaveBeenCalledTimes(1);
   view.rerender(<RecentActivity {...actions} />); await screen.findByText('No recent imports.');
   fireEvent.click(screen.getByRole('button', { name: 'Refresh cases' })); expect(actions.onRefreshCases).toHaveBeenCalledTimes(1);
   expect(api.ingestUnstructured).not.toHaveBeenCalled(); expect(api.ingestCsv).not.toHaveBeenCalled();
+});
+
+it('makes the history scroller keyboard-focusable and labels its list refresh separately from Job reads', async () => {
+  render(<RecentActivity {...props()} />); await screen.findByText('No recent imports.');
+  const history = screen.getByRole('region', { name: 'Recent activity history' });
+  expect(history.tabIndex).toBe(0);
+  expect(reads().getByRole('button', { name: 'Refresh activity' })).toBeTruthy();
 });

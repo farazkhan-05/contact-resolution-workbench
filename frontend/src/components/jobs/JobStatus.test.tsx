@@ -14,7 +14,7 @@ it('labels queued work as accepted, without implying completion or inventing a t
   expect(screen.queryByText('Finished')).toBeNull();
   expect(screen.queryByRole('link')).toBeNull();
   expect(screen.queryByRole('progressbar')).toBeNull();
-  const check = screen.getByRole('button', { name: 'Check again' });
+  const check = screen.getByRole('button', { name: 'Check Job status' });
   expect(document.getElementById(check.getAttribute('aria-describedby')!)?.textContent).toBe('accepted-job');
   fireEvent.click(check); expect(actions.onCheck).toHaveBeenCalledTimes(1);
 });
@@ -52,7 +52,7 @@ it('keeps a failed read separate from a failed Job and associates recovery with 
   expect(screen.getByRole('alert').textContent).toContain('The Job was accepted, but its latest processing status could not be confirmed.');
   expect(screen.getByText('Last reported records: 2 of 9.')).toBeTruthy();
   expect(screen.queryByText(/extraction failed/)).toBeNull();
-  const check = screen.getByRole('button', { name: 'Check again' });
+  const check = screen.getByRole('button', { name: 'Check Job status' });
   const descriptions = check.getAttribute('aria-describedby')!.split(' ').map(id => document.getElementById(id)?.textContent).join(' ');
   expect(descriptions).toContain('read-only-job'); expect(descriptions).toContain('does not submit another');
   fireEvent.click(check); expect(actions.onCheck).toHaveBeenCalledTimes(1);
