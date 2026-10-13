@@ -1,0 +1,4 @@
+# Preserve CRLF line endings for frozen benchmark artifacts to maintain raw byte integrity
+backend/benchmarks/identity_resolution/results/*.json text eol=crlf
+backend/benchmarks/identity_resolution/results/c2/*.json text eol=crlf
+backend/benchmarks/identity_resolution/results/c3/*.json text eol=crlf
