@@ -1,9 +1,10 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { api } from './api/client';
 import { sampleDetail, sampleSummary } from './test-support/cases';
 import type { CaseDetail, ReviewDecision } from './types';
+import { decisionLabel } from './components/cases/casePresentation';
 
 const auth = vi.hoisted(() => ({
   status: 'ready', workspace: { id: 'review-test-workspace', role: 'OWNER' },
@@ -48,6 +49,44 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 describe('review case authority', () => {
+  it('candidate switching replaces conflicts, evidence, and the identity submitted for acceptance', async () => {
+    const alternate = { ...caseA.candidates[0], id: 'alternate', name: 'Synthetic Alternate',
+      contradictions: [{ id: 'suffix-conflict', contradiction_type: 'INCOMPATIBLE_NAME_SUFFIX', severity: 'SERIOUS' as const,
+        description: 'Synthetic incompatible suffix: Jr. versus Sr.', blocks_likely_match: true }], has_serious_contradiction: true,
+      evidence: [{ ...caseA.candidates[0].evidence[0], id: 'alternate-name', candidate_value: 'Synthetic Alternate', explanation: 'Alternate-specific evidence' }],
+    };
+    vi.mocked(api.getCase).mockResolvedValue({ ...caseA, candidates: [caseA.candidates[0], alternate] });
+    render(<App />); await screen.findByRole('heading', { name: caseA.raw_name });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Candidate A/ }).textContent).toContain('Active'));
+    fireEvent.click(screen.getByRole('button', { name: /Candidate B/ }));
+    expect(within(screen.getByRole('region', { name: 'Selected candidate conflicts' })).getByText('Synthetic incompatible suffix: Jr. versus Sr.')).toBeTruthy();
+    expect(screen.getByText('Alternate-specific evidence')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Accept Candidate/ }).textContent).toContain('Synthetic Alternate');
+    fireEvent.click(screen.getByRole('button', { name: /Candidate A/ }));
+    expect(screen.queryByText('Synthetic incompatible suffix: Jr. versus Sr.')).toBeNull();
+    expect(screen.queryByText('Alternate-specific evidence')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Candidate B/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Accept Candidate/ }));
+    await waitFor(() => expect(api.submitDecision).toHaveBeenCalledExactlyOnceWith(caseA.id, {
+      decision: 'ACCEPTED', selected_candidate_id: 'alternate', notes: '',
+    }));
+  });
+
+  it('detail read-back selects the saved candidate and restores notes without changing system advice', async () => {
+    const acceptedCandidate = { ...caseA.candidates[0], id: 'saved', name: 'Saved Candidate' };
+    vi.mocked(api.getCase).mockResolvedValue({ ...caseA, routing_status: 'NEEDS_REVIEW', review_decision: 'ACCEPTED',
+      selected_candidate_id: 'saved', reviewer_notes: 'Saved synthetic note', candidates: [caseA.candidates[0], acceptedCandidate] });
+    render(<App />); await screen.findByRole('button', { name: 'Accept Candidate (Saved Candidate)' });
+    expect(within(screen.getByRole('region', { name: 'Recommendation and human decision' })).getByText('Needs review')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Recommendation and human decision' })).getByText('Accepted')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Reviewer note (optional)').value).toBe('Saved synthetic note');
+    expect(api.submitDecision).not.toHaveBeenCalled();
+    vi.mocked(api.getCase).mockResolvedValue(caseB);
+    select(caseB.case_number); await screen.findByRole('heading', { name: caseB.raw_name });
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Reviewer note (optional)').value).toBe('');
+    expect(screen.queryByText('Saved candidate: Saved Candidate')).toBeNull();
+  });
+
   it('keeps B displayed when slow A detail completes after B', async () => {
     const slowA = deferred<CaseDetail>();
     vi.mocked(api.getCase).mockImplementation(id => id === caseA.id ? slowA.promise : Promise.resolve(caseB));
@@ -77,23 +116,40 @@ describe('review case authority', () => {
     expect(api.submitDecision).toHaveBeenCalledWith(caseB.id, {
       decision, selected_candidate_id: candidateId, notes: '',
     });
-    await screen.findByText(`Current Verdict: ${decision}${candidateId ? ' (Candidate Accepted)' : ''}`);
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Your review' })).getByText(decisionLabel[decision])).toBeTruthy());
     expect(heading(caseB)).toBeTruthy();
   });
 
-  it('disables all review controls when selected B failed to load and displayed detail is A', async () => {
+  it('hides previous evidence and disables review when selected B failed to load', async () => {
     vi.mocked(api.getCase).mockImplementation(id => id === caseA.id
       ? Promise.resolve(caseA) : Promise.reject(new Error('Synthetic B detail failure')));
     render(<App />);
     await screen.findByRole('heading', { name: caseA.raw_name });
     select(caseB.case_number);
     await screen.findByText('Could not load case detail.');
-    expect(heading(caseA)).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: caseA.raw_name })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Case details unavailable' })).toBeTruthy();
     for (const name of [/Accept Candidate/, /Reject All/, /Need More Evidence/]) {
       const button = screen.getByRole('button', { name });
       expect(button.hasAttribute('disabled')).toBe(true);
       fireEvent.click(button);
     }
+    expect(api.submitDecision).not.toHaveBeenCalled();
+  });
+
+  it('retries the selected unavailable Case without reviewing the previous one', async () => {
+    vi.mocked(api.getCase).mockImplementation(id => id === caseA.id
+      ? Promise.resolve(caseA) : Promise.reject(new Error('Synthetic B detail failure')));
+    render(<App />); await screen.findByRole('heading', { name: caseA.raw_name });
+    select(caseB.case_number); await screen.findByRole('heading', { name: 'Case details unavailable' });
+    vi.mocked(api.getCase).mockResolvedValue(caseB);
+    const reads = vi.mocked(api.getCase).mock.calls.length;
+    const queueReads = vi.mocked(api.getCases).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry selected case' }));
+    await screen.findByRole('heading', { name: caseB.raw_name });
+    expect(api.getCase).toHaveBeenCalledTimes(reads + 1);
+    expect(api.getCase).toHaveBeenLastCalledWith(caseB.id);
+    expect(api.getCases).toHaveBeenCalledTimes(queueReads);
     expect(api.submitDecision).not.toHaveBeenCalled();
   });
 
@@ -147,7 +203,7 @@ describe('review case authority', () => {
     expect(rejectButton().hasAttribute('disabled')).toBe(true);
     await act(async () => reviewA.resolve({ ...caseA, review_decision: 'REJECTED' }));
     expect(heading(caseB)).toBeTruthy();
-    expect(screen.getByText('Decision: PENDING')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Recommendation and human decision' })).getByText('Not reviewed')).toBeTruthy();
     expect(api.getCases).toHaveBeenCalledTimes(1);
     expect(api.submitDecision).toHaveBeenCalledTimes(1);
     expect(rejectButton().hasAttribute('disabled')).toBe(false);
@@ -176,7 +232,7 @@ describe('review case authority', () => {
     render(<App />);
     await screen.findByRole('heading', { name: caseA.raw_name });
     fireEvent.click(rejectButton());
-    await screen.findByText('Current Verdict: REJECTED');
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Your review' })).getByText('Rejected')).toBeTruthy());
     await waitFor(() => expect(api.getCases).toHaveBeenCalledTimes(2));
     vi.mocked(api.getCases).mockResolvedValueOnce([summaries[1]]);
     fireEvent.change(screen.getByRole('textbox', { name: 'Search cases' }), { target: { value: caseB.raw_name } });
@@ -191,7 +247,7 @@ describe('review case authority', () => {
     render(<App />);
     await screen.findByRole('heading', { name: caseA.raw_name });
     fireEvent.click(rejectButton());
-    await screen.findByText('Current Verdict: REJECTED');
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Your review' })).getByText('Rejected')).toBeTruthy());
     await waitFor(() => expect(rejectButton().hasAttribute('disabled')).toBe(false));
     expect(heading(caseA)).toBeTruthy();
     expect(screen.queryByRole('heading', { name: caseB.raw_name })).toBeNull();
@@ -204,17 +260,18 @@ describe('review case authority', () => {
     fireEvent.click(rejectButton());
     await screen.findByText(/Could not confirm the review decision/);
     expect(heading(caseA)).toBeTruthy();
-    expect(screen.getByText('Decision: PENDING')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Recommendation and human decision' })).getByText('Not reviewed')).toBeTruthy();
     expect(api.submitDecision).toHaveBeenCalledTimes(1);
   });
 
   it.each(['ACCEPTED', 'REJECTED', 'NEED_MORE_EVIDENCE'] as ReviewDecision[])('preserves normal %s review and current-case refresh', async decision => {
     render(<App />);
     await screen.findByRole('heading', { name: caseA.raw_name });
-    fireEvent.change(screen.getByLabelText('Reviewer Operational Note (Optional)'), { target: { value: 'Synthetic review note' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: /Candidate A/ }).textContent).toContain('Active'));
+    fireEvent.change(screen.getByLabelText('Reviewer note (optional)'), { target: { value: 'Synthetic review note' } });
     const name = decision === 'ACCEPTED' ? /Accept Candidate/ : decision === 'REJECTED' ? /Reject All/ : /Need More Evidence/;
     fireEvent.click(screen.getByRole('button', { name }));
-    await screen.findByText(`Current Verdict: ${decision}${decision === 'ACCEPTED' ? ' (Candidate Accepted)' : ''}`);
+    await waitFor(() => expect(within(screen.getByRole('region', { name: 'Your review' })).getByText(decisionLabel[decision])).toBeTruthy());
     expect(api.submitDecision).toHaveBeenCalledWith(caseA.id, {
       decision, selected_candidate_id: decision === 'ACCEPTED' ? 'candidate-1' : null, notes: 'Synthetic review note',
     });

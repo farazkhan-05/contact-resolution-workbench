@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Button } from '../ui/Button';
 
 /** A button disclosure with natural Tab order, arrow navigation and focus return. */
 export function ActionMenu({ label, trigger, children }: { label: string; trigger: ReactNode; children: ReactNode }) {
@@ -22,15 +23,19 @@ export function ActionMenu({ label, trigger, children }: { label: string; trigge
         event.preventDefault();
         const index = items.indexOf(document.activeElement as HTMLButtonElement);
         const target = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 :
+          index < 0 ? event.key === 'ArrowDown' ? 0 : items.length - 1 :
           (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
         items[target].focus();
       }
     }}>
-    <button ref={triggerRef} type="button" className="shell-button menu-trigger" aria-label={label} aria-expanded={open} aria-controls={open ? id : undefined}
-      onClick={() => setOpen(!open)}>{trigger}</button>
+    <Button ref={triggerRef} variant="quiet" className="shell-button menu-trigger" aria-label={label} aria-expanded={open} aria-controls={open ? id : undefined}
+      onClick={() => setOpen(!open)}>{trigger}</Button>
     {open && <div id={id} className="menu-content" aria-label={label} onClick={(event) => {
       const button = (event.target as HTMLElement).closest('button');
-      if (button && !button.classList.contains('help-trigger')) setOpen(false);
+      if (button && !button.classList.contains('help-trigger')) {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     }}>{children}</div>}
   </div>;
 }

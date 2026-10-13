@@ -1,13 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  CheckCircle,
-  HelpCircle,
-  ShieldCheck,
-  XCircle,
-} from 'lucide-react';
-import type { CandidateDetail, CaseDetail as CaseDetailType, ReviewDecision } from '../../types';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { ReactNode } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import type { CaseDetail as CaseDetailType, CaseSummary, ReviewDecision } from '../../types';
 import { AuditTimeline } from './AuditTimeline';
 import { CandidateList } from './CandidateList';
 import { ContradictionAlert } from './ContradictionAlert';
@@ -16,177 +10,225 @@ import { AIProvenanceSection } from './AIProvenanceSection';
 import { OriginalRecord } from './OriginalRecord';
 import { ReviewConsole } from './ReviewConsole';
 import { InvestigationPanel } from './InvestigationPanel';
+import { Button } from '../ui/Button';
+import { StatusIndicator } from '../ui/Feedback';
+import { decisionLabel, recommendationLabel, recommendationTone } from './casePresentation';
+import './Cases.css';
 
 interface CaseDetailProps {
   caseDetail: CaseDetailType | null;
+  selectedCaseId: string | null;
+  mobileDetailActive?: boolean;
+  selectedCase?: CaseSummary;
   isLoading: boolean;
   onBackMobile: () => void;
   onSubmitDecision: (caseId: string, decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmittingDecision: boolean;
   isReviewReady: boolean;
+  reviewReadbackRequired?: boolean;
   onRefresh: () => void;
+  onRetry?: () => void;
+}
+const mobileQuery = '(max-width: 767px)';
+const subscribeMobile = (callback: () => void) => {
+  const query = window.matchMedia(mobileQuery);
+  query.addEventListener('change', callback);
+  return () => query.removeEventListener('change', callback);
+};
+const getMobile = () => window.matchMedia(mobileQuery).matches;
+
+export function CaseDetail(props: CaseDetailProps) {
+  const { caseDetail, selectedCaseId, selectedCase, isLoading, onBackMobile, onRefresh, onRetry } = props;
+  const stateRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (props.mobileDetailActive && getMobile()) stateRef.current?.focus({ preventScroll: true });
+  }, [props.mobileDetailActive, selectedCaseId, isLoading, caseDetail]);
+  const back = (
+    <Button variant="quiet" onClick={onBackMobile} className="case-back">
+      <ArrowLeft size={16} aria-hidden="true" />Back to case queue
+    </Button>
+  );
+  if (isLoading || !caseDetail || caseDetail.id !== selectedCaseId) {
+    return (
+      <section ref={stateRef} tabIndex={-1} className="case-detail-content case-detail-state" aria-label="Selected case">
+        {back}
+        {selectedCase && (
+          <p className="case-metadata">Selected case · {selectedCase.case_number} · {selectedCase.person_name}</p>
+        )}
+        {isLoading ? <p role="status">Loading case details...</p> : selectedCaseId ? <>
+          <h2>Case details unavailable</h2>
+          <p>The selected Case could not be loaded. Previous Case evidence is not shown.</p>
+          <Button onClick={onRetry || onRefresh}>Retry selected case</Button>
+          <p>Load the selected Case before making a decision.</p>
+          <div className="case-unavailable-actions">
+            <Button disabled>Accept Candidate</Button>
+            <Button disabled>Reject All</Button>
+            <Button disabled>Need More Evidence</Button>
+          </div>
+        </> : <>
+          <h2>Select a case to inspect</h2>
+          <p>Choose a case from the queue to inspect its records and evidence.</p>
+        </>}
+      </section>
+    );
+  }
+  // A new Case gets its own selection/disclosure state before rendering any evidence.
+  return <LoadedCase key={caseDetail.id} {...props} caseDetail={caseDetail} back={back} />;
 }
 
-export const CaseDetail: React.FC<CaseDetailProps> = ({
-  caseDetail,
-  isLoading,
-  onBackMobile,
-  onSubmitDecision,
-  isSubmittingDecision,
-  isReviewReady,
-  onRefresh,
-}) => {
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-
+function LoadedCase({
+  caseDetail, onSubmitDecision, isSubmittingDecision, isReviewReady, onRefresh, back,
+  mobileDetailActive = true, reviewReadbackRequired = false,
+}: CaseDetailProps & { caseDetail: CaseDetailType; back: ReactNode }) {
+  const initialCandidateId = caseDetail.selected_candidate_id || caseDetail.candidates[0]?.id || null;
+  const [selectedCandidateId, setSelectedCandidateId] = useState(initialCandidateId);
   useEffect(() => {
-    if (caseDetail && caseDetail.candidates.length > 0) {
-      // Default to selected candidate if accepted, otherwise top-ranked candidate
-      if (caseDetail.selected_candidate_id) {
-        setSelectedCandidateId(caseDetail.selected_candidate_id);
-      } else {
-        setSelectedCandidateId(caseDetail.candidates[0].id);
-      }
-    } else {
-      setSelectedCandidateId(null);
-    }
+    setSelectedCandidateId(caseDetail.selected_candidate_id || caseDetail.candidates[0]?.id || null);
   }, [caseDetail]);
+  const activeCandidate = caseDetail.candidates.find(candidate => candidate.id === selectedCandidateId)
+    || caseDetail.candidates[0] || null;
+  const compact = useSyncExternalStore(subscribeMobile, getMobile, () => false);
+  const [candidatesExpanded, setCandidatesExpanded] = useState(!compact);
+  const [evidenceExpanded, setEvidenceExpanded] = useState(!compact);
+  const [recordExpanded, setRecordExpanded] = useState(!compact);
+  useEffect(() => {
+    setCandidatesExpanded(!compact);
+    setEvidenceExpanded(!compact);
+    setRecordExpanded(!compact);
+  }, [compact]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (compact && mobileDetailActive) titleRef.current?.focus({ preventScroll: true });
+  }, [compact, mobileDetailActive]);
+  const serious = !!activeCandidate && (activeCandidate.has_serious_contradiction
+    || activeCandidate.contradictions.some(conflict => conflict.severity === 'SERIOUS'));
+  const gotoReview = () => {
+    const target = rootRef.current?.querySelector<HTMLElement>('#case-review-heading');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
+  const gotoEvidence = () => {
+    setEvidenceExpanded(true);
+    const target = rootRef.current?.querySelector<HTMLElement>('.case-evidence-title');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
+  const gotoCandidates = () => {
+    setCandidatesExpanded(true);
+    const selector = compact ? '.case-candidate-disclosure > summary' : '.case-candidate-option[aria-pressed="true"]';
+    const target = rootRef.current?.querySelector<HTMLElement>(selector);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
+  const gotoHistory = () => {
+    const target = rootRef.current?.querySelector<HTMLElement>('#case-history-toggle');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  };
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-8 text-xs text-muted">
-        Loading case details...
-      </div>
-    );
-  }
-
-  if (!caseDetail) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-8 text-center">
-        <div className="max-w-sm space-y-2">
-          <p className="text-sm font-semibold text-foreground">Select a case to inspect</p>
-          <p className="text-xs text-muted leading-relaxed">
-            Choose a case from the queue on the left to review original attributes, matching evidence, and record human decisions.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const activeCandidate: CandidateDetail | null =
-    caseDetail.candidates.find((c) => c.id === selectedCandidateId) ||
-    (caseDetail.candidates.length > 0 ? caseDetail.candidates[0] : null);
-
-  const isLikelyMatch = caseDetail.routing_status === 'LIKELY_MATCH';
-  const isNeedsReview = caseDetail.routing_status === 'NEEDS_REVIEW';
-
-  return (
-    <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 space-y-5 case-detail-content">
-      {/* Mobile Back Button */}
-      <button
-        type="button"
-        onClick={onBackMobile}
-        className="inline-flex items-center space-x-1.5 text-xs font-medium text-muted hover:text-foreground md:hidden"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        <span>Back to case queue</span>
-      </button>
-
-      {caseDetail.ingestion_id && <div className="rounded border border-border bg-surface p-3 text-xs"><p>Source: {caseDetail.source_identifier}</p><p>Ingestion: API ? {caseDetail.ingestion_id}</p><p>External record: {caseDetail.external_record_id}</p><p>Received: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}</p></div>}
-      {/* Case Header Card */}
-      <div className="rounded border border-border bg-surface p-4 sm:p-5">
-        <div className="case-header-content flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2.5">
-              <span className="font-mono text-xs font-bold text-muted bg-surface-muted px-2 py-0.5 rounded border border-border">
-                {caseDetail.case_number}
-              </span>
-              <h2 className="text-lg font-bold tracking-tight text-foreground">
-                {caseDetail.raw_name}
-              </h2>
-            </div>
-            <p className="text-xs text-muted">
-              Created: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}
-            </p>
-          </div>
-
-          {/* Status Indicators */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* System Routing Badge */}
-            <div
-              className={`inline-flex items-center space-x-1.5 rounded px-2.5 py-1 text-xs font-medium ${
-                isLikelyMatch
-                  ? 'border border-emerald-300 bg-emerald-50 text-emerald-900'
-                  : isNeedsReview
-                  ? 'border border-amber-300 bg-amber-50 text-amber-900'
-                  : 'border border-slate-300 bg-slate-100 text-slate-900'
-              }`}
-            >
-              {isLikelyMatch && <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
-              {isNeedsReview && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
-              <span>System: {caseDetail.routing_status.replace('_', ' ')}</span>
-            </div>
-
-            {/* Reviewer Decision Badge */}
-            <div className="inline-flex items-center space-x-1.5 rounded border border-border bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
-              {caseDetail.review_decision === 'ACCEPTED' && (
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
-              )}
-              {caseDetail.review_decision === 'REJECTED' && (
-                <XCircle className="h-3.5 w-3.5 text-rose-600" />
-              )}
-              {caseDetail.review_decision === 'NEED_MORE_EVIDENCE' && (
-                <HelpCircle className="h-3.5 w-3.5 text-amber-600" />
-              )}
-              <span>Decision: {caseDetail.review_decision.replace('_', ' ')}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Routing Explanation Banner */}
-        <div className="mt-3.5 rounded bg-surface-muted/80 px-3 py-2 text-xs text-slate-700 flex items-start space-x-2">
-          <span className="font-semibold text-foreground shrink-0">Routing Explanation:</span>
-          <span>{caseDetail.routing_explanation}</span>
-        </div>
-      </div>
-
-      {/* 1. Original Record Panel */}
-      {caseDetail.ai_provenance && <AIProvenanceSection key={`ai:${caseDetail.id}`} caseId={caseDetail.id} provenance={caseDetail.ai_provenance} />}
-      <OriginalRecord caseDetail={caseDetail} />
-      <InvestigationPanel key={caseDetail.id} caseId={caseDetail.id}
-        eligible={isNeedsReview && ['PENDING', 'NEED_MORE_EVIDENCE'].includes(caseDetail.review_decision)}
-        onComplete={onRefresh} />
-
-      {/* 2. Candidate Match Selector */}
-      <CandidateList
-        candidates={caseDetail.candidates}
-        selectedCandidateId={selectedCandidateId}
-        onSelectCandidate={setSelectedCandidateId}
-      />
-
-      {/* 3. Contradiction Callout if active candidate has contradictions */}
-      {activeCandidate && (
-        <ContradictionAlert contradictions={activeCandidate.contradictions} />
+  const provenance = (
+    <div className="case-provenance">
+      {caseDetail.ingestion_mechanism && <span>Source type: {caseDetail.ingestion_mechanism.replaceAll('_', ' ')}</span>}
+      {caseDetail.source_identifier && <span>Source: {caseDetail.source_identifier}</span>}
+      <span>{caseDetail.received_at ? 'Received' : 'Created'}: {new Date(caseDetail.received_at || caseDetail.created_at).toLocaleString()}</span>
+      {(caseDetail.source_id || caseDetail.ingestion_id || caseDetail.external_record_id) && (
+        <details>
+          <summary>Source details</summary>
+          <dl>
+            {caseDetail.source_id && <div><dt>Source ID</dt><dd>{caseDetail.source_id}</dd></div>}
+            {caseDetail.ingestion_id && <div><dt>Ingestion ID</dt><dd>{caseDetail.ingestion_id}</dd></div>}
+            {caseDetail.external_record_id && <div><dt>External record</dt><dd>{caseDetail.external_record_id}</dd></div>}
+          </dl>
+        </details>
       )}
-
-      {/* 4. Evidence Matrix Comparison */}
-      {activeCandidate && (
-        <EvidenceMatrix
-          activeCandidate={activeCandidate}
-          aiExtracted={!!caseDetail.ai_provenance}
-        />
-      )}
-
-      {/* 5. Reviewer Decision Console */}
-      <ReviewConsole
-        caseDetail={caseDetail}
-        activeCandidate={activeCandidate}
-        onSubmitDecision={onSubmitDecision}
-        isSubmitting={isSubmittingDecision}
-        isReviewReady={isReviewReady}
-      />
-
-      {/* 6. Audit Trail */}
-      <AuditTimeline auditLogs={caseDetail.audit_logs} />
     </div>
   );
-};
+
+  return (
+    <div className="case-detail-content" ref={rootRef}>
+      {back}
+      <header className="case-heading">
+        <div>
+          <p className="case-metadata">{caseDetail.case_number} · Incoming record</p>
+          <h2 ref={titleRef} tabIndex={-1}>{caseDetail.raw_name}</h2>
+          <p className="case-heading-context">
+            {[caseDetail.raw_employer, caseDetail.raw_location].filter(Boolean).join(' · ') || 'No organization or location provided'}
+          </p>
+        </div>
+        {!compact && <Button onClick={gotoReview} className="case-go-review">Go to review options</Button>}
+      </header>
+      {!compact && provenance}
+      {caseDetail.ai_provenance && (
+        <AIProvenanceSection key={`ai:${caseDetail.id}`} caseId={caseDetail.id} provenance={caseDetail.ai_provenance} />
+      )}
+      <section className="case-decision-summary" aria-label="Recommendation and human decision">
+        <div>
+          <h3>System recommendation</h3>
+          <StatusIndicator tone={recommendationTone(caseDetail.routing_status)}>
+            {recommendationLabel[caseDetail.routing_status]}
+          </StatusIndicator>
+          <p>{caseDetail.routing_explanation}</p>
+        </div>
+        <div><h3>Human decision</h3><p>{decisionLabel[caseDetail.review_decision]}</p></div>
+      </section>
+      {activeCandidate && (
+        <ContradictionAlert contradictions={activeCandidate.contradictions} seriousFlag={activeCandidate.has_serious_contradiction} candidateName={activeCandidate.name} />
+      )}
+      {compact && provenance}
+      <details className="case-original-disclosure" open={recordExpanded}
+        onToggle={event => setRecordExpanded(event.currentTarget.open)}>
+        <summary>Original ingested record</summary>
+        <OriginalRecord caseDetail={caseDetail} />
+      </details>
+      <section className="case-comparison" aria-label="Candidate comparison">
+        <div className="case-section-heading">
+          <div><p className="case-eyebrow">Identity comparison</p><h3>Compare the source with a candidate</h3></div>
+          <p className="case-metadata">
+            {activeCandidate ? `Candidate ${caseDetail.candidates.indexOf(activeCandidate) + 1} of ${caseDetail.candidates.length}` : '0 candidates'}
+          </p>
+        </div>
+        {activeCandidate && (
+          <div className="case-selected-candidate">
+            <div>
+              <p className="case-metadata">Selected candidate</p><strong>{activeCandidate.name}</strong>
+              <p>{[activeCandidate.employer, activeCandidate.location].filter(Boolean).join(' · ') || activeCandidate.provider_source}</p>
+            </div>
+            <p><strong>{activeCandidate.total_score}</strong><span>points / 100</span></p>
+          </div>
+        )}
+        <details className="case-candidate-disclosure" open={candidatesExpanded}
+          onToggle={event => setCandidatesExpanded(event.currentTarget.open)}>
+          <summary>Change candidate <span>{caseDetail.candidates.length} records</span></summary>
+          <CandidateList candidates={caseDetail.candidates} selectedCandidateId={activeCandidate?.id || null} onSelectCandidate={setSelectedCandidateId} />
+        </details>
+      </section>
+      {compact && <Button onClick={gotoReview} className="case-go-review">Go to review options</Button>}
+      {activeCandidate && (
+        <details className="case-evidence-disclosure" open={evidenceExpanded}
+          onToggle={event => setEvidenceExpanded(event.currentTarget.open)}>
+          <summary>
+            <span>
+              <span role="heading" aria-level={3} tabIndex={-1} className="case-evidence-title">Evidence Comparison &amp; Scoring</span>
+              <span className="case-metadata">{activeCandidate.evidence.length} fields · Original record, {activeCandidate.name}, explanations and points</span>
+            </span>
+            <span aria-hidden="true">{evidenceExpanded ? '−' : '+'}</span>
+          </summary>
+          <EvidenceMatrix activeCandidate={activeCandidate} aiExtracted={!!caseDetail.ai_provenance} />
+        </details>
+      )}
+      <div className={`case-review-area${serious ? ' has-serious-conflict' : ''}`}>
+        <ReviewConsole caseDetail={caseDetail} activeCandidate={activeCandidate} onSubmitDecision={onSubmitDecision}
+          isSubmitting={isSubmittingDecision} isReviewReady={isReviewReady} compact={compact} readbackRequired={reviewReadbackRequired}
+          onCheckSavedDecision={onRefresh} onViewEvidence={gotoEvidence}
+          onChangeCandidate={gotoCandidates} onViewHistory={gotoHistory} />
+      </div>
+      <div className="case-operational">
+        <InvestigationPanel key={caseDetail.id} caseId={caseDetail.id}
+          eligible={caseDetail.routing_status === 'NEEDS_REVIEW' && ['PENDING', 'NEED_MORE_EVIDENCE'].includes(caseDetail.review_decision)}
+          onComplete={onRefresh} />
+        <AuditTimeline auditLogs={caseDetail.audit_logs} />
+      </div>
+    </div>
+  );
+}

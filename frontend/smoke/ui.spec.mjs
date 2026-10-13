@@ -1,6 +1,9 @@
 /* global document, window, getComputedStyle */
 import { test, expect } from '@playwright/test';
 import { sampleDetail, sampleSummary } from '../src/test-support/cases.ts';
+import { installOfflineBoundary } from './support/offline-boundary.mjs';
+
+test.beforeEach(async ({ page }) => installOfflineBoundary(page));
 
 // These overrides are confined to the local browser test. Production auth,
 // ingestion, API code and job processing run unchanged.
@@ -78,7 +81,7 @@ test('AI source note supports keyboard disclosure and reload without changing fi
   await section.locator('summary').focus();
   await page.keyboard.press('Enter');
   await expect(section.locator('pre')).toContainText('appears to be');
-  await expect(page.getByText('Decision: PENDING', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recommendation and human decision' }).getByText('Not reviewed', { exact: true })).toBeVisible();
   expect(requests.some(r => r.path.endsWith('/decision'))).toBe(false);
 });
 
@@ -105,7 +108,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     });
     expect(disclosureStyle.bottom).toBeLessThanOrEqual(height);
     expect(disclosureStyle.paddingLeft).toBe(width <= 767 ? '16px' : '24px');
-    expect(disclosureStyle.fontSize).toBe('11px');
+    expect(disclosureStyle.fontSize).toBe('12px');
     expect(disclosureStyle.fontWeight).toBe('400');
     expect(disclosureStyle.position).not.toBe('fixed');
     expect(disclosureStyle.background).toBe('rgba(0, 0, 0, 0)');
@@ -115,7 +118,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     await expect(page.getByLabel('Search cases')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);
     await noOverflow(page);
-    if (width >= 768) expect(await page.locator('.case-queue').evaluate(el => el.getBoundingClientRect().width)).toBe(360);
+    if (width >= 768) expect(await page.locator('.case-queue').evaluate(el => el.getBoundingClientRect().width)).toBe(290);
     await page.screenshot({ path: info.outputPath(`empty-${width}.png`) });
 
     const sourcesHelp = page.getByRole('button', { name: 'Sources help' });
@@ -124,7 +127,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     await sourcesHelp.press('Tab');
     await expect(page.getByRole('tooltip')).toHaveCount(0);
 
-    if (width < 900) await page.getByRole('button', { name: 'More case actions' }).click();
+    if (width < 1200) await page.getByRole('button', { name: 'More case actions' }).click();
     await expect(page.getByRole('button', { name: 'AI Evidence Extraction', exact: true })).toHaveCount(1);
     for (const [label, text] of [
       ['AI Evidence Extraction', 'Use AI to pull useful details from notes or documents.'],
@@ -138,7 +141,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       await page.screenshot({ path: info.outputPath(`${label.startsWith('AI') ? 'ai' : 'export'}-help-${width}.png`) });
     }
-    if (width < 900) await page.getByRole('button', { name: 'Export Reviewed help' }).press('Escape');
+    if (width < 1200) await page.getByRole('button', { name: 'Export Reviewed help' }).press('Escape');
     await page.getByRole('button', { name: 'Account menu' }).focus();
     const uploadHelp = page.getByRole('button', { name: 'CSV format help' });
     let fileChooserOpened = false;
@@ -171,15 +174,19 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1366, 768], [1024, 76
     if (width < 768) await page.getByRole('button').filter({ hasText: 'SAMPLE-001' }).click();
     await expect(page.getByRole('heading', { name: 'Claire Reynolds', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Evidence Comparison & Scoring' })).toHaveCount(1);
-    await expect(page.getByRole('heading', { name: 'Reviewer Decision Console' })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Your review' })).toHaveCount(1);
     await noOverflow(page);
     await page.screenshot({ path: info.outputPath(`loaded-detail-${width}.png`) });
     if (width === 1024 || width === 390) {
+      if (width === 390) {
+        await page.locator('.case-original-disclosure > summary').click();
+        await page.locator('.case-evidence-disclosure > summary').click();
+      }
       expect(await page.locator('.record-fields').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(width === 1024 ? 2 : 1);
       await page.getByRole('heading', { name: 'Evidence Comparison & Scoring' }).scrollIntoViewIfNeeded();
       expect(await page.locator('.evidence-scroll').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
       await page.screenshot({ path: info.outputPath(`loaded-evidence-${width}.png`) });
-      await page.getByRole('heading', { name: 'Reviewer Decision Console' }).scrollIntoViewIfNeeded();
+      await page.getByRole('heading', { name: 'Your review' }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: info.outputPath(`loaded-review-${width}.png`) });
       await noOverflow(page);
     }
@@ -202,21 +209,21 @@ test('workflow actions, CSV chooser, filters, review export and Sources remain f
   await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible();
   expect(requests.some(r => r.path.endsWith('/ingest/csv') && r.method === 'POST')).toBe(true);
   await page.getByRole('button', { name: 'Load Sample Cases', exact: true }).click();
-  await expect(page.getByText('3 total', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 cases shown', { exact: true })).toBeVisible();
   await page.getByLabel('Search cases').fill('missing');
   await expect(page.getByText('No cases match your filters', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'All Cases', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Recommendation', { exact: true })).toBeVisible();
   await page.getByLabel('Search cases').fill('');
-  await page.getByRole('button', { name: 'Needs Review', exact: true }).click();
-  await expect(page.getByText('1 total', { exact: true })).toBeVisible();
+  await page.getByLabel('Recommendation', { exact: true }).selectOption('NEEDS_REVIEW');
+  await expect(page.getByText('1 result shown', { exact: true })).toBeVisible();
   expect(requests.some(r => r.search.includes('routing_status=NEEDS_REVIEW'))).toBe(true);
-  await page.getByRole('button', { name: 'All Cases', exact: true }).click();
+  await page.getByLabel('Recommendation', { exact: true }).selectOption('ALL');
   await page.getByLabel('Decision filter').selectOption('ACCEPTED');
   await expect(page.getByText('No cases match your filters', { exact: true })).toBeVisible();
   await page.getByLabel('Decision filter').selectOption('ALL');
   await expect(page.getByRole('heading', { name: 'Claire Reynolds', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Reject All', exact: true }).click();
-  await expect(page.getByText('Recorded decision: REJECTED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Recorded decision: Rejected', { exact: true })).toBeVisible();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export Reviewed', exact: true }).click();
   expect((await download).suggestedFilename()).toMatch(/^reviewed_cases_.*\.csv$/);
@@ -252,19 +259,19 @@ test('AI status recovery reads only and completed activity survives reload', asy
   await page.goto('/');
   await page.getByRole('button', { name: 'AI Evidence Extraction', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await expect(page.getByLabel('Unstructured Provider Evidence')).toBeFocused();
-  await dialog.getByRole('button', { name: 'Extract & Resolve' }).click();
-  await expect(dialog.getByText('Could not check the latest status. The outcome is unknown.')).toBeVisible();
+  await expect(page.getByLabel('Source note')).toBeFocused();
+  await dialog.getByRole('button', { name: 'Extract evidence' }).click();
+  await expect(dialog.getByText('The Job was accepted, but its latest processing status could not be confirmed.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Try again' })).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Check again' }).click();
-  await expect(dialog.getByText('Completed', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Check Job status' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Completed');
   expect(submissions).toBe(1); expect(checks).toBe(2);
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await page.reload();
   await expect(page.getByText('No cases yet', { exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Recent activity', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Recent activity' }).getByText('Completed', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recent activity', exact: true }).getByText('Completed', { exact: true })).toBeVisible();
   expect(submissions).toBe(1);
   expect(errors).toEqual([]);
   await page.screenshot({ path: info.outputPath('activity-desktop.png') });
@@ -282,9 +289,12 @@ test('authentication branding and favicon remain consistent at desktop and mobil
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await expect(page.getByText('Contact Resolution Workbench', { exact: true })).toBeVisible();
-    await expect(page.getByText('Continue to Contact Resolution Workbench', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sign in to continue reviewing cases.', { exact: true })).toBeVisible();
     expect(await page.locator('.auth-brand-icon').getAttribute('src')).toBe(await page.locator('link[rel="icon"]').getAttribute('href'));
     await page.screenshot({ path: info.outputPath(`auth-${width}.png`) });
-    await noOverflow(page);
+    // Auth pages reflow vertically; the primary form fits while supporting copy can scroll.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const demo = await page.getByRole('button', { name: 'Explore demo workspace' }).boundingBox();
+    expect(demo.y + demo.height).toBeLessThanOrEqual(height);
   }
 });

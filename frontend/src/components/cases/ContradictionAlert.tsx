@@ -1,65 +1,37 @@
-import React from 'react';
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import type { Contradiction } from '../../types';
+import { AlertTriangle } from 'lucide-react';
 
-interface ContradictionAlertProps {
+export function ContradictionAlert({ contradictions, seriousFlag = false, candidateName }: {
   contradictions: Contradiction[];
-}
-
-export const ContradictionAlert: React.FC<ContradictionAlertProps> = ({ contradictions }) => {
-  if (contradictions.length === 0) {
-    return null;
-  }
-
-  const serious = contradictions.filter((c) => c.severity === 'SERIOUS');
-  const moderate = contradictions.filter((c) => c.severity === 'MODERATE');
-
+  seriousFlag?: boolean;
+  candidateName?: string;
+}) {
+  if (!contradictions.length && !seriousFlag) return null;
   return (
-    <div className="space-y-2">
-      {/* Serious Contradictions */}
-      {serious.map((c) => (
-        <div
-          key={c.id || c.contradiction_type}
-          className="rounded border border-rose-300 bg-rose-50 p-3.5 text-rose-950 shadow-sm"
-        >
-          <div className="flex items-start space-x-2.5">
-            <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
-            <div className="flex-1 text-xs">
-              <div className="flex items-center space-x-2">
-                <span className="font-bold uppercase tracking-wide text-rose-800 text-[10px] bg-rose-100 px-1.5 py-0.5 rounded">
-                  SERIOUS CONTRADICTION
-                </span>
-                <span className="font-semibold text-rose-900">{c.contradiction_type}</span>
-              </div>
-              <p className="mt-1 text-rose-800 leading-relaxed">{c.description}</p>
-              <p className="mt-1 text-[11px] font-medium text-rose-700">
-                ⚠️ Policy guardrail: This serious conflict blocks Likely Match routing and requires manual human review.
-              </p>
-            </div>
+    <section className="case-conflicts" aria-label="Selected candidate conflicts">
+      {contradictions.map(conflict => (
+        <div key={conflict.id || conflict.contradiction_type}
+          className={`case-conflict case-conflict-${conflict.severity === 'SERIOUS' ? 'serious' : 'moderate'}`}>
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <p className="case-conflict-severity">{conflict.severity === 'SERIOUS' ? 'Serious conflict' : 'Moderate warning'}</p>
+            {candidateName && <p>Selected candidate: {candidateName}</p>}
+            <h3>{conflict.contradiction_type.replaceAll('_', ' ').toLowerCase().replace(/^./, value => value.toUpperCase())}</h3>
+            <p>{conflict.description}</p>
+            <p className="case-conflict-guidance">Review the conflicting evidence before deciding.</p>
           </div>
         </div>
       ))}
-
-      {/* Moderate Warnings */}
-      {moderate.map((c) => (
-        <div
-          key={c.id || c.contradiction_type}
-          className="rounded border border-amber-300 bg-amber-50 p-3 text-amber-950"
-        >
-          <div className="flex items-start space-x-2.5">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-            <div className="flex-1 text-xs">
-              <div className="flex items-center space-x-2">
-                <span className="font-bold uppercase tracking-wide text-amber-800 text-[10px] bg-amber-100 px-1.5 py-0.5 rounded">
-                  MODERATE WARNING
-                </span>
-                <span className="font-semibold text-amber-900">{c.contradiction_type}</span>
-              </div>
-              <p className="mt-1 text-amber-800">{c.description}</p>
-            </div>
+      {seriousFlag && !contradictions.some(conflict => conflict.severity === 'SERIOUS') && (
+        <div className="case-conflict case-conflict-serious">
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <h3>Serious conflict reported for this candidate</h3>
+            {candidateName && <p>Selected candidate: {candidateName}</p>}
+            <p>The conflict explanation is not available. Review the evidence before deciding.</p>
           </div>
         </div>
-      ))}
-    </div>
+      )}
+    </section>
   );
-};
+}

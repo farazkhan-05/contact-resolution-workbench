@@ -1,5 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
+import { ChevronDown } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { InlineFeedback } from '../ui/Feedback';
+import './Jobs.css';
 import type { Job } from '../../types';
 import { JobStatus } from './JobStatus';
 import { isOrdinaryJob, jobName } from './jobPresentation';
@@ -11,12 +15,9 @@ function ActivityJob({ initial, onTerminal }: { initial: Job; onTerminal: (job: 
   useLayoutEffect(() => {
     if ((job.status === 'SUCCEEDED' || job.status === 'FAILED') && job.status !== initial.status) onTerminal(job);
   }, [job, initial, onTerminal]);
-  return <li className="rounded border border-border p-3 space-y-2">
-    <h3 className="font-semibold text-sm">{jobName(job)}</h3>
-    <p className="text-xs text-muted">Created {new Date(job.created_at).toLocaleString()}</p>
-    {job.started_at && <p className="text-xs text-muted">Started {new Date(job.started_at).toLocaleString()}</p>}
-    {job.completed_at && <p className="text-xs text-muted">Finished {new Date(job.completed_at).toLocaleString()}</p>}
-    <JobStatus job={job} error={tracking.error} checking={tracking.checking} onCheck={tracking.checkAgain} />
+  return <li className="activity-job">
+    <h3>{jobName(job)}</h3>
+    <JobStatus compact job={job} error={tracking.error} checking={tracking.checking} onCheck={tracking.checkAgain} />
   </li>;
 }
 
@@ -42,15 +43,25 @@ export function RecentActivity({ workspaceId, revision, expanded, onToggle, onRe
   }, [workspaceId, revision, refresh, expanded]);
   const active = jobs.filter(job => job.status === 'PENDING' || job.status === 'RUNNING');
   const recent = jobs.filter(job => job.status === 'FAILED' || job.status === 'SUCCEEDED').slice(0, 20);
-  return <section className="shrink-0 border-b border-border bg-surface px-4 py-2" aria-label="Recent activity">
-    <button type="button" className="shell-button" aria-expanded={expanded} aria-controls="recent-activity-content" onClick={onToggle}>Recent activity{active.length ? ` (${active.length} active)` : ''}</button>
-    {error && <p role="alert" className="text-xs">Could not check the latest status. <button type="button" onClick={() => setRefresh(value => value + 1)} disabled={loading}>Check again</button></p>}
-    {expanded && <div id="recent-activity-content" className="max-h-72 overflow-y-auto space-y-2 py-2">
-      <p className="text-xs text-muted">Active imports and the latest 20 completed or failed imports. Completed cases appear in Cases.</p>
-      <button type="button" className="shell-button" disabled={loading} onClick={() => setRefresh(value => value + 1)}>{loading ? 'Checking status…' : 'Check again'}</button>
-      {onRefreshCases && <button type="button" className="shell-button" onClick={onRefreshCases}>Refresh cases</button>}
-      {!loading && !error && !jobs.length && <p className="text-xs">No recent imports.</p>}
-      <ul className="grid gap-2 md:grid-cols-2">{[...active, ...recent].map(job => <ActivityJob key={job.id} initial={job} onTerminal={onTerminal} />)}</ul>
+  const unavailable = <div className="activity-read-error">
+    <InlineFeedback tone="error"><p>Recent activity unavailable.</p><p>Could not read the latest Job history. Existing work may still be running.</p></InlineFeedback>
+    {jobs.length > 0 && <p className="job-muted">Showing the last loaded activity.</p>}
+    {!expanded && <Button disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh activity</Button>}
+  </div>;
+  return <section className="recent-activity" aria-label="Recent activity">
+    <Button variant="quiet" className="activity-toggle" aria-expanded={expanded} aria-controls={expanded ? 'recent-activity-content' : undefined} onClick={onToggle}>
+      Recent activity{active.length ? ` (${active.length} active)` : ''}<ChevronDown size={16} aria-hidden="true" />
+    </Button>
+    {error && !expanded && unavailable}
+    {expanded && <div id="recent-activity-content" className="activity-content" role="region" aria-label="Recent activity history" tabIndex={0}>
+      <div className="activity-toolbar"><p className="job-muted">CSV imports and AI evidence extraction. Active Jobs and the latest 20 completed or failed imports. Completed Cases appear in Cases.</p>
+        <div className="activity-actions" role="group" aria-label="Activity reads"><Button disabled={loading} loading={loading} onClick={() => setRefresh(value => value + 1)}>{loading ? 'Checking activity\u2026' : 'Refresh activity'}</Button>
+          {onRefreshCases && <Button variant="quiet" onClick={onRefreshCases}>Refresh cases</Button>}</div>
+      </div>
+      {loading && <p role="status" className="activity-state">Loading recent activity...</p>}
+      {error && unavailable}
+      {!loading && !error && !jobs.length && <p className="activity-state">No recent imports.</p>}
+      <ul className="activity-list" aria-label="Import and extraction Jobs">{[...active, ...recent].map(job => <ActivityJob key={job.id} initial={job} onTerminal={onTerminal} />)}</ul>
     </div>}
   </section>;
 }

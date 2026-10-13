@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.resetAllMocks(); });
 const flush = async (action?: () => void) => act(async () => { action?.(); });
-const extract = () => flush(() => fireEvent.click(screen.getByRole('button', { name: 'Extract & Resolve' })));
+const extract = () => flush(() => fireEvent.click(screen.getByRole('button', { name: 'Extract evidence' })));
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(yes => { resolve = yes; }); return { resolve, promise }; }
 function Tracker({ initial }: { initial: Job }) {
   const tracking = useJobStatus(initial, true);
@@ -48,27 +48,27 @@ it('failed AI -> close/reopen -> Try again preserves editable input and requires
   expect(screen.queryByText('Try again')).toBeNull();
 });
 
-it('status error is visible and Check again only reads status, then resumes pending tracking', async () => {
+it('status error is visible and Check Job status only reads status, then resumes pending tracking', async () => {
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('secret HTTP 504'));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
-  expect(screen.getByText(/Could not check the latest status/)).toBeTruthy();
+  expect(screen.getByText(/latest processing status could not be confirmed/)).toBeTruthy();
   expect(screen.queryByText('Try again')).toBeNull();
   expect(screen.queryByText(/HTTP 504/)).toBeNull();
   await act(async () => vi.advanceTimersByTimeAsync(10000));
   expect(api.getJob).toHaveBeenCalledTimes(1);
-  await flush(() => fireEvent.click(screen.getByText('Check again')));
+  await flush(() => fireEvent.click(screen.getByText('Check Job status')));
   expect(api.getJob).toHaveBeenCalledTimes(2);
   await act(async () => vi.advanceTimersByTimeAsync(1800));
   expect(api.getJob).toHaveBeenCalledTimes(3);
   expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });
 
-it.each(['SUCCEEDED', 'FAILED'] as const)('Check again reads the durable %s outcome', async status => {
+it.each(['SUCCEEDED', 'FAILED'] as const)('Check Job status reads the durable %s outcome', async status => {
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('read')).mockResolvedValueOnce(syntheticJob({ status }));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
-  await flush(() => fireEvent.click(screen.getByText('Check again')));
+  await flush(() => fireEvent.click(screen.getByText('Check Job status')));
   expect(screen.getByText(status === 'SUCCEEDED' ? 'Completed' : 'Failed')).toBeTruthy();
   expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });
@@ -106,7 +106,8 @@ it('slow Job A response cannot overwrite tracking Job B', async () => {
   const view = render(<Tracker initial={syntheticJob({ id: 'job-a' })} />);
   await flush(() => view.rerender(<Tracker initial={syntheticJob({ id: 'job-b' })} />));
   await flush(() => slow.resolve(syntheticJob({ id: 'job-a', status: 'FAILED' })));
-  expect(screen.getByText('job-b')).toBeTruthy();
+  expect(screen.getAllByText('job-b').length).toBeGreaterThan(0);
+  expect(screen.queryByText('job-a')).toBeNull();
   expect(screen.getByText('Running')).toBeTruthy();
   expect(screen.queryByText('Failed')).toBeNull();
 });
@@ -148,7 +149,7 @@ it.each(['PENDING', 'RUNNING'] as const)('old %s Job shows neutral delay message
   render(<Tracker initial={job} />); await flush();
   expect(screen.getByText('This is taking longer than expected.')).toBeTruthy();
   expect(screen.getByText(status === 'PENDING' ? 'Queued' : 'Running')).toBeTruthy();
-  expect(screen.getByText('Check again')).toBeTruthy();
+  expect(screen.getByText('Check Job status')).toBeTruthy();
   expect(job.status).toBe(status);
 });
 
@@ -184,7 +185,7 @@ it('activity completion clears the active count and does not keep polling a term
   vi.mocked(api.listJobs).mockResolvedValue([syntheticJob()]);
   vi.mocked(api.getJob).mockRejectedValueOnce(Error('read')).mockResolvedValue(syntheticJob({ status: 'SUCCEEDED', successful_rows: 1 }));
   render(<RecentActivity workspaceId="test-workspace" revision={0} expanded onToggle={vi.fn()} />); await flush();
-  const checks = screen.getAllByRole('button', { name: 'Check again' });
+  const checks = screen.getAllByRole('button', { name: 'Check Job status' });
   await flush(() => fireEvent.click(checks[checks.length - 1]));
   expect(screen.getByText('Completed')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Recent activity' })).toBeTruthy();
@@ -208,13 +209,13 @@ it('an uncertain submission blocks another Extract; definite validation rejectio
   const view = render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
   expect(screen.getByText(/could not confirm whether/)).toBeTruthy();
-  expect(screen.getByText('Extract & Resolve').closest('button')?.disabled).toBe(true);
+  expect(screen.getByText('Extract evidence').closest('button')?.disabled).toBe(true);
   expect(screen.queryByText('Try again')).toBeNull();
   view.unmount();
   vi.mocked(api.ingestUnstructured).mockRejectedValueOnce(new ApiError(422, 'unsafe detail'));
   render(<AiExtractionModal isOpen onClose={vi.fn()} onCaseCreated={vi.fn(async () => {})} />);
   await extract();
-  expect(screen.getByText('Extract & Resolve').closest('button')?.disabled).toBe(false);
+  expect(screen.getByText('Extract evidence').closest('button')?.disabled).toBe(false);
 });
 
 it('focus enters dialog, Escape closes, and focus returns to the trigger', async () => {
@@ -222,8 +223,36 @@ it('focus enters dialog, Escape closes, and focus returns to the trigger', async
   const close = vi.fn();
   const view = render(<AiExtractionModal isOpen onClose={close} onCaseCreated={vi.fn(async () => {})} />);
   expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
-  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
   expect(close).toHaveBeenCalledTimes(1);
   view.rerender(<AiExtractionModal isOpen={false} onClose={close} onCaseCreated={vi.fn(async () => {})} />);
   expect(document.activeElement).toBe(trigger); trigger.remove();
+});
+
+it('does not dismiss while the initial submission outcome is still pending', async () => {
+  const acknowledgement = deferred<Job>();
+  vi.mocked(api.ingestUnstructured).mockReturnValue(acknowledgement.promise);
+  const close = vi.fn();
+  render(<AiExtractionModal isOpen onClose={close} onCaseCreated={vi.fn(async () => {})} />);
+  await extract();
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+  expect(screen.getByRole('button', { name: 'Close dialog' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true);
+  expect(close).not.toHaveBeenCalled();
+  await flush(() => acknowledgement.resolve(syntheticJob()));
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+  expect(close).toHaveBeenCalledTimes(1); expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
+});
+
+it('allows dismissal after an unknown acknowledgement without allowing another submission', async () => {
+  vi.mocked(api.ingestUnstructured).mockRejectedValue(Error('Synthetic acknowledgement unavailable'));
+  const props = { onClose: vi.fn(), onCaseCreated: vi.fn(async () => {}) };
+  const view = render(<AiExtractionModal isOpen {...props} />); await extract();
+  fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+  expect(props.onClose).toHaveBeenCalledTimes(1);
+  view.rerender(<AiExtractionModal isOpen={false} {...props} />);
+  view.rerender(<AiExtractionModal isOpen {...props} />);
+  expect(screen.getByRole('button', { name: 'Extract evidence' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('alert').textContent).toContain('could not confirm whether');
+  expect(api.ingestUnstructured).toHaveBeenCalledTimes(1);
 });

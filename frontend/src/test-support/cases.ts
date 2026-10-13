@@ -3,7 +3,7 @@ import type { CaseDetail, CaseSummary } from '../types';
 export const sampleSummary: CaseSummary = {
   id: 'case-1', case_number: 'SAMPLE-001', source_identifier: 'Synthetic sample',
   person_name: 'Claire Reynolds', employer: 'Acme Health Group Inc', location: 'Boston, MA',
-  routing_status: 'LIKELY_MATCH', review_decision: 'PENDING', top_score: 95,
+  routing_status: 'LIKELY_MATCH', review_decision: 'PENDING', top_score: 75,
   top_candidate_name: 'Claire Reynolds', has_serious_contradiction: false, candidate_count: 1,
   last_activity_at: '2026-10-03T08:00:00Z', created_at: '2026-10-03T08:00:00Z',
 };
@@ -22,13 +22,19 @@ export const sampleDetail: CaseDetail = {
     name: 'Claire Reynolds', first_name: 'Claire', middle_name: null, last_name: 'Reynolds', name_suffix: null,
     email: 'claire.reynolds@acmehealth.demo', phone: null, employer: sampleSummary.employer,
     job_title: 'Operations Director', location: sampleSummary.location,
-    total_score: 95, name_score: 35, email_score: 30, phone_score: 0, employer_score: 20, location_score: 10,
+    total_score: 75, name_score: 30, email_score: 25, phone_score: 0, employer_score: 10, location_score: 10,
     has_serious_contradiction: false, provenance_summary: 'Synthetic registry', contradictions: [],
     evidence: [
       { id: 'evidence-1', field_name: 'name', source_value: 'Claire Reynolds', candidate_value: 'Claire Reynolds',
-        points_awarded: 35, max_points: 35, match_method: 'EXACT', explanation: 'Full name matches after normalization.' },
+        points_awarded: 30, max_points: 30, match_method: 'EXACT_MATCH', explanation: 'Normalized full names are identical.' },
       { id: 'evidence-2', field_name: 'email', source_value: 'claire.reynolds@acmehealth.demo', candidate_value: 'claire.reynolds@acmehealth.demo',
-        points_awarded: 30, max_points: 30, match_method: 'EXACT', explanation: 'Email address matches exactly.' },
+        points_awarded: 25, max_points: 25, match_method: 'EXACT_MATCH', explanation: 'Normalized email addresses are identical.' },
+      { id: 'evidence-3', field_name: 'phone', source_value: null, candidate_value: null,
+        points_awarded: 0, max_points: 25, match_method: 'MISSING', explanation: 'Phone number is missing from source or candidate record.' },
+      { id: 'evidence-4', field_name: 'employer', source_value: sampleSummary.employer, candidate_value: sampleSummary.employer,
+        points_awarded: 10, max_points: 10, match_method: 'EXACT_MATCH', explanation: 'Employer names match after legal suffix and whitespace normalization.' },
+      { id: 'evidence-5', field_name: 'location', source_value: sampleSummary.location, candidate_value: sampleSummary.location,
+        points_awarded: 10, max_points: 10, match_method: 'EXACT_MATCH', explanation: 'City and state locations match exactly.' },
     ],
   }],
 };

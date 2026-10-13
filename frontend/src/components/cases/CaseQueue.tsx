@@ -1,17 +1,15 @@
-import React from 'react';
-import {
-  AlertTriangle,
-  CheckCircle,
-  HelpCircle,
-  Search,
-  SlidersHorizontal,
-  XCircle,
-} from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { AlertTriangle, Search } from 'lucide-react';
 import type { CaseSummary, ReviewDecision, RoutingStatus } from '../../types';
+import { TextInput } from '../ui/Field';
+import { StatusIndicator } from '../ui/Feedback';
+import { decisionLabel, recommendationLabel, recommendationTone } from './casePresentation';
+import './Cases.css';
 
 interface CaseQueueProps {
   cases: CaseSummary[];
   selectedCaseId: string | null;
+  mobileQueueActive?: boolean;
   onSelectCase: (caseId: string) => void;
   activeRoutingFilter: RoutingStatus | 'ALL';
   onRoutingFilterChange: (filter: RoutingStatus | 'ALL') => void;
@@ -23,192 +21,45 @@ interface CaseQueueProps {
   showFilters: boolean;
 }
 
-export const CaseQueue: React.FC<CaseQueueProps> = ({
-  cases,
-  selectedCaseId,
-  onSelectCase,
-  activeRoutingFilter,
-  onRoutingFilterChange,
-  activeDecisionFilter,
-  onDecisionFilterChange,
-  searchQuery,
-  onSearchChange,
-  isLoading,
-  showFilters,
-}) => {
-  const routingTabs: { key: RoutingStatus | 'ALL'; label: string }[] = [
-    { key: 'ALL', label: 'All Cases' },
-    { key: 'LIKELY_MATCH', label: 'Likely Match' },
-    { key: 'NEEDS_REVIEW', label: 'Needs Review' },
-    { key: 'NO_RELIABLE_MATCH', label: 'No Match' },
-  ];
-
-  return (
-    <aside className="case-queue flex h-full flex-col border-r border-border bg-surface shrink-0">
-      {/* Queue Header */}
-      <div className="border-b border-border p-3.5 space-y-1">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">Cases</h2>
-          <span className="font-mono text-[10px] text-muted">{cases.length} total</span>
-        </div>
-        <p className="text-[11px] text-muted leading-tight">
-          Review possible contact matches and confirm the correct record.
-        </p>
-      </div>
-
-      {/* Search & Filter Header */}
-      {showFilters && <div className="border-b border-border p-3 space-y-2.5">
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted" />
-          <input
-            type="text"
-            placeholder="Search by case #, name, employer..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full rounded border border-border bg-background py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted focus:border-accent focus-visible:ring-1 focus-visible:ring-accent focus:outline-none"
-            aria-label="Search cases"
-          />
-        </div>
-
-        {/* Status Filter Tabs */}
-        <div className="flex rounded border border-border bg-surface p-0.5 text-xs">
-          {routingTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => onRoutingFilterChange(tab.key)}
-              aria-pressed={activeRoutingFilter === tab.key}
-              className={`flex-1 rounded py-1 text-center text-[11px] font-medium transition-colors ${
-                activeRoutingFilter === tab.key
-                  ? 'bg-accent-muted text-accent'
-                  : 'text-muted hover:text-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Secondary Decision Filter */}
-        <div className="flex items-center justify-between text-[11px] text-muted">
-          <div className="flex items-center space-x-1">
-            <SlidersHorizontal className="h-3 w-3" />
-            <span>Decision filter:</span>
-          </div>
-          <select
-            aria-label="Decision filter"
-            value={activeDecisionFilter}
-            onChange={(e) => onDecisionFilterChange(e.target.value as ReviewDecision | 'ALL')}
-            className="rounded border border-border bg-surface px-2 py-0.5 text-[11px] text-foreground focus:border-accent focus:outline-none"
-          >
-            <option value="ALL">All Decisions</option>
-            <option value="PENDING">Pending Only</option>
-            <option value="ACCEPTED">Accepted</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="NEED_MORE_EVIDENCE">Need Evidence</option>
+export function CaseQueue({ cases, selectedCaseId, onSelectCase, activeRoutingFilter, onRoutingFilterChange,
+  activeDecisionFilter, onDecisionFilterChange, searchQuery, onSearchChange, isLoading, showFilters, mobileQueueActive = true }: CaseQueueProps) {
+  const rootRef = useRef<HTMLElement>(null);
+  const wasQueueActive = useRef(mobileQueueActive);
+  useEffect(() => {
+    if (mobileQueueActive && !wasQueueActive.current && window.matchMedia('(max-width: 767px)').matches) {
+      const target = rootRef.current?.querySelector<HTMLElement>('[aria-current="true"]')
+        || rootRef.current?.querySelector<HTMLInputElement>('input') || rootRef.current;
+      target?.focus({ preventScroll: true });
+    }
+    wasQueueActive.current = mobileQueueActive;
+  }, [mobileQueueActive]);
+  const filtered = activeRoutingFilter !== 'ALL' || activeDecisionFilter !== 'ALL' || !!searchQuery.trim();
+  return <aside ref={rootRef} tabIndex={-1} className="case-queue" aria-label="Cases queue">
+    <div className="case-queue-controls">
+      <div className="case-section-heading"><h2>Review queue</h2><span className="case-metadata" role="status">{isLoading ? 'Updating…' : `${cases.length} ${filtered ? cases.length === 1 ? 'result' : 'results' : cases.length === 1 ? 'case' : 'cases'} shown`}</span></div>
+      {showFilters && <>
+        <div className="case-search"><Search size={16} aria-hidden="true" /><TextInput type="text" aria-label="Search cases" placeholder="Search cases…" value={searchQuery} onChange={event => onSearchChange(event.target.value)} /></div>
+        <div className="case-filters">
+          <label htmlFor="case-recommendation-filter">Recommendation</label>
+          <select id="case-recommendation-filter" value={activeRoutingFilter} onChange={event => onRoutingFilterChange(event.target.value as RoutingStatus | 'ALL')}>
+            <option value="ALL">All recommendations</option><option value="LIKELY_MATCH">Likely Match</option><option value="NEEDS_REVIEW">Needs Review</option><option value="NO_RELIABLE_MATCH">No Match</option>
+          </select>
+          <label htmlFor="case-decision-filter">Decision filter</label>
+          <select id="case-decision-filter" value={activeDecisionFilter} onChange={event => onDecisionFilterChange(event.target.value as ReviewDecision | 'ALL')}>
+            <option value="ALL">All Decisions</option><option value="PENDING">Pending Only</option><option value="ACCEPTED">Accepted</option><option value="REJECTED">Rejected</option><option value="NEED_MORE_EVIDENCE">Need Evidence</option>
           </select>
         </div>
-      </div>}
-
-      {/* Case Queue List */}
-      <div className="flex-1 overflow-y-auto divide-y divide-border">
-        {isLoading ? (
-          <div className="p-8 text-center text-xs text-muted">Loading cases...</div>
-        ) : cases.length === 0 ? (
-          <div className="px-4 py-7 text-xs text-muted">
-            <p>{showFilters ? 'No cases match your filters' : 'No cases yet'}</p>
-          </div>
-        ) : (
-          cases.map((c) => {
-            const isSelected = c.id === selectedCaseId;
-
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onSelectCase(c.id)}
-                aria-current={isSelected ? 'true' : undefined}
-                className={`w-full text-left p-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset ${
-                  isSelected
-                    ? 'bg-accent-muted border-l-4 border-l-accent'
-                    : 'hover:bg-surface-muted'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-semibold text-muted">
-                    {c.case_number}
-                  </span>
-                  <div className="flex items-center space-x-1.5">
-                    {c.has_serious_contradiction && (
-                      <span
-                        className="inline-flex items-center space-x-0.5 rounded bg-rose-100 px-1 py-0.5 text-[9px] font-semibold text-rose-800"
-                        title="Serious contradiction detected"
-                      >
-                        <AlertTriangle className="h-2.5 w-2.5" />
-                        <span>Conflict</span>
-                      </span>
-                    )}
-                    <span
-                      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                        c.routing_status === 'LIKELY_MATCH'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : c.routing_status === 'NEEDS_REVIEW'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                          : 'bg-slate-100 text-slate-700 border border-slate-200'
-                      }`}
-                    >
-                      {c.routing_status === 'LIKELY_MATCH' && 'Likely Match'}
-                      {c.routing_status === 'NEEDS_REVIEW' && 'Needs Review'}
-                      {c.routing_status === 'NO_RELIABLE_MATCH' && 'No Match'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-1 flex items-baseline justify-between">
-                  <p className="text-xs font-medium text-foreground truncate max-w-[180px]">
-                    {c.person_name}
-                  </p>
-                  <span className="font-mono text-[11px] font-semibold text-slate-900">
-                    {c.top_score} <span className="text-[9px] text-muted">/ 100</span>
-                  </span>
-                </div>
-
-                <div className="mt-1 flex items-center justify-between text-[11px] text-muted">
-                  <span className="truncate max-w-[180px]">
-                    {c.employer || c.location || 'No employer noted'}
-                  </span>
-
-                  {/* Decision Tag */}
-                  <div className="flex items-center space-x-1">
-                    {c.review_decision === 'ACCEPTED' && (
-                      <span className="inline-flex items-center space-x-1 text-emerald-700 font-medium text-[10px]">
-                        <CheckCircle className="h-3 w-3" />
-                        <span>Accepted</span>
-                      </span>
-                    )}
-                    {c.review_decision === 'REJECTED' && (
-                      <span className="inline-flex items-center space-x-1 text-rose-700 font-medium text-[10px]">
-                        <XCircle className="h-3 w-3" />
-                        <span>Rejected</span>
-                      </span>
-                    )}
-                    {c.review_decision === 'NEED_MORE_EVIDENCE' && (
-                      <span className="inline-flex items-center space-x-1 text-amber-700 font-medium text-[10px]">
-                        <HelpCircle className="h-3 w-3" />
-                        <span>Need Info</span>
-                      </span>
-                    )}
-                    {c.review_decision === 'PENDING' && (
-                      <span className="text-[10px] text-muted">Pending</span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            );
-          })
-        )}
-      </div>
-    </aside>
-  );
-};
+      </>}
+    </div>
+    <div className="case-queue-list" aria-busy={isLoading}>
+      {isLoading ? <p className="case-queue-empty" role="status">Loading cases...</p> : cases.length === 0 ? <p className="case-queue-empty">{showFilters ? 'No cases match your filters' : 'No cases yet'}</p> : cases.map(item => <button key={item.id} type="button" className="case-queue-row" aria-current={item.id === selectedCaseId ? 'true' : undefined} onClick={() => onSelectCase(item.id)}>
+        <span className="case-row-top"><span className="case-metadata">{item.case_number}</span><span className="case-row-score">{item.candidate_count > 0 ? `${item.top_score} / 100` : 'No score'}</span></span>
+        <strong className="case-row-name">{item.person_name}</strong>
+        <span className="case-row-context">{[item.employer, item.location].filter(Boolean).join(' · ') || 'No organization or location provided'}</span>
+        <StatusIndicator tone={recommendationTone(item.routing_status)}>{recommendationLabel[item.routing_status]}</StatusIndicator>
+        <span className="case-row-bottom"><span>{item.has_serious_contradiction ? <span className="case-conflict-text"><AlertTriangle size={14} aria-hidden="true" />Serious conflict</span> : `${item.candidate_count} ${item.candidate_count === 1 ? 'candidate' : 'candidates'}`}</span><span>Human: {decisionLabel[item.review_decision]}</span></span>
+        {item.id === selectedCaseId && <span className="sr-only">Selected case</span>}
+      </button>)}
+    </div>
+  </aside>;
+}

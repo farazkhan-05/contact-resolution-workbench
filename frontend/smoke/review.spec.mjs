@@ -1,5 +1,6 @@
 /* global requestAnimationFrame */
 import { test, expect } from '@playwright/test';
+import { decisionLabel } from '../src/components/cases/casePresentation.ts';
 
 const backend = 'https://http--staging-api--t686v9g45v9c.code.run';
 function gate() {
@@ -27,7 +28,7 @@ test('production review authority survives delayed details, navigation and faile
   expect((await bootstrap).status()).toBe(200);
   await expect(page.getByText('No cases yet', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Load sample cases', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Reviewer Decision Console' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your review' })).toBeVisible();
   const listed = await request.get(`${backend}/api/v1/cases`, { headers: session });
   expect(listed.status()).toBe(200);
   const cases = await listed.json();
@@ -77,7 +78,7 @@ test('production review authority survives delayed details, navigation and faile
       const submitted = page.waitForResponse(`${detailUrl(caseB)}/decision`);
       await page.getByRole('button', { name: button }).click();
       expect((await submitted).status()).toBe(200);
-      await expect(page.getByText(new RegExp(`^Current Verdict: ${decision}`))).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Your review' }).getByText(decisionLabel[decision], { exact: true })).toBeVisible();
       expect(decisions.at(-1)).toEqual({ caseId: caseB.id, decision });
       expect((await read(caseA)).review_decision).toBe('PENDING');
       expect((await read(caseB)).review_decision).toBe(decision);

@@ -1,14 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Check,
-  CheckCircle2,
-  HelpCircle,
-  Loader2,
-  RotateCcw,
-  X,
-  XCircle,
-} from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { AlertTriangle, Check, HelpCircle, History, X } from 'lucide-react';
 import type { CandidateDetail, CaseDetail, ReviewDecision } from '../../types';
+import { Button } from '../ui/Button';
+import { Field, Textarea } from '../ui/Field';
+import { InlineFeedback, StatusIndicator } from '../ui/Feedback';
+import { decisionLabel } from './casePresentation';
+import './ReviewConsole.css';
 
 interface ReviewConsoleProps {
   caseDetail: CaseDetail;
@@ -16,139 +13,136 @@ interface ReviewConsoleProps {
   onSubmitDecision: (caseId: string, decision: ReviewDecision, candidateId?: string | null, notes?: string | null) => Promise<void>;
   isSubmitting: boolean;
   isReviewReady: boolean;
+  compact?: boolean;
+  readbackRequired?: boolean;
+  onCheckSavedDecision?: () => void;
+  onViewEvidence?: () => void;
+  onChangeCandidate?: () => void;
+  onViewHistory?: () => void;
 }
+type SubmittedDecision = Exclude<ReviewDecision, 'PENDING'>;
+interface SubmissionIntent {
+  caseNumber: string;
+  decision: SubmittedDecision;
+  candidateName: string | null;
+  candidateId: string | null;
+}
+const actionLabel: Record<SubmittedDecision, string> = {
+  ACCEPTED: 'Accept Candidate', REJECTED: 'Reject All', NEED_MORE_EVIDENCE: 'Need More Evidence',
+};
 
-export const ReviewConsole: React.FC<ReviewConsoleProps> = ({
-  caseDetail,
-  activeCandidate,
-  onSubmitDecision,
-  isSubmitting,
-  isReviewReady,
-}) => {
+export function ReviewConsole({ caseDetail, activeCandidate, onSubmitDecision, isSubmitting, isReviewReady,
+  compact = false, readbackRequired = false, onCheckSavedDecision, onViewEvidence, onChangeCandidate, onViewHistory }: ReviewConsoleProps) {
   const [notes, setNotes] = useState(caseDetail.reviewer_notes || '');
+  const [intent, setIntent] = useState<SubmissionIntent | null>(null);
+  const submissionLocked = useRef(false);
+  // Restore saved notes before interaction; a delayed passive reset can erase
+  // a draft entered immediately after an asynchronous Case detail commits.
+  useLayoutEffect(() => { setNotes(caseDetail.reviewer_notes ?? ''); }, [caseDetail.id, caseDetail.reviewer_notes]);
 
-  useEffect(() => {
-    setNotes(caseDetail.reviewer_notes ?? '');
-  }, [caseDetail.id, caseDetail.reviewer_notes]);
-
-  const handleDecision = async (decision: ReviewDecision) => {
-    if (!isReviewReady || isSubmitting) return;
-    const candidateId = decision === 'ACCEPTED' ? activeCandidate?.id : null;
-    await onSubmitDecision(caseDetail.id, decision, candidateId, notes);
+  // Readiness and uncertain-write ownership stay in App. This local latch also
+  // prevents repeated activation before the parent's loading render commits.
+  const candidate = activeCandidate && caseDetail.candidates.some(item => item.id === activeCandidate.id) ? activeCandidate : null;
+  const busy = isSubmitting || intent !== null;
+  const serious = !!candidate && (candidate.has_serious_contradiction || candidate.contradictions.some(item => item.severity === 'SERIOUS'));
+  const savedCandidate = caseDetail.candidates.find(item => item.id === caseDetail.selected_candidate_id);
+  const reviewed = caseDetail.review_decision !== 'PENDING';
+  const handleDecision = async (decision: SubmittedDecision) => {
+    if (!isReviewReady || isSubmitting || submissionLocked.current || (decision === 'ACCEPTED' && !candidate)) return;
+    submissionLocked.current = true;
+    setIntent({ caseNumber: caseDetail.case_number, decision,
+      candidateName: decision === 'ACCEPTED' ? candidate!.name : null, candidateId: decision === 'ACCEPTED' ? candidate!.id : null });
+    try {
+      await onSubmitDecision(caseDetail.id, decision, decision === 'ACCEPTED' ? candidate!.id : null, notes);
+    } finally {
+      submissionLocked.current = false;
+      setIntent(null);
+    }
+    // Promise completion is not proof of a saved decision. Only authoritative
+    // caseDetail readback below displays an outcome; App owns error/recovery.
   };
-
-  const isCurrentAccepted = caseDetail.review_decision === 'ACCEPTED';
-  const isCurrentRejected = caseDetail.review_decision === 'REJECTED';
-  const isCurrentNeedMore = caseDetail.review_decision === 'NEED_MORE_EVIDENCE';
-  const isReviewed = caseDetail.review_decision !== 'PENDING';
+  const disabledDescription = busy ? 'review-progress' : !isReviewReady ? 'review-unavailable' : undefined;
+  const conflictDescription = serious ? 'review-conflict-reminder' : undefined;
+  // DOM order follows the visible mobile order, including keyboard navigation.
+  const decisions: SubmittedDecision[] = serious && compact
+    ? ['NEED_MORE_EVIDENCE', 'ACCEPTED', 'REJECTED'] : ['ACCEPTED', 'REJECTED', 'NEED_MORE_EVIDENCE'];
 
   return (
-    <div className="rounded border border-border bg-surface p-4 space-y-3.5">
-      <div className="flex items-center justify-between pb-2.5 border-b border-border">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-          Reviewer Decision Console
-        </h3>
-        {isReviewed && (
-          <span className="text-[11px] text-muted flex items-center space-x-1">
-            <RotateCcw className="h-3 w-3" />
-            <span>Revision mode: you can update previous decision below</span>
-          </span>
-        )}
-      </div>
-
-      {/* Current Decision Status Banner if already decided */}
-      {isReviewed && (
-        <div
-          className={`rounded border p-2.5 text-xs flex items-center justify-between ${
-            isCurrentAccepted
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : isCurrentRejected
-              ? 'border-rose-200 bg-rose-50 text-rose-900'
-              : 'border-amber-200 bg-amber-50 text-amber-900'
-          }`}
-        >
-          <div className="flex items-center space-x-2">
-            {isCurrentAccepted && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
-            {isCurrentRejected && <XCircle className="h-4 w-4 text-rose-600 shrink-0" />}
-            {isCurrentNeedMore && <HelpCircle className="h-4 w-4 text-amber-600 shrink-0" />}
-            <span className="font-semibold">
-              Current Verdict: {caseDetail.review_decision}
-              {caseDetail.selected_candidate_id && ' (Candidate Accepted)'}
-            </span>
-          </div>
-          {caseDetail.reviewed_at && (
-            <span className="text-[10px] text-slate-500 font-mono">
-              Reviewed: {new Date(caseDetail.reviewed_at).toLocaleTimeString()}
-            </span>
-          )}
+    <section className="case-review" aria-labelledby="case-review-heading">
+      <header className="review-heading">
+        <div>
+          <h3 id="case-review-heading" tabIndex={-1}>Your review</h3>
+          <p className="case-metadata">{caseDetail.case_number} · {caseDetail.raw_name}</p>
+          <p>You make the final identity decision.</p>
         </div>
-      )}
-
-      {/* Plain Text Notes Area */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-[11px] text-muted">
-          <label htmlFor="reviewer-notes" className="font-medium text-foreground">
-            Reviewer Operational Note (Optional)
-          </label>
-          <span>{notes.length} / 2000 chars</span>
+        {onViewHistory && <Button variant="quiet" onClick={onViewHistory} className="review-history-link">
+          <History size={16} aria-hidden="true" />View Case history ({caseDetail.audit_logs.length})
+        </Button>}
+      </header>
+      <div className="review-saved-decision">
+        <div>
+          <span className="review-label">{busy || readbackRequired ? 'Last loaded decision' : 'Saved decision'}</span>
+          <StatusIndicator tone={caseDetail.review_decision === 'ACCEPTED' ? 'success' : caseDetail.review_decision === 'NEED_MORE_EVIDENCE' ? 'warning' : 'neutral'}>
+            {decisionLabel[caseDetail.review_decision]}
+          </StatusIndicator>
         </div>
-        <textarea
-          id="reviewer-notes"
-          rows={2}
-          value={notes}
-          maxLength={2000}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. Verified alumni registry email alias matches subject profile..."
-          className="w-full rounded border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-        />
+        {reviewed && <p>You can update this decision using the options below.</p>}
+        {caseDetail.review_decision === 'ACCEPTED' && <p>{busy || readbackRequired ? 'Last loaded candidate' : 'Saved candidate'}: {savedCandidate?.name || 'Accepted record unavailable'}</p>}
+        {caseDetail.reviewed_at && <p className="case-metadata">Reviewed: {new Date(caseDetail.reviewed_at).toLocaleString()}</p>}
       </div>
-
-      {/* Serious Contradiction Decision Guardrail */}
-      {activeCandidate?.has_serious_contradiction && (
-        <div className="rounded border border-rose-200 bg-rose-50/70 p-2 text-xs text-rose-900 flex items-center space-x-2">
-          <span className="font-bold text-[10px] bg-rose-200 text-rose-800 px-1 py-0.5 rounded uppercase">Guardrail</span>
-          <span className="text-[11px]">Active candidate has a serious contradiction. Accepting requires manual verification.</span>
+      <div className="review-candidate-context">
+        <div>
+          <p className="review-label">Selected candidate for this review</p>
+          {candidate ? <>
+            <p className="review-candidate-name"><strong>{candidate.name}</strong></p>
+            <p>{candidate.provider_source} · {candidate.provider_record_id}</p>
+            <p className="case-metadata">{candidate.evidence.length} evidence fields · Evidence score: {candidate.total_score} / 100</p>
+          </> : <p id="review-no-candidate">No valid candidate is selected for this Case. Accept requires a candidate record.</p>}
         </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="review-actions flex flex-col sm:flex-row gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => handleDecision('ACCEPTED')}
-          disabled={!isReviewReady || isSubmitting || !activeCandidate}
-          className="flex-1 inline-flex items-center justify-center space-x-1.5 rounded bg-accent px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isSubmitting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Check className="h-3.5 w-3.5" />
-          )}
-          <span>
-            Accept Candidate {activeCandidate ? `(${activeCandidate.name})` : ''}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleDecision('REJECTED')}
-          disabled={!isReviewReady || isSubmitting}
-          className="inline-flex items-center justify-center space-x-1.5 rounded border border-rose-200 bg-surface px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <X className="h-3.5 w-3.5" />
-          <span>Reject All</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleDecision('NEED_MORE_EVIDENCE')}
-          disabled={!isReviewReady || isSubmitting}
-          className="inline-flex items-center justify-center space-x-1.5 rounded border border-amber-200 bg-surface px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <HelpCircle className="h-3.5 w-3.5" />
-          <span>Need More Evidence</span>
-        </button>
+        <div className="review-context-actions">
+          {onChangeCandidate && caseDetail.candidates.length > 0 && <Button variant="quiet" onClick={onChangeCandidate}>Change candidate</Button>}
+          {onViewEvidence && candidate && <Button variant="quiet" onClick={onViewEvidence}>Review field evidence</Button>}
+        </div>
       </div>
-    </div>
+      <p className="review-evidence-guidance">
+        {candidate && !candidate.evidence.length ? 'Field evidence is unavailable for this candidate. Inspect the source record and available provenance before deciding.'
+          : candidate && caseDetail.candidates[0]?.id !== candidate.id ? 'The Case recommendation describes the highest-ranked candidate. Inspect the selected candidate’s field evidence before deciding.'
+          : 'Use the field evidence to decide which record, if any, belongs to this Case.'}
+      </p>
+      <Field id="reviewer-notes" label="Reviewer note (optional)" hint="Record what informed your decision. Optional; up to 2,000 characters."
+        action={<span id="review-note-count" className="case-metadata">{notes.length} / 2000 chars</span>}>
+        {accessibility => <Textarea {...accessibility} aria-describedby={`${accessibility['aria-describedby']} review-note-count`}
+          rows={3} maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)} placeholder="What evidence informed your decision?" />}
+      </Field>
+      {(serious || !!candidate?.contradictions.length) && <div id="review-conflict-reminder"
+        className={`review-conflict-reminder ${serious ? 'review-conflict-serious' : 'review-conflict-moderate'}`} role="note">
+        <AlertTriangle size={18} aria-hidden="true" />
+        <div>
+          <h4>{serious ? 'Serious conflict — review before deciding' : 'Evidence warnings to review'}</h4>
+          <p>Selected candidate: {candidate!.name}</p>
+          <ul>{candidate!.contradictions.map(item => <li key={item.id || item.contradiction_type}>{item.description}</li>)}</ul>
+          {serious && !candidate!.contradictions.some(item => item.severity === 'SERIOUS') && <p>A serious conflict is reported, but its explanation is unavailable.</p>}
+        </div>
+      </div>}
+      {!isReviewReady && <div className="review-unavailable">
+        <p id="review-unavailable">{readbackRequired ? 'The saved decision is unconfirmed. Check this Case before submitting again.' : 'Review is currently unavailable for this Case.'}</p>
+        {readbackRequired && onCheckSavedDecision && <Button onClick={onCheckSavedDecision} disabled={busy}>Check saved decision</Button>}
+      </div>}
+      <div className="review-actions">
+        {decisions.map(decision => <Button key={decision}
+          variant={decision === 'NEED_MORE_EVIDENCE' && serious ? 'primary' : 'secondary'}
+          className={decision === 'ACCEPTED' ? 'review-accept' : decision === 'NEED_MORE_EVIDENCE' ? 'review-more-evidence' : undefined}
+          onClick={() => void handleDecision(decision)} disabled={!isReviewReady || busy || (decision === 'ACCEPTED' && !candidate)}
+          loading={intent?.decision === decision && (decision !== 'ACCEPTED' || intent.candidateId === candidate?.id)}
+          aria-describedby={disabledDescription || (decision === 'ACCEPTED' && !candidate ? 'review-no-candidate' : conflictDescription)}>
+          {decision === 'ACCEPTED' ? <Check size={16} aria-hidden="true" /> : decision === 'REJECTED' ? <X size={16} aria-hidden="true" /> : <HelpCircle size={16} aria-hidden="true" />}
+          <span>{actionLabel[decision]}{decision === 'ACCEPTED' && candidate ? ` (${candidate.name})` : ''}</span>
+        </Button>)}
+      </div>
+      <p className="review-action-help">Accept saves the selected candidate. Reject all records a rejection for this Case. Need more evidence records that further review is needed.</p>
+      {busy && <InlineFeedback><span id="review-progress">{intent
+        ? `Review submission in progress: ${actionLabel[intent.decision]} · ${intent.caseNumber}${intent.candidateName ? ` · ${intent.candidateName}` : ''}.`
+        : 'A review request is in progress. Wait for it to finish before submitting.'}</span></InlineFeedback>}
+    </section>
   );
-};
+}

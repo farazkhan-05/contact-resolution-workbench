@@ -1,0 +1,38 @@
+.recent-activity { flex-shrink: 0; min-width: 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: var(--space-2) var(--space-6); font-size: var(--text-body); overflow-wrap: anywhere; }
+.activity-toggle { padding-inline: 0; font-weight: 600; gap: var(--space-2); }
+.activity-toggle svg { transition: transform .15s ease; }
+.activity-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.activity-content { max-height: min(50dvh, 600px); overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--space-4); }
+.activity-content:focus-visible { outline: var(--focus-width) solid var(--accent); outline-offset: calc(-1 * var(--focus-width)); }
+.activity-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-2) var(--space-3); }
+.activity-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: var(--space-2); }
+.activity-list { border-top: 1px solid var(--border); }
+.activity-job { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 5fr); gap: var(--space-4); padding-block: var(--space-3); border-bottom: 1px solid var(--border); }
+.activity-job h3 { font-weight: 600; }
+.activity-read-error { display: grid; justify-items: start; gap: var(--space-2); margin-block: var(--space-2) var(--space-3); }
+.activity-state { padding-block: var(--space-4); color: var(--muted); }
+.job-status { display: grid; gap: var(--space-3); font-size: var(--text-body); min-width: 0; overflow-wrap: anywhere; }
+.job-status-line { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.job-status-line .ui-status { max-width: 100%; }
+.job-status-line button { flex-shrink: 0; }
+.job-muted, .job-context { font-size: var(--text-support); color: var(--muted); }
+.job-counts { font-size: var(--text-support); font-variant-numeric: tabular-nums; }
+.job-read-error { display: grid; gap: var(--space-2); }
+.job-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
+.job-facts dt { color: var(--muted); font-size: var(--text-metadata); margin-bottom: var(--space-1); }
+.job-facts dd { overflow-wrap: anywhere; }
+.job-status-compact { gap: var(--space-1); }
+.job-context { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); }
+.job-context span { color: var(--foreground); }
+.job-times summary { cursor: pointer; min-height: 28px; font-size: var(--text-support); color: var(--muted); }
+.job-times .job-facts { padding-top: var(--space-2); }
+.recent-activity :is(button, summary):focus-visible, .job-times summary:focus-visible { outline: var(--focus-width) solid var(--accent); outline-offset: var(--focus-offset); }
+@media (max-width: 767px) {
+  .recent-activity { padding-inline: var(--space-4); }
+  .activity-toolbar, .activity-job { display: flex; flex-direction: column; gap: var(--space-3); }
+  .activity-job > div { width: 100%; min-width: 0; }
+  .job-facts { grid-template-columns: minmax(0, 1fr); }
+  .job-status-line { flex-wrap: wrap; }
+  .job-times summary { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .activity-toggle svg { transition: none; } }

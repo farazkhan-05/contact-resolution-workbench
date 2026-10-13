@@ -1,0 +1,18 @@
+.investigation-panel { min-width: 0; border-top: 1px solid var(--border); padding-block: var(--space-4); font-size: var(--text-body); line-height: 1.5; overflow-wrap: anywhere; }
+.investigation-panel > * + * { margin-top: var(--space-3); }
+.investigation-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.investigation-heading h3, .investigation-checkpoint h4 { font-weight: 600; }
+.investigation-intro, .investigation-facts dt { color: var(--muted); }
+.investigation-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.investigation-facts dt { font-size: var(--text-metadata); }
+.investigation-facts dd { margin-top: var(--space-1); }
+.investigation-checkpoint { border-left: 3px solid var(--warning-border); padding: var(--space-3) var(--space-4); background: var(--warning-bg); }
+.investigation-checkpoint > * + * { margin-top: var(--space-2); }
+.investigation-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.investigation-actions .ui-button { max-width: 100%; white-space: normal; text-align: left; }
+.investigation-panel [role="alert"], .investigation-failure { color: var(--danger-text); }
+@media (max-width: 600px) {
+  .investigation-facts { grid-template-columns: minmax(0, 1fr); }
+  .investigation-actions { flex-direction: column; align-items: stretch; }
+  .investigation-checkpoint { padding: var(--space-3); }
+}
