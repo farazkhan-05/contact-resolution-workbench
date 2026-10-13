@@ -17,6 +17,7 @@ interface AppShellProps {
   onExportCsv: () => Promise<void>;
   onOpenAiModal: () => void;
   activity?: React.ReactNode;
+  csvRecovery?: React.ReactNode;
   isLoadingSample: boolean;
   isUploadingCsv: boolean;
   isExportingCsv: boolean;
@@ -36,7 +37,7 @@ const getCompact = () => window.matchMedia(compactQuery).matches;
 
 export const AppShell: React.FC<AppShellProps> = ({
   workspaceName,
-  activePage, onNavigate, onLoadSample, onUploadCsv, onExportCsv, onOpenAiModal, activity,
+  activePage, onNavigate, onLoadSample, onUploadCsv, onExportCsv, onOpenAiModal, activity, csvRecovery,
   isLoadingSample, isUploadingCsv, isExportingCsv, exportDisabled, feedback, onClearFeedback, onSignOut, children,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +116,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </InlineFeedback>
       )}
 
+    {csvRecovery}
     {activity}
     <main className="shell-workspace">{children}</main>
     <footer className="environment-note">Synthetic demo data only</footer>

@@ -197,6 +197,7 @@ describe('AI completion and queue authority', () => {
   });
 });
 beforeEach(() => {
+  sessionStorage.clear();
   auth.status = 'ready';
   vi.mocked(api.getCases).mockResolvedValue([]);
   vi.mocked(api.getCase).mockResolvedValue(sampleDetail);
@@ -209,7 +210,7 @@ beforeEach(() => {
   Object.defineProperty(window, 'matchMedia', { writable: true, value: vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
   document.head.innerHTML = '<link rel="icon" href="/exact-existing-favicon.svg">';
 });
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.resetAllMocks(); });
 const mountEmpty = async () => { render(<App />); await screen.findByText('No cases yet'); };
 const toolbar = () => screen.getByRole('region', { name: 'Cases workspace actions' });
 

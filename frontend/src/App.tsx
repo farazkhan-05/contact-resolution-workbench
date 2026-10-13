@@ -11,6 +11,7 @@ import { isLongRunning } from './components/jobs/jobPresentation';
 import { CaseDetail } from './components/cases/CaseDetail';
 import { decisionLabel } from './components/cases/casePresentation';
 import { CaseQueue } from './components/cases/CaseQueue';
+import { CsvSubmissionRecovery } from './components/ingestion/CsvSubmissionRecovery';
 import type {
   CaseDetail as CaseDetailType,
   CaseSummary,
@@ -18,8 +19,23 @@ import type {
   RoutingStatus,
 } from './types';
 
+const csvRecoveryKey = (workspaceId: string) => `crw.csv-submission-unconfirmed:${workspaceId}`;
+function csvRecoveryRequired(workspaceId: string): boolean {
+  try { return sessionStorage.getItem(csvRecoveryKey(workspaceId)) === '1'; }
+  catch { return false; }
+}
+function markCsvSubmission(workspaceId: string, unresolved: boolean) {
+  try {
+    if (unresolved) sessionStorage.setItem(csvRecoveryKey(workspaceId), '1');
+    else sessionStorage.removeItem(csvRecoveryKey(workspaceId));
+  } catch {
+    // Storage restrictions leave the in-memory guard intact, but cannot protect reloads.
+  }
+}
+
 export function App() {
   const { status, workspace, signOutUser, operation } = useAuth();
+  const signingOut = operation === 'sign_out';
   const [page, setPage] = useState<'cases' | 'sources'>('cases');
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [hasUnfilteredQueue, setHasUnfilteredQueue] = useState(false);
@@ -35,6 +51,8 @@ export function App() {
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [uncertainCsv, setUncertainCsv] = useState<string | null>(null);
+  const [pendingCsvFile, setPendingCsvFile] = useState<File | null>(null);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
   const [reviewNeedsCheck, setReviewNeedsCheck] = useState<string | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -52,6 +70,10 @@ export function App() {
   const lastViewedCaseRef = useRef<string | null>(null);
   const jobPollTimers = useRef(new Set<number>());
   const csvRequest = useRef(0);
+  const csvInFlight = useRef(false);
+  const uncertainCsvRef = useRef<string | null>(null);
+  const exportRequest = useRef(0);
+  const sampleRequest = useRef(0);
   const pollingSession = useRef({ active: status === 'ready', workspaceId: workspace?.id });
   const detailRequestId = useRef(0);
   const casesRequestId = useRef(0);
@@ -83,12 +105,21 @@ export function App() {
   useEffect(() => () => clearJobPollTimers(), []);
 
   useLayoutEffect(() => {
-    const session = { active: status === 'ready', workspaceId: workspace?.id };
+    const session = { active: status === 'ready' && !!workspace?.id && !signingOut, workspaceId: workspace?.id };
     pollingSession.current = session;
+    csvInFlight.current = false;
+    const restoredUncertainty = session.active && session.workspaceId && csvRecoveryRequired(session.workspaceId) ? 'previous CSV upload' : null;
+    uncertainCsvRef.current = restoredUncertainty;
+    setUncertainCsv(restoredUncertainty);
+    setPendingCsvFile(null);
+    setIsUploadingCsv(false);
+    setIsExportingCsv(false);
+    setIsLoadingSample(false);
+    setFeedback(null);
     setIsAiModalOpen(false);
     setActivityExpanded(false);
     return () => { session.active = false; clearJobPollTimers(); };
-  }, [status, workspace?.id]);
+  }, [status, workspace?.id, signingOut]);
 
   // Track initial app open once per browser session load
   useEffect(() => {
@@ -211,27 +242,46 @@ export function App() {
   };
 
   const handleLoadSample = async () => {
+    const session = pollingSession.current;
+    if (!session.active || isLoadingSample) return;
+    const request = ++sampleRequest.current;
+    const current = () => session.active && pollingSession.current === session && sampleRequest.current === request;
     setIsLoadingSample(true);
     setFeedback(null);
     try {
       const res = await api.ingestSample();
+      if (!current()) return;
       recordUsageEvent('SAMPLE_CASES_LOADED');
       const msg =
         res.created_count > 0
           ? `${res.ingested_count} sample cases available. ${res.created_count} created.`
           : `${res.ingested_count} sample cases available. ${res.existing_count} already existed.`;
       setFeedback({ type: 'success', message: msg });
-      await fetchCases(res.case_ids[0]);
+      await currentQueueFetcher.current(res.case_ids[0], current, false);
     } catch (err) {
+      if (!current()) return;
       const msg = err instanceof ApiError ? err.detail : 'Failed to load sample cases.';
       setFeedback({ type: 'error', message: msg });
     } finally {
-      setIsLoadingSample(false);
+      if (current()) setIsLoadingSample(false);
     }
   };
 
-  const handleUploadCsv = async (file: File) => {
+  const handleUploadCsv = async (file: File, acknowledgedUncertainty = false) => {
     const session = pollingSession.current;
+    const workspaceId = session.workspaceId;
+    if (!session.active || !workspaceId || csvInFlight.current) return;
+    if (uncertainCsvRef.current && !acknowledgedUncertainty) {
+      setPendingCsvFile(file);
+      return;
+    }
+    csvInFlight.current = true;
+    // Keep only a workspace-scoped boolean through reloads, including during the POST.
+    markCsvSubmission(workspaceId, true);
+    // Acknowledgement authorizes a new operation; it does not reconcile the old one.
+    uncertainCsvRef.current = null;
+    setUncertainCsv(null);
+    setPendingCsvFile(null);
     const request = ++csvRequest.current;
     clearJobPollTimers();
     const current = () => session.active && pollingSession.current === session && csvRequest.current === request;
@@ -240,6 +290,7 @@ export function App() {
     try {
       const res = await api.ingestCsv(file);
       if (!current()) return;
+      markCsvSubmission(workspaceId, false);
       setActivityRevision(value => value + 1);
       recordUsageEvent('CSV_UPLOADED');
       setFeedback({ type: 'info', message: 'CSV uploaded. Waiting for the import result.' });
@@ -271,20 +322,32 @@ export function App() {
         } finally { checking = false; }
       };
       void poll();
-    } catch {
+    } catch (err) {
       if (!current()) return;
       setActivityRevision(value => value + 1);
-      setFeedback({ type: 'error', message: 'Could not confirm the CSV import. Check Recent activity before uploading again.', action: { label: 'View recent activity', run: () => setActivityExpanded(true) } });
+      if (err instanceof ApiError && [400, 401, 403, 413, 422].includes(err.status)) {
+        markCsvSubmission(workspaceId, false);
+        setFeedback({ type: 'error', message: `CSV upload was not accepted. ${err.detail}` });
+      } else {
+        uncertainCsvRef.current = file.name;
+        setUncertainCsv(file.name);
+        setFeedback({ type: 'error', message: 'Could not confirm the CSV import. Check Recent activity before uploading again.', action: { label: 'View recent activity', run: () => { if (current()) setActivityExpanded(true); } } });
+      }
     } finally {
-      if (current()) setIsUploadingCsv(false);
+      if (current()) { csvInFlight.current = false; setIsUploadingCsv(false); }
     }
   };
 
   const handleExportCsv = async () => {
+    const session = pollingSession.current;
+    if (!session.active || isExportingCsv) return;
+    const request = ++exportRequest.current;
+    const current = () => session.active && pollingSession.current === session && exportRequest.current === request;
     setIsExportingCsv(true);
     setFeedback(null);
     try {
       const blob = await api.exportReviewedCsv();
+      if (!current()) return;
       recordUsageEvent('CSV_EXPORTED');
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -296,10 +359,11 @@ export function App() {
       document.body.removeChild(a);
       setFeedback({ type: 'success', message: 'Downloaded reviewed cases CSV.' });
     } catch (err) {
+      if (!current()) return;
       const msg = err instanceof ApiError ? err.detail : 'Failed to export reviewed cases.';
-      setFeedback({ type: 'error', message: msg, action: { label: 'Try export again', run: () => void handleExportCsv() } });
+      setFeedback({ type: 'error', message: msg, action: { label: 'Try export again', run: () => { if (current()) void handleExportCsv(); } } });
     } finally {
-      setIsExportingCsv(false);
+      if (current()) setIsExportingCsv(false);
     }
   };
 
@@ -420,6 +484,9 @@ export function App() {
         onUploadCsv={handleUploadCsv}
         onExportCsv={handleExportCsv}
         onOpenAiModal={() => setIsAiModalOpen(true)}
+        csvRecovery={uncertainCsv && <CsvSubmissionRecovery fileName={uncertainCsv} pendingFile={pendingCsvFile}
+          onCancel={() => setPendingCsvFile(null)} onViewActivity={() => { setPendingCsvFile(null); setActivityExpanded(true); setActivityRevision(value => value + 1); }}
+          onConfirm={() => { if (pendingCsvFile) void handleUploadCsv(pendingCsvFile, true); }} />}
         activity={workspace && <RecentActivity key={workspace.id} workspaceId={workspace.id} revision={activityRevision} expanded={activityExpanded} onToggle={() => setActivityExpanded(value => !value)} onRefreshCases={() => void fetchCases()} />}
         isLoadingSample={isLoadingSample}
         isUploadingCsv={isUploadingCsv}
