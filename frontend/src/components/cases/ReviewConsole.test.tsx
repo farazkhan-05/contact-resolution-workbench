@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ReviewConsole } from './ReviewConsole';
 import { workspaceDetail, emptyCandidateDetail } from '../../test-support/case-workspace';
@@ -57,6 +58,22 @@ it('retains the draft note across candidate changes and binds acceptance to the 
   expect(value.onSubmitDecision).toHaveBeenCalledExactlyOnceWith(workspaceDetail.id, 'ACCEPTED', 'candidate-alternate', '  Synthetic evidence note  ');
   // A resolved callback alone cannot change the saved human decision.
   expect(review().getByText('Not reviewed')).toBeTruthy();
+});
+it('retains a note entered before the mount passive effects run', async () => {
+  const value = props();
+  function ImmediateReviewer() {
+    // Enter a note after the DOM commits but before passive effects, without
+    // relying on the scheduler timing of an asynchronous Case detail response.
+    useLayoutEffect(() => {
+      const field = screen.getByLabelText('Reviewer note (optional)');
+      field.dispatchEvent(createEvent.change(field, { target: { value: 'Immediate evidence note' } }));
+    }, []);
+    return <ReviewConsole {...value} />;
+  }
+  await act(async () => { render(<ImmediateReviewer />); });
+  expect(screen.getByLabelText<HTMLTextAreaElement>('Reviewer note (optional)').value).toBe('Immediate evidence note');
+  await act(async () => fireEvent.click(accept()));
+  expect(value.onSubmitDecision).toHaveBeenCalledExactlyOnceWith(workspaceDetail.id, 'ACCEPTED', 'candidate-1', 'Immediate evidence note');
 });
 it.each(['REJECTED', 'NEED_MORE_EVIDENCE'] as const)('submits %s with no accepted candidate and an optional empty note', async decision => {
   const value = props(); render(<ReviewConsole {...value} />);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, HelpCircle, History, X } from 'lucide-react';
 import type { CandidateDetail, CaseDetail, ReviewDecision } from '../../types';
 import { Button } from '../ui/Button';
@@ -36,7 +36,9 @@ export function ReviewConsole({ caseDetail, activeCandidate, onSubmitDecision, i
   const [notes, setNotes] = useState(caseDetail.reviewer_notes || '');
   const [intent, setIntent] = useState<SubmissionIntent | null>(null);
   const submissionLocked = useRef(false);
-  useEffect(() => { setNotes(caseDetail.reviewer_notes ?? ''); }, [caseDetail.id, caseDetail.reviewer_notes]);
+  // Restore saved notes before interaction; a delayed passive reset can erase
+  // a draft entered immediately after an asynchronous Case detail commits.
+  useLayoutEffect(() => { setNotes(caseDetail.reviewer_notes ?? ''); }, [caseDetail.id, caseDetail.reviewer_notes]);
 
   // Readiness and uncertain-write ownership stay in App. This local latch also
   // prevents repeated activation before the parent's loading render commits.

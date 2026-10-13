@@ -39,6 +39,7 @@ it('retains a note while switching immediately before acceptance and restores au
   await waitFor(() => expect(api.submitDecision).toHaveBeenCalledExactlyOnceWith(workspaceDetail.id, { decision: 'ACCEPTED', selected_candidate_id: 'candidate-alternate', notes: 'Synthetic suffix evidence checked' }));
   await waitFor(() => expect(review().getByText('Saved candidate: Claire Reynolds Sr.')).toBeTruthy());
   expect(review().getByText('Accepted')).toBeTruthy();
+  expect(screen.getByLabelText<HTMLTextAreaElement>('Reviewer note (optional)').value).toBe('Synthetic suffix evidence checked');
   expect(screen.getByRole('button', { name: /Candidate B/ }).getAttribute('aria-pressed')).toBe('true');
 });
 it('protects the intended write and note when the Case refreshes during an in-flight review', async () => {
