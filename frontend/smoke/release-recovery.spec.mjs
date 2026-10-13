@@ -140,6 +140,9 @@ for (const width of [1440, 390, 320]) {
     await dialog.getByRole('button', { name: 'I understand; submit new upload' }).click();
     await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible(); expect(state.writes).toBe(2);
     await page.locator('#csv-upload-input').setInputFiles(file('later.csv'));
+    await expect(dialog).toBeVisible(); expect(state.writes).toBe(2);
+    await expect(page.getByText('CSV submission unconfirmed: synthetic.csv')).toBeVisible();
+    await dialog.getByRole('button', { name: 'I understand; submit new upload' }).click();
     await expect.poll(() => state.writes).toBe(3); await expect(dialog).toHaveCount(0);
   });
 }
@@ -178,7 +181,43 @@ for (const acknowledgement of ['pending', 'unknown']) {
       const dialog = page.getByRole('dialog', { name: 'Submit another CSV?' }); await expect(dialog).toBeVisible(); expect(state.writes).toBe(1);
       state.csvUnknown = false; await dialog.getByRole('button', { name: 'I understand; submit new upload' }).click();
       await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible(); expect(state.writes).toBe(2);
-      expect(await page.evaluate(() => sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace'))).toBeNull();
+      expect(await page.evaluate(() => sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace'))).toBe('1');
+      await expect(page.getByText('CSV submission unconfirmed: previous CSV upload')).toBeVisible();
     } finally { state.csvHold?.release(); }
   });
+}
+
+for (const outcome of ['rejected', 'accepted']) {
+  for (const reload of [false, true]) {
+    test(`unknown A remains guarded after informed B is ${outcome}${reload ? ' and tab reload' : ''}`, async ({ page }) => {
+      const state = await fixture(page); state.csvUnknown = true;
+      await page.locator('#csv-upload-input').setInputFiles(file('A.csv'));
+      await expect(page.getByText('CSV submission unconfirmed: A.csv')).toBeVisible();
+      state.csvUnknown = false; state.csvReject = outcome === 'rejected' ? 422 : null; state.csvHold = gate();
+      try {
+        await page.locator('#csv-upload-input').setInputFiles(file('B.csv'));
+        const dialog = page.getByRole('dialog', { name: 'Submit another CSV?' });
+        await expect(dialog).toBeVisible(); expect(state.writes).toBe(1);
+        await dialog.getByRole('button', { name: 'I understand; submit new upload' }).click();
+        await expect.poll(() => state.writes).toBe(2);
+        await expect(page.getByText('CSV submission unconfirmed: A.csv')).toBeVisible();
+        state.csvHold.release();
+        await expect(page.getByText(outcome === 'rejected' ? 'CSV upload was not accepted. Synthetic confirmed rejection' : '1 record imported.', { exact: true })).toBeVisible();
+        expect(await page.evaluate(() => sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace'))).toBe('1');
+        if (reload) await page.reload();
+        await expect(page.getByText(`CSV submission unconfirmed: ${reload ? 'previous CSV upload' : 'A.csv'}`)).toBeVisible();
+        await page.getByRole('button', { name: 'Check CSV activity', exact: true }).click();
+        await expect(page.getByText('No recent imports.')).toBeVisible(); expect(state.writes).toBe(2);
+        state.csvReject = null;
+        await page.locator('#csv-upload-input').setInputFiles(file('C.csv'));
+        await expect(dialog).toBeVisible(); await expect(dialog).toContainText('C.csv'); expect(state.writes).toBe(2);
+        await dialog.getByRole('button', { name: 'Cancel new upload' }).click(); expect(state.writes).toBe(2);
+        await page.locator('#csv-upload-input').setInputFiles(file('C.csv'));
+        await dialog.getByRole('button', { name: 'I understand; submit new upload' }).click();
+        await expect.poll(() => state.writes).toBe(3);
+        await expect(page.getByText('1 record imported.', { exact: true })).toBeVisible();
+        expect(await page.evaluate(() => sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace'))).toBe('1');
+      } finally { state.csvHold.release(); }
+    });
+  }
 }

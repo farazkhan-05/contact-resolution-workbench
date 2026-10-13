@@ -123,6 +123,68 @@ describe('export and sample session ownership', () => {
 });
 
 describe('CSV uncertain acknowledgement recovery', () => {
+  it.each([400, 401, 403, 413, 422])('retains unknown A through confirmed HTTP %s rejection of informed B and guards C', async status => {
+    const pending = deferred<ReturnType<typeof syntheticJob>>();
+    vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Lost A acknowledgement')).mockReturnValueOnce(pending.promise);
+    await mount(); selectFile(csvFile('A.csv'));
+    await screen.findByText('CSV submission unconfirmed: A.csv'); selectFile(csvFile('B.csv'));
+    expect(api.ingestCsv).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
+    expect(api.ingestCsv).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('CSV submission unconfirmed: A.csv')).toBeTruthy();
+    await act(async () => pending.reject(new ApiError(status, 'B rejected')));
+    await screen.findByText('CSV upload was not accepted. B rejected');
+    expect(sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace')).toBe('1');
+    selectFile(csvFile('C.csv'));
+    const dialog = screen.getByRole('dialog', { name: 'Submit another CSV?' });
+    expect(dialog.textContent).toContain('A.csv'); expect(dialog.textContent).toContain('C.csv');
+    expect(api.ingestCsv).toHaveBeenCalledTimes(2);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Check CSV activity' }));
+    await screen.findByText('No recent imports.'); expect(api.ingestCsv).toHaveBeenCalledTimes(2);
+    selectFile(csvFile('C.csv')); fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
+    await screen.findByText('1 record imported.'); expect(api.ingestCsv).toHaveBeenCalledTimes(3);
+    expect(screen.getByText('CSV submission unconfirmed: A.csv')).toBeTruthy();
+  });
+  it.each(['rejected', 'accepted'])('reload preserves unknown A after informed B is %s', async outcome => {
+    vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Lost A acknowledgement'));
+    const view = await mount(); selectFile(csvFile('A.csv'));
+    await screen.findByText('CSV submission unconfirmed: A.csv'); selectFile(csvFile('B.csv'));
+    if (outcome === 'rejected') vi.mocked(api.ingestCsv).mockRejectedValueOnce(new ApiError(422, 'B rejected'));
+    fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
+    await screen.findByText(outcome === 'rejected' ? 'CSV upload was not accepted. B rejected' : '1 record imported.');
+    expect(sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace')).toBe('1');
+    view.unmount(); await mount();
+    await screen.findByText('CSV submission unconfirmed: previous CSV upload'); selectFile(csvFile('C.csv'));
+    expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy();
+    expect(api.ingestCsv).toHaveBeenCalledTimes(2); expect(api.getJob).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);
+  });
+  it.each(['success', 'rejection'])('late informed B %s cannot erase A or affect another workspace', async outcome => {
+    const pending = deferred<ReturnType<typeof syntheticJob>>();
+    vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Lost A acknowledgement')).mockReturnValueOnce(pending.promise);
+    const view = await mount(); selectFile(csvFile('A.csv'));
+    await screen.findByText('CSV submission unconfirmed: A.csv'); selectFile(csvFile('B.csv'));
+    fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
+    transition(view, 'workspace change'); expect(screen.queryByText(/CSV submission unconfirmed/)).toBeNull();
+    vi.mocked(api.getJob).mockResolvedValueOnce(syntheticJob({ workspace_id: 'other-workspace', job_type: 'CSV_INGEST', status: 'SUCCEEDED', successful_rows: 1 }));
+    selectFile(csvFile('other-workspace.csv')); await screen.findByText('1 record imported.');
+    expect(api.ingestCsv).toHaveBeenCalledTimes(3); expect(screen.queryByRole('dialog')).toBeNull();
+    await act(async () => {
+      if (outcome === 'success') pending.resolve(syntheticJob({ job_type: 'CSV_INGEST' }));
+      else pending.reject(new ApiError(422, 'Old B rejected'));
+    });
+    expect(screen.queryByText('CSV upload was not accepted. Old B rejected')).toBeNull();
+    expect(sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace')).toBe('1');
+    auth.workspace = { id: 'test-workspace', role: 'OWNER' }; view.rerender(<App />);
+    await screen.findByText('CSV submission unconfirmed: previous CSV upload'); selectFile(csvFile('C.csv'));
+    expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy(); expect(api.ingestCsv).toHaveBeenCalledTimes(3);
+  });
+  it('a new session in the same workspace retains earlier CSV uncertainty without replaying writes', async () => {
+    vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Lost A acknowledgement'));
+    const view = await mount(); selectFile(csvFile('A.csv')); await screen.findByText('CSV submission unconfirmed: A.csv');
+    transition(view, 'same workspace new session'); await screen.findByText('CSV submission unconfirmed: previous CSV upload');
+    selectFile(csvFile('B.csv')); expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy();
+    expect(api.ingestCsv).toHaveBeenCalledTimes(1);
+  });
   it.each(['pending', 'unknown'])('restores uncertainty after reload with a %s acknowledgement and persists no file data', async state => {
     const pending = deferred<ReturnType<typeof syntheticJob>>(); vi.mocked(api.ingestCsv).mockReturnValueOnce(pending.promise);
     const view = await mount(); selectFile(csvFile('private-filename.csv'));
@@ -136,7 +198,8 @@ describe('CSV uncertain acknowledgement recovery', () => {
     if (state === 'pending') await act(async () => pending.resolve(syntheticJob({ job_type: 'CSV_INGEST' })));
     expect(sessionStorage.length).toBe(1);
     fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
-    await screen.findByText('1 record imported.'); expect(sessionStorage.length).toBe(0);
+    await screen.findByText('1 record imported.'); expect(sessionStorage.length).toBe(1);
+    expect(screen.getByText('CSV submission unconfirmed: previous CSV upload')).toBeTruthy();
   });
   it('restores an old workspace guard only when returning to that workspace', async () => {
     vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Lost acknowledgement'));
@@ -152,6 +215,8 @@ describe('CSV uncertain acknowledgement recovery', () => {
     await screen.findByText('CSV submission unconfirmed: synthetic.csv'); selectFile();
     expect(api.ingestCsv).toHaveBeenCalledTimes(1); fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
     await screen.findByText('1 record imported.'); expect(api.ingestCsv).toHaveBeenCalledTimes(2);
+    selectFile(csvFile('later.csv')); expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy();
+    expect(api.ingestCsv).toHaveBeenCalledTimes(2);
   });
   it.each([new Error('Lost acknowledgement'), new ApiError(500, 'Synthetic failure'), new ApiError(503, 'Synthetic unavailable')])('blocks repeat submissions after %s', async error => {
     vi.mocked(api.ingestCsv).mockRejectedValueOnce(error); await mount(); selectFile();
@@ -183,7 +248,7 @@ describe('CSV uncertain acknowledgement recovery', () => {
     selectFile(); expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy();
     expect(api.ingestCsv).toHaveBeenCalledTimes(1);
   });
-  it('requires informed confirmation for the selected new file, then permits legitimate subsequent uploads', async () => {
+  it('requires renewed informed confirmation for subsequent uploads even after a confirmed success', async () => {
     vi.mocked(api.ingestCsv).mockRejectedValueOnce(Error('Lost acknowledgement')); await mount(); selectFile();
     await screen.findByText('CSV submission unconfirmed: synthetic.csv'); const corrected = csvFile('new-records.csv'); selectFile(corrected);
     const dialog = screen.getByRole('dialog', { name: 'Submit another CSV?' });
@@ -193,13 +258,18 @@ describe('CSV uncertain acknowledgement recovery', () => {
     await screen.findByText('1 record imported.');
     expect(api.ingestCsv).toHaveBeenNthCalledWith(2, corrected); expect(screen.queryByRole('dialog')).toBeNull();
     const later = csvFile('later.csv'); selectFile(later);
+    expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy();
+    expect(api.ingestCsv).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('CSV submission unconfirmed: synthetic.csv')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
     await waitFor(() => expect(api.ingestCsv).toHaveBeenNthCalledWith(3, later));
-    expect(screen.queryByText(/CSV submission unconfirmed/)).toBeNull();
+    expect(screen.getByText('CSV submission unconfirmed: synthetic.csv')).toBeTruthy();
   });
   it.each([400, 401, 403, 413, 422])('permits corrected uploads after confirmed HTTP %s rejection', async status => {
     vi.mocked(api.ingestCsv).mockRejectedValueOnce(new ApiError(status, 'Synthetic rejection')); await mount(); selectFile();
     await screen.findByText('CSV upload was not accepted. Synthetic rejection');
-    expect(screen.queryByText(/CSV submission unconfirmed/)).toBeNull(); selectFile(csvFile('corrected.csv'));
+    expect(screen.queryByText(/CSV submission unconfirmed/)).toBeNull();
+    expect(sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace')).toBeNull(); selectFile(csvFile('corrected.csv'));
     await screen.findByText('1 record imported.'); expect(api.ingestCsv).toHaveBeenCalledTimes(2);
   });
   it('locks concurrent file changes until the acknowledgement arrives, without changing accepted Job recovery', async () => {
@@ -207,6 +277,8 @@ describe('CSV uncertain acknowledgement recovery', () => {
     await mount(); selectFile(); selectFile(); expect(api.ingestCsv).toHaveBeenCalledTimes(1);
     await act(async () => pending.resolve(syntheticJob({ job_type: 'CSV_INGEST' })));
     await screen.findByText('1 record imported.'); expect(api.getJob).toHaveBeenCalledWith('job-1');
+    expect(sessionStorage.getItem('crw.csv-submission-unconfirmed:test-workspace')).toBeNull();
+    expect(screen.queryByText(/CSV submission unconfirmed/)).toBeNull();
     selectFile(csvFile('next.csv')); await waitFor(() => expect(api.ingestCsv).toHaveBeenCalledTimes(2));
   });
   it('confirmed failed Jobs allow a corrected file without uncertainty confirmation', async () => {
@@ -219,7 +291,9 @@ describe('CSV uncertain acknowledgement recovery', () => {
     vi.mocked(api.ingestCsv).mockRejectedValue(Error('Lost acknowledgement')); await mount(); selectFile();
     await screen.findByText('CSV submission unconfirmed: synthetic.csv'); selectFile(csvFile('second.csv'));
     fireEvent.click(screen.getByRole('button', { name: 'I understand; submit new upload' }));
-    await screen.findByText('CSV submission unconfirmed: second.csv'); selectFile(csvFile('third.csv'));
+    await screen.findByText('CSV submission unconfirmed: synthetic.csv');
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Upload CSV$/ }).hasAttribute('disabled')).toBe(false));
+    selectFile(csvFile('third.csv'));
     expect(screen.getByRole('dialog', { name: 'Submit another CSV?' })).toBeTruthy(); expect(api.ingestCsv).toHaveBeenCalledTimes(2);
   });
   it('workspace changes discard old confirmation and stale failure without locking the new workspace', async () => {

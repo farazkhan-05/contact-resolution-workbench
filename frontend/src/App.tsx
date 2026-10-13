@@ -279,8 +279,7 @@ export function App() {
     // Keep only a workspace-scoped boolean through reloads, including during the POST.
     markCsvSubmission(workspaceId, true);
     // Acknowledgement authorizes a new operation; it does not reconcile the old one.
-    uncertainCsvRef.current = null;
-    setUncertainCsv(null);
+    // Retain earlier uncertainty through this request, even if it is accepted or rejected.
     setPendingCsvFile(null);
     const request = ++csvRequest.current;
     clearJobPollTimers();
@@ -290,7 +289,7 @@ export function App() {
     try {
       const res = await api.ingestCsv(file);
       if (!current()) return;
-      markCsvSubmission(workspaceId, false);
+      markCsvSubmission(workspaceId, !!uncertainCsvRef.current);
       setActivityRevision(value => value + 1);
       recordUsageEvent('CSV_UPLOADED');
       setFeedback({ type: 'info', message: 'CSV uploaded. Waiting for the import result.' });
@@ -326,11 +325,11 @@ export function App() {
       if (!current()) return;
       setActivityRevision(value => value + 1);
       if (err instanceof ApiError && [400, 401, 403, 413, 422].includes(err.status)) {
-        markCsvSubmission(workspaceId, false);
+        markCsvSubmission(workspaceId, !!uncertainCsvRef.current);
         setFeedback({ type: 'error', message: `CSV upload was not accepted. ${err.detail}` });
       } else {
-        uncertainCsvRef.current = file.name;
-        setUncertainCsv(file.name);
+        uncertainCsvRef.current = uncertainCsvRef.current || file.name;
+        setUncertainCsv(uncertainCsvRef.current);
         setFeedback({ type: 'error', message: 'Could not confirm the CSV import. Check Recent activity before uploading again.', action: { label: 'View recent activity', run: () => { if (current()) setActivityExpanded(true); } } });
       }
     } finally {
