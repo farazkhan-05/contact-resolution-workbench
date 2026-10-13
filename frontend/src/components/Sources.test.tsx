@@ -4,6 +4,8 @@ import { Sources } from "./Sources";
 import { StrictMode } from 'react';
 import { api } from "../api/client";
 import { syntheticJob } from '../test-support/jobs';
+const auth = vi.hoisted(() => ({ status: 'ready', workspace: { id: 'source-test-0' } }));
+vi.mock('../auth/AuthProvider', () => ({ useAuth: () => auth }));
 
 vi.mock("../api/client", async (original) => {
   const actual = await original<typeof import("../api/client")>();
@@ -183,7 +185,7 @@ describe('Source authority and history fidelity', () => {
 });
 
 const select = (name: string) => fireEvent.click(screen.getByRole('button', { name: `View Source ${name}` }));
-const source = (id: string, name = id) => ({ id, workspace_id: "workspace", name, source_type: "REFERENCE" as const, status: "ACTIVE" as const, key_prefix: "safe", last_ingested_at: '2026-10-04T00:00:00Z' });
+const source = (id: string, name = id) => ({ id, workspace_id: auth.workspace.id, name, source_type: "REFERENCE" as const, status: "ACTIVE" as const, key_prefix: "safe", last_ingested_at: '2026-10-04T00:00:00Z' });
 const history = (id: string) => [{ id: `${id}-run`, source_id: id, created_at: "2026-10-04T00:00:00Z", job: { id: `${id}-job`, status: "SUCCEEDED", successful_rows: 1, total_rows: 1, rejected_rows: 0 } } as never];
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -193,6 +195,7 @@ const deferred = <T,>() => {
 };
 
 beforeEach(() => {
+  auth.workspace = { id: `source-test-${crypto.randomUUID()}` };
   vi.mocked(api.listSources).mockResolvedValue([source("one"), source("two"), source("three")]);
   vi.mocked(api.sourceHistory).mockImplementation(async (id) => history(id));
 });

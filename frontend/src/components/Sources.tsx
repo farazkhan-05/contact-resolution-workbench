@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api, ApiError, sourceIngestionUrl } from "../api/client";
 import type { Source, SourceCredential, SourceIngestion } from "../api/client";
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { Field, TextInput } from './ui/Field';
 import { InlineFeedback, StatusIndicator } from './ui/Feedback';
+import { useAuth } from '../auth/AuthProvider';
+import { sourceRecovery, subscribeSourceRecovery, updateSourceRecovery } from './sourceCredentialRecovery';
 import './Sources.css';
 
 const date = (value: string | null) =>
@@ -22,6 +24,11 @@ export function Sources({
   owner: boolean;
   onReview: () => void;
 }) {
+  const { workspace, status } = useAuth();
+  const workspaceId = workspace?.id;
+  const recovery = useSyncExternalStore(subscribeSourceRecovery, () => sourceRecovery(workspaceId));
+  const credentialPending = Object.values(recovery).includes('pending');
+  const unknownRotations = Object.keys(recovery).filter(key => key.startsWith('rotate:') && recovery[key] === 'unknown');
   const [sources, setSources] = useState<Source[]>([]);
   const [histories, setHistories] = useState<Record<string, SourceIngestion[]>>(
     {},
@@ -39,12 +46,20 @@ export function Sources({
   const refreshId = useRef(0);
   const inFlight = useRef(false);
   const writeInFlight = useRef(false);
+  const writeEpoch = useRef(0);
   const mounted = useRef(false);
   const discardKeyButton = useRef<HTMLButtonElement>(null);
   const credentialTrigger = useRef<HTMLElement | null>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const selectionTrigger = useRef<HTMLButtonElement | null>(null);
   const createName = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    writeEpoch.current += 1;
+    writeInFlight.current = false;
+    setBusy(false);
+    setCredential(null);
+    return () => { writeEpoch.current += 1; };
+  }, [workspaceId, status, owner]);
   useEffect(() => {
     if (selected) detailHeading.current?.focus();
   }, [selected]);
@@ -91,22 +106,32 @@ export function Sources({
       inFlight.current = false;
     };
   }, [load]);
-  const action = async (work: () => Promise<void>) => {
-    if (!mounted.current || writeInFlight.current) return;
+  const action = async (work: (current: () => boolean) => Promise<void>, credentialOperation?: string) => {
+    if (!mounted.current || !owner || status !== 'ready' || !workspaceId || writeInFlight.current
+      || Object.values(sourceRecovery(workspaceId)).includes('pending')) return;
+    if (credentialOperation === 'create' && sourceRecovery(workspaceId).create === 'unknown'
+      && !window.confirm('The previous creation request may have succeeded. A matching name or an absent Source does not confirm its outcome. Create a new Source anyway? This may create a duplicate Source.')) return;
+    const epoch = writeEpoch.current;
+    const previousUnknown = !!credentialOperation && sourceRecovery(workspaceId)[credentialOperation] === 'unknown';
+    const current = () => mounted.current && writeEpoch.current === epoch;
     writeInFlight.current = true;
+    if (credentialOperation) updateSourceRecovery(workspaceId, credentialOperation, 'pending');
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      await work();
+      await work(current);
+      if (credentialOperation) updateSourceRecovery(workspaceId, credentialOperation, current() ? undefined : 'unknown');
+      if (!current()) return;
       await load();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.detail : "Source operation failed.",
-      );
+      // These statuses reject before creation/rotation commits in the existing API.
+      const rejected = err instanceof ApiError && [401, 403, 404, 422].includes(err.status);
+      if (credentialOperation) updateSourceRecovery(workspaceId, credentialOperation, rejected && !previousUnknown ? undefined : 'unknown');
+      if (!current()) return;
+      if (!credentialOperation || rejected) setError(err instanceof ApiError ? err.detail : 'Source operation failed.');
     } finally {
-      writeInFlight.current = false;
-      setBusy(false);
+      if (current()) { writeInFlight.current = false; setBusy(false); }
     }
   };
   const source = sources.find((row) => row.id === selected);
@@ -132,6 +157,22 @@ export function Sources({
       </div>
       {error && !credential && <InlineFeedback tone="error">{error}</InlineFeedback>}
       {message && !credential && <InlineFeedback tone="success">{message}</InlineFeedback>}
+      {owner && credentialPending && <p role="status">A Source credential request is in progress. Wait for its response before submitting another operation.</p>}
+      {owner && recovery.create === 'unknown' && <InlineFeedback tone="warning">
+        <p><strong>Source creation unconfirmed</strong></p>
+        <p>Your request may have succeeded. The Source might already exist. Refresh Sources before trying again. A matching name or an absent Source does not confirm this request's outcome.</p>
+        <p>If the key response was lost, its one-time key cannot be displayed again. Inspect the Source and deliberately rotate its key if a usable key is needed.</p>
+        <Button disabled={inFlight.current} onClick={() => void load()}>Refresh Sources</Button>
+      </InlineFeedback>}
+      {owner && unknownRotations.map(key => {
+        const id = key.slice('rotate:'.length);
+        return <InlineFeedback key={key} tone="warning">
+          <p><strong>API key rotation unconfirmed: {sources.find(row => row.id === id)?.name || id}</strong></p>
+          <p>The previous key may already have been invalidated. If the response was lost, the newly issued key cannot be displayed again.</p>
+          <p>Refresh Sources to inspect current information. A changed key prefix does not confirm this particular rotation. To obtain a usable key, select this Source and deliberately rotate again; this invalidates the currently active key.</p>
+          <Button disabled={inFlight.current} onClick={() => void load()}>Refresh Sources</Button>
+        </InlineFeedback>;
+      })}
       {loading ? <p role="status" className="sources-state">Loading Sources...</p> : sources.length === 0 && !error && !selected ?
         <div className="sources-state"><h3>No Sources yet.</h3><p className="sources-muted">{owner
           ? "Create a Reference Source, ingest master data, then connect an Incoming Source."
@@ -175,15 +216,21 @@ export function Sources({
                 {owner && <section className="sources-management" aria-label="Source management">
                   <div className="sources-section-heading"><h4>Manage Source</h4><span className="sources-muted">Owner only</span></div>
                   <div className="sources-management-row"><div><h5>API credentials</h5><p className="sources-muted">New keys are shown once. Rotating stops the current key immediately.</p></div>
-                    <Button disabled={busy} onClick={(event) => {
+                    <Button disabled={busy || credentialPending} onClick={(event) => {
                       credentialTrigger.current = event.currentTarget;
-                      if (window.confirm("Rotate the API key? The current key will stop working immediately."))
-                        void action(async () => setCredential(await api.rotateSource(source.id)));
+                      const prompt = recovery[`rotate:${source.id}`] === 'unknown'
+                        ? `Rotate the API key for ${source.name} again? The previous key may already have been invalidated. This new rotation will invalidate the currently active key and does not recover the lost key.`
+                        : 'Rotate the API key? The current key will stop working immediately.';
+                      if (window.confirm(prompt)) void action(async current => {
+                        const result = await api.rotateSource(source.id);
+                        if (result.id !== source.id || result.workspace_id !== workspaceId) throw new Error('Unconfirmed rotation response');
+                        if (current()) setCredential(result);
+                      }, `rotate:${source.id}`);
                     }}>Rotate API Key</Button></div>
                   <div className="sources-management-row"><div><h5>Receive new records</h5><p className="sources-muted">Disabling stops new ingestion. Existing records and history remain available.</p></div>
-                    <Button disabled={busy} onClick={() => void action(async () => {
+                    <Button disabled={busy || credentialPending} onClick={() => void action(async current => {
                       await api.sourceStatus(source.id, source.status === "ACTIVE" ? "DISABLED" : "ACTIVE");
-                      setMessage("Source status updated.");
+                      if (current()) setMessage("Source status updated.");
                     })}>{source.status === 'ACTIVE' ? 'Disable' : 'Enable'}</Button></div>
                 </section>}
               </>}
@@ -193,11 +240,16 @@ export function Sources({
         <form onSubmit={(e) => {
           e.preventDefault();
           credentialTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          void action(async () => { setCredential(await api.createSource(name.trim(), type)); setName(""); });
+          if (!name.trim()) return;
+          void action(async current => {
+            const result = await api.createSource(name.trim(), type);
+            if (result.workspace_id !== workspaceId) throw new Error('Unconfirmed creation response');
+            if (current()) { setCredential(result); setName(''); }
+          }, 'create');
         }}>
           <Field id="source-name" label="Source name">{(props) => <TextInput {...props} ref={createName} required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name your Source" />}</Field>
           <Field id="source-type" label="Source type">{(props) => <select {...props} className="ui-field-control" value={type} onChange={(e) => setType(e.target.value as Source["source_type"])}><option value="REFERENCE">Reference — master data</option><option value="INCOMING">Incoming — resolution</option></select>}</Field>
-          <Button type="submit" variant="primary" disabled={busy || !name.trim()}>Create Source</Button>
+          <Button type="submit" variant="primary" disabled={busy || credentialPending || !name.trim()}>Create Source</Button>
         </form>
       </section>}
       <details className="sources-instructions">
